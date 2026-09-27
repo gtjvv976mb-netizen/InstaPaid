@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <title>Launch a coin — instapaid</title>
 <meta name="description" content="Launch a fan-made pump.fun coin for any Instagram account. You sign with your own Solana wallet; the coin's creator fees go to that account, and only it can claim them. Once it's live, we may post it on @instapaid.official and mention the account.">
-<meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1a1114">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="InstaPaid">
 <meta property="og:url" content="https://instapaid.fun/launch">
@@ -21,6 +20,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
 <script src="/vendor/web3.js"></script>
+<script src="/mascot.js" defer></script>
 </head>
 <body>
 
@@ -50,7 +50,8 @@
           <span class="handle">For fans</span>
           <h1 class="page-title">Launch a coin</h1>
         </div>
-        <img class="page-art" src="/media/step-launch-320.webp" srcset="/media/step-launch-320.webp 320w, /media/step-launch.webp 640w" sizes="(max-width: 640px) 92px, 132px" width="320" height="320" alt="" aria-hidden="true">
+        <div class="intro-mascot" data-mascot data-size="sm"></div>
+        <img class="page-art" src="/media/step-launch-400.webp" srcset="/media/step-launch-400.webp 400w, /media/step-launch.webp 640w" sizes="(max-width: 640px) 92px, 132px" width="400" height="400" alt="" aria-hidden="true">
       </div>
 
       <form class="card launch-card" id="f" novalidate>
@@ -101,7 +102,7 @@
         </ul>
       </div>
       <div class="card side-card free-card">
-        <img class="side-art" src="/media/step-comment-320.webp" srcset="/media/step-comment-320.webp 320w, /media/step-comment.webp 640w" sizes="84px" width="320" height="320" alt="" aria-hidden="true" loading="lazy">
+        <img class="side-art" src="/media/step-comment-400.webp" srcset="/media/step-comment-400.webp 400w, /media/step-comment.webp 640w" sizes="84px" width="400" height="400" alt="" aria-hidden="true" loading="lazy">
         <h2>Or launch by comment, free</h2>
         <p>Comment <b><span data-bot>@instapaid.official</span> make a token for this creator</b> under one of their public posts, with your own lore after it if you like. The coin is named from the post and wears its photo; we pay the launch, reply with the coin and post it on our feed.</p>
       </div>
@@ -115,13 +116,14 @@
       <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32"><span class="wordmark" aria-hidden="true"></span></a>
       <p>© 2026 instapaid.fun</p>
     </div>
-    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
+    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Coins launch on pump.fun, which we don't run. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
     <nav class="foot-links" aria-label="Footer">
       <a href="/#how">How it works</a>
       <a href="/#faq">FAQ</a>
       <a href="/launch">Launch</a>
       <a href="/claim">Claim fees</a>
       <a href="/privacy">Privacy</a>
+      <a href="/data-deletion">Data deletion</a>
       <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
     </nav>
   </div>
