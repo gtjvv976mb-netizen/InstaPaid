@@ -90,16 +90,19 @@ h1 {
 
 /* ---------- the stage: a phone, a comment, our reply ---------- */
 .hero-stage { position: relative; container-type: inline-size; padding-top: 30px; min-width: 0; }
-.coin-stage { position: absolute; z-index: 3; top: -6px; right: 0; width: clamp(180px, 48cqw, 270px); }
+.coin-stage { width: 100%; }
+/* The phone's face: bezel, camera pill and screen. Its body (rim, keys, back) is in "the phone in 3D" below;
+   its shadow is .p3-glow, which stays flat behind it while it turns. */
 .phone {
   position: relative; z-index: 1; width: 330px; max-width: 100%; padding: 11px; border-radius: 46px;
-  margin-left: clamp(0px, 4cqw, 22px);
   background: linear-gradient(160deg, #2a2338, #0e0b14 60%);
-  box-shadow: var(--shadow-lg), inset 0 0 0 1.5px rgba(255, 255, 255, .12);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16), inset 0 0 0 3.5px #07050b;
+  transform-style: preserve-3d;
 }
-.phone::before { /* camera slot */
+.phone::before { /* camera pill, with a lens in it */
   content: ""; position: absolute; top: 18px; left: 50%; width: 70px; height: 18px; margin-left: -35px;
-  border-radius: 999px; background: #0b0910; z-index: 2;
+  border-radius: 999px; z-index: 2;
+  background: radial-gradient(circle at calc(100% - 10px) 50%, #4a5d86 0 1.6px, #1b2236 2.6px 4.4px, #050408 5.4px);
 }
 .phone-screen {
   background: var(--screen); border-radius: 36px; overflow: hidden; color: var(--ink);
@@ -111,7 +114,7 @@ h1 {
 .post-head { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; }
 .pm-who { display: flex; flex-direction: column; line-height: 1.2; }
 .pm-who b { font-size: 13.5px; }
-.pm-who small { font-size: 12px; color: var(--muted); }
+.pm-who small { font-size: 12px; color: var(--ink-2); } /* not the muted grey: 12px words on a turned, glazed screen need the margin */
 .post-media svg { width: 100%; height: auto; aspect-ratio: 320 / 132; }
 .steam path { animation: steam 3s ease-in-out infinite; }
 .steam path:nth-child(2) { animation-delay: .6s; }
@@ -139,25 +142,28 @@ h1 {
 .typing i:nth-of-type(3) { animation-delay: .3s; }
 @keyframes dot { 0%, 100% { transform: translateY(0); opacity: .45; } 50% { transform: translateY(-3px); opacity: 1; } }
 
-/* The sequence. Without JS everything simply shows; home.js arms it and plays it in view. */
+/* The sequence. Without JS everything simply shows; home.js arms it and plays it in view. Each step ends on
+   its own resting style, so it fills backwards only: an animation that keeps filling forwards keeps its words
+   on a layer of their own, which inside the turned phone is drawn soft on a 3x screen. */
 .armed:not(.play) :is(.s1, .s3, .s4, .s5, .sticker) { opacity: 0; }
-.play .s1 { animation: rise .55s .4s cubic-bezier(.2, .9, .3, 1.2) both; }
-.play .s2 { animation: typing 1.7s 1.1s ease both; }
-.play .s3 { animation: rise .55s 2.8s cubic-bezier(.2, .9, .3, 1.2) both; }
-.play .s4 { animation: rise .5s 3.4s ease both; }
-.play .s5 { animation: rise .5s 4s ease both; }
+.play .s1 { animation: rise .55s .4s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.play .s2 { animation: typing 1.7s 1.1s ease backwards; }
+.play .s3 { animation: rise .55s 2.8s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.play .s4 { animation: rise .5s 3.4s ease backwards; }
+.play .s5 { animation: rise .5s 4s ease backwards; }
 .play .sticker-coin { animation: pop .6s 3.1s cubic-bezier(.2, 1.4, .4, 1) both, bob 4s 3.7s ease-in-out infinite; }
 .play .sticker-post { animation: pop .6s 4.7s cubic-bezier(.2, 1.4, .4, 1) both, bob 4.6s 5.3s ease-in-out infinite; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes typing { 0% { opacity: 0; transform: translateY(6px); } 14%, 84% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
-@keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+@keyframes bob { 0%, 100% { translate: 0 0 var(--z, 0px); } 50% { translate: 0 -6px var(--z, 0px); } } /* keeps each sticker's depth */
 
 /* Stickers sit over the post's photo, or outside the phone, never over its words. */
 .sticker {
   position: absolute; z-index: 2; display: flex; align-items: center; gap: 10px;
   padding: 8px 14px 8px 8px; border-radius: 18px; background: var(--card); border: 1px solid var(--line);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 16px 28px -14px rgba(76, 29, 149, .5), 0 3px 8px rgba(27, 21, 48, .08); /* tight: a big blur is a big layer to turn */
+  translate: 0 0 var(--z, 0px); /* its depth in front of the phone */
 }
 .st-txt { display: flex; flex-direction: column; line-height: 1.25; }
 .st-txt b { font-size: 14.5px; }
@@ -167,10 +173,10 @@ h1 {
 .st-ava { flex: none; width: 38px; height: 38px; }
 /* The coin wears the post's photo: the same drawing, cropped round in a gold rim. */
 .post-coin { flex: none; width: 46px; height: 46px; filter: drop-shadow(0 4px 8px rgba(154, 87, 0, .35)); }
-.sticker-coin { top: 162px; left: -24px; }
+.sticker-coin { --z: 64px; top: 158px; left: calc(-24px - clamp(0px, 4cqw, 22px)); } /* low on the photo: clear of the name above it, even turned */
 /* Our post comes after the reply: at the phone's foot, in the room kept under the thread, never over
    the photo the coin wears. Centred on a narrow stage; on a wide one it steps out past the phone's edge. */
-.sticker-post { bottom: 14px; left: 0; right: 0; width: max-content; max-width: calc(100% - 12px); margin-inline: auto; }
+.sticker-post { --z: 44px; bottom: 14px; left: 0; right: 0; width: max-content; max-width: calc(100% - 12px); margin-inline: auto; }
 .sticker-post .st-more { display: none; } /* "to claim": only where there is room for it on one line */
 @container (min-width: 540px) {
   .phone-screen { padding-bottom: 76px; }
@@ -215,7 +221,7 @@ h1 {
 @keyframes c3-glint { 0%, 20% { transform: translateX(-60%); } 55%, 100% { transform: translateX(60%); } }
 .c3-face svg { position: absolute; inset: 18%; width: 64%; height: 64%; }
 
-.stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 18px; width: 330px; max-width: 100%; margin-left: clamp(0px, 4cqw, 22px); }
+.stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 64px; width: 330px; max-width: 100%; margin-left: clamp(0px, 4cqw, 22px); }
 .replay {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px;
   border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); color: var(--ink);
@@ -224,6 +230,114 @@ h1 {
 .replay svg { width: 18px; height: 18px; }
 .replay:hover { border-color: var(--accent); }
 .illus { font-size: 13.5px; font-weight: 650; color: var(--muted); }
+
+/* ---------- the phone in 3D ----------
+   CSS 3D, so the screen stays the live, readable thread. .p3 is the scene (the perspective, the focus ring,
+   the pointer and keys); .p3-rig turns (home.js writes its transform); inside it sit the coin, the sparkles and
+   the stickers at their own depths, and the phone: its face at z = 0, its body behind it in .p3-body — the rim
+   (4 walls and 6 facets per rounded corner, built by home.js and lit by it as they turn), the side keys and
+   the back. Without JS it is the flat phone it always was. */
+.p3 {
+  --d: 28px; --r: 46px; /* thickness and corner radius */
+  position: relative; width: 330px; max-width: 100%; margin-left: clamp(0px, 4cqw, 22px);
+  perspective: 1300px; perspective-origin: 50% 42%;
+  border-radius: 50px;
+}
+.p3:focus-visible { outline: 3px solid var(--accent); outline-offset: 12px; border-radius: 52px; }
+.p3-live { cursor: grab; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.p3-live img { -webkit-user-drag: none; }
+.p3-live.p3-grab { cursor: grabbing; }
+.p3-rig { position: relative; transform-style: preserve-3d; transform-origin: 50% 50% calc(var(--d) / -2); }
+
+/* Flat, behind the rig: the brand glow the phone always had, and a contact shadow on the floor. */
+.p3-glow, .p3-floor { position: absolute; pointer-events: none; will-change: transform; } /* soft gradients: keep one raster while they stretch */
+.p3-glow { /* soft by its own gradient, no blur filter (and not an outer box-shadow, which leaves a pale hole
+             where the phone was once it turns) */
+  inset: -6% -22% -12%; opacity: .85;
+  background: /* Gaussian-like falloffs, so no ring shows where they end */
+    radial-gradient(closest-side at 50% 58%, rgba(124, 58, 237, .44), rgba(124, 58, 237, .4) 20%, rgba(124, 58, 237, .31) 40%, rgba(124, 58, 237, .2) 57%, rgba(124, 58, 237, .1) 73%, rgba(124, 58, 237, .035) 87%, rgba(124, 58, 237, 0)),
+    radial-gradient(closest-side at 50% 88%, rgba(225, 48, 108, .4), rgba(225, 48, 108, .28) 35%, rgba(225, 48, 108, .12) 65%, rgba(225, 48, 108, .03) 86%, rgba(225, 48, 108, 0));
+}
+.p3-floor {
+  left: 4%; right: 4%; top: calc(100% + 4px); height: 44px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(46, 20, 96, .42), rgba(46, 20, 96, .16) 55%, rgba(46, 20, 96, 0));
+}
+
+/* The body, half the thickness behind the face. */
+.p3-body { position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--d) / -2)); }
+.p3-rim {
+  --rim: #150d26 0%, #3d2b66 13%, #7458bb 36%, #a68be8 50%, #7458bb 64%, #3d2b66 87%, #150d26 100%; /* violet anodised */
+  position: absolute; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: linear-gradient(180deg, var(--rim));
+}
+.p3-rim.p3-v { background: linear-gradient(90deg, var(--rim)); }
+.p3-rim::before, .p3-rim::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.p3-rim::before { background: #07050b; opacity: var(--dk, .4); } /* away from the light */
+.p3-rim::after { background: linear-gradient(180deg, rgba(255, 255, 255, 0) 18%, #fff 50%, rgba(255, 255, 255, 0) 82%); opacity: var(--gl, 0); } /* the glint */
+.p3-rim.p3-v::after { background: linear-gradient(90deg, rgba(255, 255, 255, 0) 18%, #fff 50%, rgba(255, 255, 255, 0) 82%); }
+.p3-rim.p3-key { border-radius: 4px; }
+
+.p3-back {
+  position: absolute; inset: 0; overflow: hidden; border-radius: var(--r);
+  transform: translateZ(calc(var(--d) / -2)) rotateY(180deg);
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background:
+    radial-gradient(80% 50% at 22% 6%, rgba(255, 255, 255, .34), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(158deg, #7c3aed 0%, #b62bd0 26%, #e1306c 50%, #f97316 78%, #fbbf24 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .34), inset 0 0 50px rgba(46, 6, 90, .28);
+}
+.p3-back::after { content: ""; position: absolute; inset: 0; background: #0b0614; opacity: var(--dk, 0); }
+.p3-at { position: absolute; left: 50%; top: 52%; width: 46%; translate: -50% -50%; filter: drop-shadow(0 6px 14px rgba(70, 0, 60, .35)); }
+.p3-cam { /* a round camera island in a gold ring, like the coin's rim */
+  position: absolute; top: 22px; left: 22px; width: 104px; height: 104px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #3d3350, #15101e 68%);
+  box-shadow: 0 0 0 3px #f5b400, 0 0 0 5px #a55e00, 0 8px 18px rgba(40, 0, 60, .45);
+}
+.p3-cam b { position: absolute; width: 36px; height: 36px; border-radius: 50%; background: radial-gradient(circle at 38% 34%, #6d86b8 0 8%, #1d2740 20%, #06070d 46%, #232033 58%, #0a0810 70%); box-shadow: 0 0 0 2px #2c2438; }
+.p3-cam b:first-child { top: 14px; left: 34px; }
+.p3-cam b:nth-child(2) { top: 54px; left: 14px; }
+.p3-cam s { position: absolute; top: 62px; left: 64px; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle, #fffbe6 0 30%, #ffd98a 60%, #b98a3a); }
+.p3-sheen { position: absolute; inset: -20% -90%; background: linear-gradient(105deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, .42) 49%, rgba(255, 255, 255, 0) 58%); }
+
+/* The glass over the screen: a fixed faint reflection in the corner and a glare that slides as it turns (home.js
+   keeps the glare off at the resting pose, so the words people read are never washed). */
+.p3-glass { position: absolute; inset: 11px; z-index: 1; overflow: hidden; border-radius: 36px; pointer-events: none; }
+.p3-glass::before { content: ""; position: absolute; inset: 0; background: linear-gradient(152deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 22%); }
+.p3-glass i {
+  position: absolute; top: -30%; bottom: -30%; left: 10%; width: 80%; opacity: 0;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, .42) 47%, rgba(255, 255, 255, .12) 56%, rgba(255, 255, 255, 0) 74%);
+}
+
+/* Around the phone, each at its own depth; seen from behind (mid-spin) they are not drawn, not mirrored. */
+.p3 .sticker, .p3-coin, .p3-spark { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.p3-coin { position: absolute; z-index: 3; top: -36px; right: calc(clamp(0px, 4cqw, 22px) + 100% - 100cqw); width: clamp(180px, 48cqw, 270px); transform: translateZ(84px); }
+.p3-spark {
+  position: absolute; width: var(--s); height: var(--s); transform: translateZ(var(--z)); pointer-events: none;
+  background: radial-gradient(circle, #fffbe0 0 16%, #ffd23f 42%, #f59e0b 72%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation: twinkle 3.4s ease-in-out infinite;
+}
+.sp1 { --s: 24px; --z: 64px; right: -92px; top: 300px; }
+.sp2 { --s: 15px; --z: -90px; right: -128px; top: 410px; animation-delay: -1.2s; }
+.sp3 { --s: 11px; --z: 40px; right: -150px; top: 250px; animation-delay: -2.1s; }
+.sp4 { --s: 14px; --z: 56px; right: -58px; bottom: 120px; animation-delay: -.6s; }
+@keyframes twinkle { 0%, 100% { scale: .7; } 50% { scale: 1.1; } }
+
+/* "Drag to turn": on the floor under the phone until it has been turned once; for keys, when focused. */
+.p3-hint {
+  display: none; position: absolute; left: 50%; top: calc(100% + 14px); translate: -50% 0; align-items: center; gap: 6px;
+  padding: 4px 11px 4px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+  font-size: 13px; font-weight: 750; color: var(--ink-2); white-space: nowrap; pointer-events: none;
+  transition: opacity .5s ease, transform .5s ease;
+}
+.p3-live .p3-hint { display: inline-flex; }
+.p3-hint svg { width: 17px; height: 17px; color: var(--accent); animation: sway 2.4s ease-in-out infinite; }
+.p3-hint .h-keys { display: none; }
+.p3-used .p3-hint { opacity: 0; transform: translateY(6px); }
+.p3:focus-visible .p3-hint { opacity: 1; transform: none; }
+.p3:focus-visible .p3-hint .h-keys { display: inline; }
+.p3:focus-visible .p3-hint .h-drag { display: none; }
+@keyframes sway { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
 
 /* ---------- trust strip ---------- */
 .trust { background: #1b1530; color: #e9e3fb; }
@@ -234,6 +348,11 @@ h1 {
   clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
 }
 .trust b { color: #fff; font-weight: 800; }
+@media (prefers-color-scheme: dark) {
+  .p3-glow { opacity: 1; }
+  .sticker { box-shadow: 0 16px 30px -14px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .04); }
+  .p3-floor { background: radial-gradient(closest-side, rgba(0, 0, 0, .7), rgba(0, 0, 0, .3) 55%, rgba(0, 0, 0, 0)); }
+}
 @media (prefers-color-scheme: dark) { .trust { background: #1f1836; border-block: 1px solid #342a52; } }
 
 /* ---------- how it works: the loop band, then four steps ---------- */
@@ -577,10 +696,14 @@ h1 {
   .glimpse img { width: 24px; height: 24px; flex: none; margin-top: 1px; }
   .glimpse .g-more { color: var(--ink-2); font-weight: 650; }
   .hero-stage { width: 100%; max-width: 380px; justify-self: center; padding-top: 0; }
-  .coin-stage { display: none; }
-  .phone { margin: 0 auto; }
-  .sticker-coin { top: 124px; left: 0; }
-  .stage-foot { margin: 16px auto 0; }
+  .p3-coin { display: none; }
+  .p3 { margin: 0 auto; }
+  .sticker-coin { top: 150px; left: calc((100% - 100cqw) / 2 + 15px); } /* 15px: its depth carries it out that far */
+  .stage-foot { margin: 60px auto 0; }
+  .sp1 { right: -12px; top: 236px; --z: 24px; }
+  .sp2 { --z: 0px; right: calc((100% - 100cqw) / 2 + 12px); top: 452px; } /* inside the stage, clear of the screen's edge */
+  .sp3 { right: auto; left: calc((100% - 100cqw) / 2 + 2px); top: 340px; }
+  .sp4 { right: 10px; bottom: -24px; --z: 40px; }
   .recent-sub { max-width: 30em; } /* clear of the scattered coins at the right edge */
   .band-grid { grid-template-columns: 1fr; gap: 28px; }
   .band-side { padding-top: 104px; }
@@ -694,4 +817,6 @@ h1 {
   .step-art img { transition: none !important; }
   .play :is(.s1, .s3, .s4, .s5, .sticker-coin, .sticker-post) { animation: none !important; opacity: 1 !important; }
   .play .s2 { animation: none !important; opacity: 0 !important; }
+  .p3-spark, .p3-hint svg { animation: none !important; }
+  .p3-hint { transition: none; }
 }
