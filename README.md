@@ -1,5 +1,7 @@
 # InstaPaid
 
+**https://instapaid.fun** · Instagram: **@instapaid.official**
+
 Launch a pump.fun coin for any Instagram account, from a browser extension. The coin's creator fees
 build up for that account, and **only the verified owner of that account can claim them**, like
 [telepaid](https://telepaid.app/) does for Telegram.
@@ -31,7 +33,7 @@ $GEO is live for @nat.geo 🚀
 <the lore>
 
 Coin: pump.fun/coin/<mint>
-Creator fees go to @nat.geo. Only they can claim: instapaid.example/u/nat.geo
+Creator fees go to @nat.geo. Only they can claim: instapaid.fun/u/nat.geo
 Fan-made, not by @nat.geo.
 ```
 
@@ -89,14 +91,14 @@ npm test                 # 25 tests; the chain tests read mainnet (never send) a
 npm start                # http://localhost:8787
 ```
 
-Then load the extension: `chrome://extensions` → Developer mode → Load unpacked → `extension/`. Open
-its options and set your server address, or change `DEFAULT_SERVER` in `extension/settings.js` before
-you publish it.
+Then load the extension: `chrome://extensions` → Developer mode → Load unpacked → `extension/`. It
+talks to **https://instapaid.fun** by default (`DEFAULT_SERVER` in `extension/settings.js`). To use a
+local server, set its address in the extension's options.
 
 ### Instagram setup (one-time)
 
-1. Make an Instagram **professional** account for the app (the one people DM codes to). Put its
-   username in `IG_BOT_USERNAME`.
+1. The app's Instagram account is **@instapaid.official** (`IG_BOT_USERNAME`): people DM codes to it
+   and tag it in comments. Switch it to a **professional** account.
 2. Create a Meta app with the **Instagram API with Instagram Login** product. Add that account, and
    generate a token with `instagram_business_basic` and `instagram_business_manage_messages`. That is
    `IG_ACCESS_TOKEN`; the app secret is `IG_APP_SECRET`.

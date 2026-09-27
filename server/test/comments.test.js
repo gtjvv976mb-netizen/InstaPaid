@@ -119,6 +119,6 @@ test('a failed launch replies once and records why; carousel posts use the defau
 });
 
 test('reply fits in an Instagram comment', () => {
-  const m = launchedReply({ username: 'a'.repeat(30), name: 'n', symbol: 'ABCDEFGHIJ', mint: 'x'.repeat(44), lore: 'y'.repeat(400), publicUrl: 'https://instapaid.example' });
+  const m = launchedReply({ username: 'a'.repeat(30), name: 'n', symbol: 'ABCDEFGHIJ', mint: 'x'.repeat(44), lore: 'y'.repeat(400), publicUrl: 'https://instapaid.fun' });
   assert.ok(m.length < 2200);
 });
