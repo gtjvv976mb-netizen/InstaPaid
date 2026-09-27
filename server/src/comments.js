@@ -145,3 +145,45 @@ export function existingReply({ username, name, symbol, mint, publicUrl }) {
     `ℹ️ Fan-made, not by @${username}. Not financial advice.`,
   ].join('\n');
 }
+
+/**
+ * The DM answer to a message that carries no claim code: someone who saw a mention and wrote
+ * to ask what this is. Official in tone, and it tells them exactly what to do next.
+ * `coins` is what the sender's account may claim: [{ symbol, name, pendingLamports }].
+ * Meta caps a DM at 1000 characters.
+ */
+export function welcomeDm({ username, coins, publicUrl }) {
+  const site = host(publicUrl);
+  const sol = (l) => (Number(BigInt(l || 0)) / 1e9).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  const you = username ? `@${username}` : 'you';
+  if (coins?.length) {
+    const total = coins.reduce((n, c) => n + BigInt(c.pendingLamports || 0), 0n);
+    const list = coins.slice(0, 3).map((c) => `• ${c.name} ($${c.symbol})`).join('\n');
+    return [
+      `Hello ${you}, this is InstaPaid.`,
+      '',
+      `A fan launched a coin for your account on pump.fun. Its creator fees belong to you, and only you can claim them.`,
+      '',
+      list + (coins.length > 3 ? `\n• and ${coins.length - 3} more` : ''),
+      `Waiting for you right now: ${sol(total)} SOL`,
+      '',
+      'To claim:',
+      `1. Open ${site}/claim`,
+      '2. Tap "Get my code" and send that code to this account in a message.',
+      '3. Enter any Solana wallet, and the fees are sent to it.',
+      '',
+      'InstaPaid never asks for your password, seed phrase or private key, and never asks you to pay. Anyone who does is not us.',
+      `Details: ${site}/u/${username}`,
+    ].join('\n');
+  }
+  return [
+    `Hello ${you}, this is InstaPaid.`,
+    '',
+    'Fans can launch a coin for an Instagram creator on pump.fun by commenting "@instapaid.official make a token for this creator" under a public post. The coin\'s creator fees belong to that creator, and only they can claim them.',
+    '',
+    `No coin has been launched for ${you} yet. If one is, this account will mention you in a post, and you can claim its fees at ${site}/claim.`,
+    '',
+    'InstaPaid never asks for your password, seed phrase or private key, and never asks you to pay.',
+    `More: ${site}`,
+  ].join('\n');
+}

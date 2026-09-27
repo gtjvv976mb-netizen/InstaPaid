@@ -8,9 +8,9 @@ import { PublicKey } from '@solana/web3.js';
 import { normalizeHandle } from './handles.js';
 import { metaSignatureOk, newCode, readToken, signToken, safeEqual } from './crypto.js';
 import { claimableAccounts, bindAccount } from './identity.js';
-import { codeMessages } from './instagram.js';
+import { codeMessages, textMessages } from './instagram.js';
 import {
-  mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink,
+  mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink, welcomeDm,
 } from './comments.js';
 import { loadImage, tokenDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
@@ -85,6 +85,10 @@ export function createApp(deps) {
     console.log(`webhook: object=${body?.object} entries=${entries.length} messaging=${messaging} changes=[${fields.join(',')}] codes=${codes.length}`);
     for (const { igsid, code } of codes) {
       try { await verifyCode(igsid, code); } catch (e) { console.error('verify failed', e.message); }
+    }
+    // A DM with no code: someone asking what this is. Answer once per hour per sender.
+    for (const { igsid } of textMessages(body).filter((m) => !m.code)) {
+      try { await welcome(igsid); } catch (e) { console.error('welcome failed', e.message); }
     }
     if (cfg.igUserId) {
       for (const ev of mentionEvents(body)) enqueue(() => handleMention(ev));
@@ -271,6 +275,25 @@ export function createApp(deps) {
     for (const t of rows) out[t.mint] = await settleLaunch(t);
     return out;
   });
+
+  const welcomed = new Map(); // igsid → when we last answered a code-less DM
+  async function welcome(igsid) {
+    const last = welcomed.get(igsid) ?? 0;
+    if (Date.now() - last < 60 * 60_000) return;
+    welcomed.set(igsid, Date.now());
+    if (welcomed.size > 5000) welcomed.delete(welcomed.keys().next().value);
+    const username = await ig.usernameOf(cfg.ig, igsid).catch(() => null);
+    const accounts = username ? claimableAccounts(db, { igsid, username }) : [];
+    const coins = [];
+    for (const a of accounts) {
+      const pending = await pump.pendingFees(connection, a.vault_pubkey).catch(() => 0n);
+      for (const t of db.prepare(`select name, symbol from token where username = ? and status = 'live'`).all(a.username)) {
+        coins.push({ name: t.name, symbol: t.symbol, pendingLamports: coins.length ? 0n : pending });
+      }
+    }
+    console.log(`welcome: dm answered (${coins.length} coin${coins.length === 1 ? '' : 's'})`);
+    await ig.reply(cfg.ig, igsid, welcomeDm({ username, coins, publicUrl: cfg.publicUrl }));
+  }
 
   async function verifyCode(igsid, code) {
     const v = db.prepare(`select * from verification where code = ? and status = 'pending'`).get(code);

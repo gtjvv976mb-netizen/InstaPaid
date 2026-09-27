@@ -126,3 +126,26 @@ test('claim tokens stop being issued after the claim window', async () => {
     assert.equal((await (await t.get('/api/verify/' + v.id)).json()).status, 'expired');
   } finally { t.close(); }
 });
+
+test('a DM without a code gets one official answer an hour: what is waiting and how to claim', async () => {
+  const t = await start({ usernames: { 111: 'alice', 222: 'bob' } });
+  try {
+    const a = await (await launch(t, 'alice')).json();
+    assert.equal((await t.post('/api/launch/confirm', { mint: a.mint, signature: 'x' })).status, 200);
+    assert.equal((await webhook(t, '111', 'hi, what is this?')).status, 200);
+    await tick();
+    const dm = t.calls.replies.find((r) => r.igsid === '111');
+    assert.ok(dm, 'answered');
+    assert.match(dm.text, /^Hello @alice, this is InstaPaid\./);
+    assert.match(dm.text, /Waiting for you right now: 1\.5 SOL/);
+    assert.match(dm.text, /instapaid\.test\/claim/);
+    await webhook(t, '111', 'hello again');
+    await tick();
+    assert.equal(t.calls.replies.filter((r) => r.igsid === '111').length, 1, 'not answered twice within the hour');
+
+    await webhook(t, '222', 'what?');
+    await tick();
+    const bob = t.calls.replies.find((r) => r.igsid === '222');
+    assert.match(bob.text, /No coin has been launched for @bob yet/);
+  } finally { t.close(); }
+});
