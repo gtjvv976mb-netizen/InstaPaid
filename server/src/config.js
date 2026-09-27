@@ -20,7 +20,7 @@ export const config = {
   platformFeeBps: Number(env('PLATFORM_FEE_BPS', '0')),
   treasury: env('TREASURY_ADDRESS'),
   ig: {
-    botUsername: env('IG_BOT_USERNAME', 'instapaid.verify'),
+    botUsername: env('IG_BOT_USERNAME', 'instapaid.official'),
     accessToken: env('IG_ACCESS_TOKEN'),
     appSecret: env('IG_APP_SECRET'),
     verifyToken: env('IG_WEBHOOK_VERIFY_TOKEN'),

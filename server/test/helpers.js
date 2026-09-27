@@ -14,7 +14,7 @@ export const cfg = {
   fbAccessToken: 'fb',
   maxServerLaunchesPerDay: 3,
   minFeePayerSol: 0.1,
-  ig: { botUsername: 'instapaid.verify', accessToken: 't', appSecret: 'app-secret', verifyToken: 'vt', graphVersion: 'v23.0' },
+  ig: { botUsername: 'instapaid.official', accessToken: 't', appSecret: 'app-secret', verifyToken: 'vt', graphVersion: 'v23.0' },
 };
 
 /** A server over an in-memory database, with the chain and Instagram faked. */

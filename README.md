@@ -20,7 +20,7 @@ edits the transaction (to make themselves creator, say), the mint's signature no
 Solana rejects it. After it lands, `/api/launch/confirm` reads the bonding curve on-chain and lists the
 coin only if its creator really is the vault.
 
-**Or by comment.** Anyone comments `@instapaid.verify make a token for this creator` under a public
+**Or by comment.** Anyone comments `@instapaid.official make a token for this creator` under a public
 post. Meta sends a `mentions` webhook. The server reads the comment and the post, and launches a coin
 for the **post's owner**, paying the launch from its own wallet. Claude writes the name, ticker and
 lore from the username and the caption. The bot then replies under the comment:

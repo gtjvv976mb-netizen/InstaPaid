@@ -7,7 +7,7 @@ import { cleanCoin } from '../src/lore.js';
 const post = (username, extra = {}) => ({
   id: 'm1', media_type: 'IMAGE', media_url: 'https://scontent.cdninstagram.com/p.jpg', caption: 'Sunrise over Baguio', username, ...extra,
 });
-const ask = (username, text = '@instapaid.verify make a token for this creator', media = {}) => ({ text, media: post(username, media) });
+const ask = (username, text = '@instapaid.official make a token for this creator', media = {}) => ({ text, media: post(username, media) });
 
 async function hook(t, id) {
   assert.equal((await mentionHook(t, id)).status, 200);
@@ -16,10 +16,10 @@ async function hook(t, id) {
 }
 
 test('which comments ask for a coin', () => {
-  assert.ok(isLaunchRequest('@instapaid.verify make a token for this creator', 'instapaid.verify'));
-  assert.ok(isLaunchRequest('@InstaPaid.Verify launch a coin pls', 'instapaid.verify'));
-  assert.ok(!isLaunchRequest('make a token for this creator', 'instapaid.verify'), 'must tag the bot');
-  assert.ok(!isLaunchRequest('@instapaid.verify love this', 'instapaid.verify'));
+  assert.ok(isLaunchRequest('@instapaid.official make a token for this creator', 'instapaid.official'));
+  assert.ok(isLaunchRequest('@InstaPaid.Official launch a coin pls', 'instapaid.official'));
+  assert.ok(!isLaunchRequest('make a token for this creator', 'instapaid.official'), 'must tag the bot');
+  assert.ok(!isLaunchRequest('@instapaid.official love this', 'instapaid.official'));
   assert.deepEqual(mentionEvents({ object: 'instagram', entry: [{ changes: [{ field: 'comments', value: { id: 1 } }] }] }), []);
 });
 
@@ -75,9 +75,9 @@ test('two comments at once for one creator still make one coin', async () => {
 
 test('ignored: no request, no owner, our own post, forged webhook', async () => {
   const t = await start({ mentions: {
-    n: ask('alice', '@instapaid.verify nice pic'),
-    o: { text: '@instapaid.verify make a token', media: { id: 'm', media_url: 'https://scontent.cdninstagram.com/x.jpg' } },
-    s: ask('instapaid.verify'),
+    n: ask('alice', '@instapaid.official nice pic'),
+    o: { text: '@instapaid.official make a token', media: { id: 'm', media_url: 'https://scontent.cdninstagram.com/x.jpg' } },
+    s: ask('instapaid.official'),
   } });
   try {
     for (const id of ['n', 'o', 's']) await hook(t, id);
