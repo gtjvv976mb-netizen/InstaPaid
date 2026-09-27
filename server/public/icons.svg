@@ -26,5 +26,6 @@
     </g>
     <path d="M306 84l7 17 17 7-17 7-7 17-7-17-17-7 17-7z" fill="#fff" stroke="#7a4300" stroke-width="4" stroke-linejoin="round"/>
   </symbol>
+  <symbol id="post" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="9" cy="9.2" r="1.8"/><path d="M4 17.5l4.8-4.6 3.4 3.2 2.8-2.6 5 4.4"/></g></symbol>
   <symbol id="coin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5" stroke-dasharray="2 2"/></g></symbol>
 </svg>

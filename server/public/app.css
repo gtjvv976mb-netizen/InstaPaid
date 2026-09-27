@@ -232,6 +232,17 @@ button { font: inherit; }
 .page-narrow { max-width: 640px; margin: 0 auto; }
 .page-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
 .page-head > img { width: 46px; height: 46px; flex: none; padding: 3px; border-radius: 50%; background: var(--grad); }
+/* The page's own art, beside its title: decorative, and it never pushes the title. */
+.page-head > .page-art {
+  width: 132px; height: auto; margin: -34px -6px -40px auto; padding: 0; border-radius: 0; background: none;
+  filter: drop-shadow(0 16px 20px rgba(76, 29, 149, .24)); animation: art-float 6s ease-in-out infinite; pointer-events: none;
+}
+@keyframes art-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+.page-lead { margin: -8px 0 20px; font-size: 17.5px; line-height: 1.55; color: var(--ink-2); }
+.claim-intro { display: flex; align-items: center; gap: 12px; margin: -14px 0 18px; }
+.claim-intro .page-lead { margin: 0; flex: 1; min-width: 0; }
+.intro-art { flex: none; width: 124px; height: auto; margin: -10px -10px -10px 0; filter: drop-shadow(0 14px 18px rgba(76, 29, 149, .26)); animation: art-float 6s ease-in-out infinite; pointer-events: none; }
+.page-lead b { color: var(--ink); }
 .handle { display: block; font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
 .page-title { font-family: var(--display); font-size: clamp(32px, 4.4vw, 48px); line-height: 1.04; font-weight: 900; letter-spacing: -.035em; }
 .card {
@@ -326,7 +337,8 @@ button.primary svg { width: 20px; height: 20px; flex: none; }
 .side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .side-list li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-2); }
 .side-list svg { flex: none; width: 22px; height: 22px; padding: 3px; border-radius: 50%; background: var(--tint); color: var(--accent); margin-top: 1px; }
-.free-card { border-style: dashed; }
+.free-card { border-style: dashed; position: relative; }
+.free-card .side-art { float: right; width: 84px; height: auto; margin: -34px -12px 4px 8px; filter: drop-shadow(0 10px 14px rgba(76, 29, 149, .22)); }
 
 /* ---------- claim page ---------- */
 .progress { list-style: none; margin: 0 0 18px; padding: 0; display: flex; gap: 8px; }
@@ -366,7 +378,11 @@ ol.steps a { font-weight: 800; }
 .more-info li + li { margin-top: 8px; }
 
 /* ---------- creator page (/u/<username>) ---------- */
-.acct-top { display: flex; align-items: center; gap: 16px; }
+.acct-top { display: flex; align-items: center; gap: 16px; padding-top: 18px; }
+/* The creator wears the crown: decorative, on the avatar. */
+.ava-crowned { position: relative; flex: none; display: block; }
+.acct-crown { position: absolute; z-index: 1; left: calc(50% - 33px); top: -44px; width: 66px; height: auto; filter: drop-shadow(0 8px 10px rgba(154, 87, 0, .35)); animation: crown-tilt 5s ease-in-out infinite; pointer-events: none; }
+@keyframes crown-tilt { 0%, 100% { transform: rotate(-9deg) translateY(0); } 50% { transform: rotate(-4deg) translateY(-3px); } }
 .acct-ava { flex: none; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; border: 5px solid transparent; background: linear-gradient(#1b1530, #1b1530) padding-box, var(--grad) border-box; color: #fff; font-size: 30px; font-weight: 900; box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--line); }
 .acct-id { min-width: 0; }
 .acct-id h1 { margin: 0 0 6px; overflow-wrap: anywhere; }
@@ -384,7 +400,9 @@ ol.steps a { font-weight: 800; }
 .token-what { flex: 1; min-width: 0; }
 .token-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .token-head b { font-size: 17px; overflow-wrap: anywhere; }
-.token-lore { margin-top: 4px; color: var(--ink-2); overflow-wrap: anywhere; } /* a URL or hashtag in the lore wraps */
+.token-lore { margin-top: 8px; padding: 8px 12px 9px; border-radius: 14px; background: var(--lore-bg); color: var(--ink); font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; } /* a URL or hashtag in the lore wraps */
+.token-lore-k { display: block; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.token-links { flex: none; display: flex; flex-direction: column; gap: 8px; }
 .token-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; overflow-wrap: anywhere; }
 .token-link { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line-2); font-weight: 750; text-decoration: none; }
 .token-link:hover { border-color: var(--accent); }
@@ -445,7 +463,15 @@ ol.steps a { font-weight: 800; }
   .acct-ava { width: 60px; height: 60px; font-size: 26px; }
   /* Phones: coin | name, lore, meta — and the pump.fun button under the text, not beside it. */
   .tokens li.token { display: grid; grid-template-columns: 46px minmax(0, 1fr); column-gap: 14px; row-gap: 10px; }
-  .token-link { grid-column: 2; justify-self: start; }
+  .token-links { grid-column: 2; flex-direction: row; flex-wrap: wrap; }
+  .page-head { position: relative; padding-right: 64px; }
+  .page-head > .page-art { position: absolute; right: -10px; top: -22px; width: 82px; margin: 0; }
+  .page-lead { font-size: 16px; margin-top: -10px; }
+  .claim-intro { margin-top: -8px; align-items: flex-start; }
+  .intro-art { width: 88px; margin: -6px -6px 0 0; }
+  .acct-top { padding-top: 14px; }
+  .acct-crown { width: 56px; left: calc(50% - 28px); top: -38px; }
+  .free-card .side-art { width: 72px; margin: -28px -8px 4px 8px; }
   .big { font-size: 38px; }
 }
 @media (max-width: 480px) {
@@ -462,4 +488,5 @@ ol.steps a { font-weight: 800; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .page-art, .acct-crown, .intro-art { animation: none !important; }
 }

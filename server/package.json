@@ -4,7 +4,10 @@
   "description": "",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "block": "node scripts/block-creator.js",
+    "unblock": "node scripts/block-creator.js --unblock",
+    "sample-card": "node scripts/sample-card.js"
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -16,12 +19,13 @@
     "bn.js": "^5.2.5",
     "bs58": "^6.0.0",
     "express": "^5.2.1",
+    "sharp": "^0.35.4",
     "zod": "^4.6.5"
   },
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=20.9"
   },
   "devDependencies": {
     "tweetnacl": "^1.0.3"

@@ -15,8 +15,8 @@ test('the page reads usernames exactly as the server does', () => {
 });
 
 test('the comment reply makes no hype: no rocket, no moon', () => {
-  const m = launchedReply({ username: 'baker.example', name: 'Loaf', symbol: 'LOAF', mint: 'M'.repeat(44), lore: 'A loaf.', publicUrl: 'https://instapaid.fun' });
-  assert.match(m, /^\$LOAF is live for @baker\.example\./);
+  const m = launchedReply({ username: 'baker.example', symbol: 'LOAF', mint: 'M'.repeat(44), publicUrl: 'https://instapaid.fun' });
+  assert.match(m, /^\$LOAF is live for @baker\.example\n/);
   assert.doesNotMatch(m, /🚀|🌕|moon/i);
 });
 

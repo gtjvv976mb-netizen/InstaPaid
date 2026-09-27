@@ -55,6 +55,11 @@ h1 {
 .cmd-row { display: flex; align-items: center; gap: 12px; }
 .cmd-text { flex: 1; min-width: 0; font-family: var(--font); font-size: 18px; font-weight: 550; color: var(--ink); line-height: 1.35; overflow-wrap: anywhere; }
 .cmd-text b { color: var(--accent); font-weight: 800; }
+.cmd-hint { display: flex; gap: 7px; align-items: flex-start; margin: 8px 0 2px; padding-top: 8px; border-top: 1px dashed var(--line-2); font-size: 14.5px; line-height: 1.45; color: var(--ink-2); }
+.cmd-hint svg { flex: none; width: 14px; height: 14px; margin-top: 3px; color: var(--pink); }
+.cmd-hint q { font-weight: 700; color: var(--ink); }
+/* A commenter's own lore, marked like a highlighter so it reads as optional and theirs. */
+.lore-in { background: var(--gold-tint); color: var(--gold-ink); font-weight: 650; border-radius: 6px; padding: 0 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 
 .glimpse { display: none; }
 
@@ -98,7 +103,7 @@ h1 {
 }
 .phone-screen {
   background: var(--screen); border-radius: 36px; overflow: hidden; color: var(--ink);
-  font-size: 13px; line-height: 1.4; padding-top: 30px;
+  font-size: 13px; line-height: 1.4; padding-top: 30px; padding-bottom: 70px; /* room for our post, under the thread */
 }
 .app-bar { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-bottom: 1px solid var(--line); }
 .ab-title { font-weight: 800; font-size: 14px; }
@@ -119,7 +124,6 @@ h1 {
 .cmt-body p + p { margin-top: 6px; }
 .reply-wrap { position: relative; margin-top: 10px; margin-left: 16px; min-height: 40px; }
 .reply .ava { width: 26px; height: 26px; }
-.lore { background: var(--lore-bg); border-radius: 12px; padding: 7px 10px; color: var(--ink); }
 .links span { display: block; color: var(--ink-2); overflow-wrap: break-word; }
 .links span + span { margin-top: 2px; }
 .fanmade { color: var(--ink-2); font-weight: 650; }
@@ -136,15 +140,14 @@ h1 {
 @keyframes dot { 0%, 100% { transform: translateY(0); opacity: .45; } 50% { transform: translateY(-3px); opacity: 1; } }
 
 /* The sequence. Without JS everything simply shows; home.js arms it and plays it in view. */
-.armed:not(.play) :is(.s1, .s3, .s4, .s5, .s6, .sticker) { opacity: 0; }
+.armed:not(.play) :is(.s1, .s3, .s4, .s5, .sticker) { opacity: 0; }
 .play .s1 { animation: rise .55s .4s cubic-bezier(.2, .9, .3, 1.2) both; }
 .play .s2 { animation: typing 1.7s 1.1s ease both; }
 .play .s3 { animation: rise .55s 2.8s cubic-bezier(.2, .9, .3, 1.2) both; }
 .play .s4 { animation: rise .5s 3.4s ease both; }
 .play .s5 { animation: rise .5s 4s ease both; }
-.play .s6 { animation: rise .5s 4.6s ease both; }
 .play .sticker-coin { animation: pop .6s 3.1s cubic-bezier(.2, 1.4, .4, 1) both, bob 4s 3.7s ease-in-out infinite; }
-.play .sticker-fee { animation: pop .6s 4.9s cubic-bezier(.2, 1.4, .4, 1) both, bob 4.6s 5.5s ease-in-out infinite; }
+.play .sticker-post { animation: pop .6s 4.7s cubic-bezier(.2, 1.4, .4, 1) both, bob 4.6s 5.3s ease-in-out infinite; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes typing { 0% { opacity: 0; transform: translateY(6px); } 14%, 84% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
@@ -156,14 +159,24 @@ h1 {
   padding: 8px 14px 8px 8px; border-radius: 18px; background: var(--card); border: 1px solid var(--line);
   box-shadow: var(--shadow-lg);
 }
-.sticker > svg { flex: none; width: 38px; height: 38px; padding: 9px; border-radius: 12px; background: var(--ok-tint); color: var(--ok); }
 .st-txt { display: flex; flex-direction: column; line-height: 1.25; }
 .st-txt b { font-size: 14.5px; }
-.st-txt small { font-size: 13px; color: var(--muted); font-weight: 650; }
+.st-txt small { font-size: 13px; color: var(--ink-2); font-weight: 650; }
+.st-tick { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--gold-tint); color: var(--gold-ink); font-size: 12.5px; font-weight: 850; }
+.st-at { color: var(--accent); font-weight: 800; }
+.st-ava { flex: none; width: 38px; height: 38px; }
+/* The coin wears the post's photo: the same drawing, cropped round in a gold rim. */
+.post-coin { flex: none; width: 46px; height: 46px; filter: drop-shadow(0 4px 8px rgba(154, 87, 0, .35)); }
 .sticker-coin { top: 162px; left: -24px; }
-.sticker-fee { top: 222px; left: -24px; }
+/* Our post comes after the reply: at the phone's foot, in the room kept under the thread, never over
+   the photo the coin wears. Centred on a narrow stage; on a wide one it steps out past the phone's edge. */
+.sticker-post { bottom: 14px; left: 0; right: 0; width: max-content; max-width: calc(100% - 12px); margin-inline: auto; }
+.sticker-post .st-more { display: none; } /* "to claim": only where there is room for it on one line */
 @container (min-width: 540px) {
-  .sticker-fee { top: 420px; left: calc(clamp(0px, 4cqw, 22px) + 316px); }
+  .phone-screen { padding-bottom: 76px; }
+  .sticker-post { top: auto; right: auto; bottom: 22px; left: 118px; }
+  .sticker-post .st-txt { white-space: nowrap; }
+  .sticker-post .st-more { display: inline; }
 }
 
 /* A small layered CSS coin: edge layers, a reeded rim and a glint. It really turns. */
@@ -223,27 +236,81 @@ h1 {
 .trust b { color: #fff; font-weight: 800; }
 @media (prefers-color-scheme: dark) { .trust { background: #1f1836; border-block: 1px solid #342a52; } }
 
-/* ---------- how it works ---------- */
-.how { padding-top: 64px; }
-.how-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, auto); column-gap: 20px; }
-.step {
-  position: relative; grid-row: span 4; display: grid; grid-template-rows: subgrid; row-gap: 10px; align-content: start;
-  padding: 24px; border-radius: 26px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+/* ---------- how it works: the loop band, then four steps ---------- */
+.how { position: relative; padding-bottom: 72px; }
+/* Full-bleed: the loop fills the band; the words sit on its calm violet left, under a scrim that keeps
+   every frame's left side dark enough for white text (measured against the video's own frames). */
+.how-band {
+  position: relative; overflow: hidden; isolation: isolate;
+  height: clamp(560px, 46vw, 700px); display: flex; align-items: center;
+  background: #3a04a6 url(/media/hero-loop-poster.webp) 50% 35% / cover no-repeat; color: #fff;
 }
-.step-k { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 22px; font-weight: 900; letter-spacing: -.02em; color: var(--accent); }
-.step-n { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--btn-grad); color: #fff; font-size: 17px; font-weight: 900; font-family: var(--font); }
-.step h3 { font-size: 20px; font-weight: 850; letter-spacing: -.02em; line-height: 1.2; }
-.step > p { color: var(--ink-2); }
+.how-video { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: 50% 35%; pointer-events: none; }
+.how-band::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(30, 4, 96, .72) 0%, rgba(34, 4, 104, .56) 34%, rgba(40, 6, 110, .22) 52%, rgba(40, 6, 110, 0) 64%),
+    linear-gradient(0deg, rgba(20, 3, 70, .35), transparent 30%);
+}
+.how-copy { position: relative; padding-bottom: 64px; }
+.how-copy > * { max-width: min(520px, 44vw); }
+.how-kicker {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 11px; border-radius: 999px;
+  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .42); color: #fff;
+  font-size: 15px; font-weight: 800; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.how-kicker svg { width: 15px; height: 15px; color: #ffd23f; }
+.how-band h2 {
+  margin-top: 18px; font-family: var(--display); font-size: clamp(40px, 5vw, 68px); line-height: 1; font-weight: 900; letter-spacing: -.04em; color: #fff;
+  text-shadow: 0 2px 24px rgba(30, 4, 96, .45);
+}
+.how-band h2 span { display: block; color: #ffd23f; }
+.how-lead { margin-top: 18px; font-size: 18.5px; line-height: 1.55; color: #f4eeff; text-shadow: 0 1px 12px rgba(30, 4, 96, .5); }
+.how-lead b { color: #fff; }
+
+.how-steps {
+  position: relative; z-index: 1; list-style: none; margin: -76px 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 18px; row-gap: 22px;
+}
+.step {
+  position: relative; grid-row: span 5; display: grid; grid-template-rows: subgrid; row-gap: 10px; align-content: start;
+  padding: 16px 20px 22px; border-radius: 26px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-lg);
+}
+.step-art {
+  position: relative; height: 150px; margin: 0 -4px 4px; border-radius: 20px; display: grid; place-items: center; overflow: hidden;
+  background:
+    radial-gradient(55% 60% at 50% 55%, rgba(251, 191, 36, .28), transparent 72%),
+    radial-gradient(70% 80% at 15% 0%, rgba(124, 58, 237, .16), transparent 70%),
+    radial-gradient(70% 80% at 95% 100%, rgba(225, 48, 108, .14), transparent 70%),
+    var(--bg-2);
+}
+.step-art img { width: 150px; height: 150px; object-fit: contain; filter: drop-shadow(0 12px 16px rgba(76, 29, 149, .22)); transition: transform .35s cubic-bezier(.2, .9, .3, 1.3); }
+.step:hover .step-art img { transform: translateY(-4px) rotate(-3deg) scale(1.04); }
+.step-art-at img { width: 118px; height: 118px; margin-top: -18px; }
+/* Our post's caption @mentions the creator (no photo tag): the mention, as a chip under the coin. */
+.at-chip {
+  position: absolute; left: 50%; bottom: 14px; translate: -50% 0; padding: 4px 11px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
+  color: var(--accent); font-size: 13px; font-weight: 800; white-space: nowrap;
+}
+.step-k { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 21px; font-weight: 900; letter-spacing: -.02em; color: var(--accent); }
+.step-n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--btn-grad); color: #fff; font-size: 16px; font-weight: 900; font-family: var(--font); }
+.step h3 { font-size: 19px; font-weight: 850; letter-spacing: -.02em; line-height: 1.2; }
+.step > p { color: var(--ink-2); font-size: 15.5px; line-height: 1.5; }
 .step b { color: var(--ink); }
 .step:not(:last-child)::after { /* feed connector */
-  content: ""; position: absolute; top: 42px; right: -21px; width: 22px; height: 2px;
+  content: ""; position: absolute; top: 90px; right: -19px; width: 20px; height: 2px;
   background: repeating-linear-gradient(90deg, var(--accent) 0 5px, transparent 5px 9px);
 }
-.mini { align-self: end; padding-top: 6px; }
-.mini > * { background: var(--bg-2); border-radius: 16px; padding: 12px 14px; }
-.mini-cmt { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; line-height: 1.4; }
-.mini-cmt p { color: var(--ink); }
+.mini { align-self: end; padding-top: 4px; }
+.mini > * { background: var(--bg-2); border-radius: 16px; padding: 11px 12px; }
+.mini-cmt { display: flex; gap: 9px; align-items: flex-start; font-size: 14px; line-height: 1.4; }
+.mini-cmt p { color: var(--ink); min-width: 0; }
 .mini-cmt .dim { color: var(--ink-2); font-size: 13.5px; }
+.mini-coin { display: flex; gap: 10px; align-items: center; }
+.mini-coin .post-coin { width: 42px; height: 42px; }
+.mini-coin p { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 14.5px; line-height: 1.3; color: var(--ink); min-width: 0; }
+.mini-coin .dim { flex-basis: 100%; color: var(--ink-2); font-size: 13.5px; }
 .mini-dm { display: flex; flex-direction: column; gap: 8px; }
 .mini-dm > * { padding: 0; background: none; }
 .dm-bubble {
@@ -254,6 +321,7 @@ h1 {
 .dm-bubble code { font-family: var(--mono); font-size: 15px; font-weight: 700; letter-spacing: .04em; }
 .dm-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 750; color: var(--ok); }
 .dm-ok svg { width: 18px; height: 18px; }
+.how .note-line { margin-top: 26px; }
 
 /* ---------- recently launched ---------- */
 .recent { overflow: clip; padding-bottom: 56px; }
@@ -276,7 +344,7 @@ h1 {
   scroll-padding-inline: max(24px, calc((100vw - 1160px) / 2 + 24px));
 }
 .shelf:focus-visible { outline-offset: -3px; }
-.shelf-row { list-style: none; margin: 0; padding: 0; display: flex; gap: 16px; width: max-content; }
+.shelf-row { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-start; gap: 16px; width: max-content; } /* each card its own height in the scrolling row */
 .coin-card {
   position: relative; scroll-snap-align: start; width: 250px; padding: 18px; border-radius: 22px; background: var(--card);
   border: 1px solid var(--line); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
@@ -297,12 +365,18 @@ h1 {
 .cc-link:focus-visible { outline: none; }
 .cc-link::after { content: ""; position: absolute; inset: 0; border-radius: 22px; } /* the whole card opens the creator's page */
 .coin-card:hover .cc-link { text-decoration: underline; }
-.cc-lore { font-size: 14.5px; color: var(--ink-2); line-height: 1.45; flex: 1; overflow-wrap: anywhere; } /* a URL or hashtag wraps */
-.cc-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.cc-lore { font-size: 14.5px; color: var(--ink); line-height: 1.45; overflow-wrap: anywhere; padding: 8px 11px 9px; border-radius: 14px; background: var(--lore-bg); } /* a URL or hashtag wraps */
+/* Three lines at most, so one long lore (up to 400 characters) does not stretch every card in the row; the creator's page has it all. */
+.cc-lore-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.cc-lore-k { display: block; font-size: 12.5px; font-weight: 800; color: var(--muted); margin-bottom: 1px; }
+.cc-src { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 650; color: var(--ink-2); }
+.cc-src svg { flex: none; width: 16px; height: 16px; color: var(--pink); }
+.cc-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
 .cc-when { font-size: 13px; color: var(--muted); font-weight: 650; }
+.cc-links { display: flex; flex-wrap: wrap; gap: 0 4px; margin: -2px -10px -8px; }
 .cc-pump {
-  position: relative; z-index: 1; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 0 12px; margin: 0 -4px -6px; border-radius: 12px; font-size: 14.5px; font-weight: 750; text-decoration: none; color: var(--accent);
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 0 10px; border-radius: 12px; font-size: 14.5px; font-weight: 750; text-decoration: none; color: var(--accent);
 }
 .cc-pump:hover { background: var(--tint); }
 .cc-pump svg { width: 16px; height: 16px; }
@@ -311,9 +385,18 @@ h1 {
 .recent-foot svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--accent); }
 
 /* ---------- for creators: the dark band ---------- */
-.band { position: relative; overflow: clip; padding: 80px 0; background: linear-gradient(160deg, #22173f 0%, #1a1230 55%, #140e26 100%); color: #f6f2ff; }
-.band-scatter { position: absolute; right: -6%; bottom: -12%; width: min(820px, 64%); height: auto; opacity: .42; pointer-events: none; }
+.band { position: relative; overflow: clip; isolation: isolate; padding: 88px 0; background: #170944; color: #f6f2ff; }
+/* The violet-to-orange mesh, with a scrim on the words' side (measured against its pixels). */
+.band-bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; pointer-events: none; }
+.band::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(16, 6, 42, .74) 0%, rgba(16, 6, 42, .56) 46%, rgba(16, 6, 42, .12) 80%, rgba(16, 6, 42, 0) 100%);
+}
 .band-grid { position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 56px; align-items: start; }
+.band-side { position: relative; padding-top: 128px; }
+/* The crown sits on the claim card. */
+.band-crown { position: absolute; z-index: 2; top: -46px; right: 34px; width: 190px; height: auto; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .45)); animation: crown-bob 6s ease-in-out infinite; pointer-events: none; }
+@keyframes crown-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
 .pill-gold { background: #2b2140; border-color: rgba(255, 210, 63, .45); color: #ffe38a; }
 .band h2 { margin-top: 16px; color: #fff; font-size: clamp(34px, 4.4vw, 56px); }
 .band-lead { margin-top: 16px; font-size: 18px; color: #e2daf6; max-width: 34em; }
@@ -336,7 +419,7 @@ h1 {
 .takedown b { color: #fff; }
 .takedown svg { flex: none; width: 20px; height: 20px; margin-top: 2px; color: #ffd23f; }
 
-.claim-mock { position: relative; background: #261c42; border: 1px solid #43366b; border-radius: 26px; padding: 20px; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .7); color: #f6f2ff; }
+.claim-mock { position: relative; background: rgba(34, 22, 66, .9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid #4d3d7c; border-radius: 26px; padding: 20px; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .7); color: #f6f2ff; }
 .cm-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #43366b; }
 .cm-who { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
 .cm-who b { color: #fff; font-size: 15.5px; }
@@ -364,6 +447,10 @@ h1 {
 .band .scam > svg { color: #fda4af; }
 
 /* ---------- for fans ---------- */
+.fans-title { position: relative; }
+.post-title > .fans-art { padding: 0; border-radius: 0; background: none; }
+.post-title > .fans-art { flex: none; margin: -64px 0 -44px auto; width: 176px; height: auto; filter: drop-shadow(0 16px 20px rgba(162, 28, 175, .22)); animation: pop-tilt 5s ease-in-out infinite; }
+@keyframes pop-tilt { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(3deg) translateY(-6px); } }
 .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .way { display: flex; flex-direction: column; border-radius: 26px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; }
 .way-art {
@@ -425,17 +512,21 @@ h1 {
 .faq .a a { font-weight: 800; }
 .faq .a .text-link { margin-top: 4px; padding-top: 0; }
 
-/* ---------- closing band, on the hero scene ---------- */
+/* ---------- closing card: the mesh and the gold coin ---------- */
 .closing { padding: 24px 0 40px; }
-.end-card { position: relative; overflow: hidden; display: flex; align-items: center; min-height: 480px; border-radius: 36px; background: #3b0f8c; color: #fff; box-shadow: var(--shadow-lg); isolation: isolate; }
-.end-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 50%; z-index: -2; }
+.end-card { position: relative; overflow: hidden; display: flex; align-items: center; min-height: 480px; border-radius: 36px; background: #170944; color: #fff; box-shadow: var(--shadow-lg); isolation: isolate; }
+.end-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; z-index: -2; transform: scaleX(-1); }
 .end-card::before { /* keeps every word on the calm violet side */
   content: ""; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(90deg, rgba(33, 7, 84, .72) 0%, rgba(40, 8, 96, .5) 42%, rgba(40, 8, 96, 0) 64%);
+  background: linear-gradient(90deg, rgba(16, 6, 42, .7) 0%, rgba(16, 6, 42, .5) 48%, rgba(16, 6, 42, 0) 72%);
 }
-.end-copy { padding: 52px 48px; max-width: 640px; }
+/* The coin and the words share the card and never meet: each has its own share of the width. */
+.end-coin { position: absolute; right: 5%; top: 50%; margin-top: calc(min(360px, 32%) / -2); width: min(360px, 32%); z-index: 0; }
+.end-coin .coin-img { filter: drop-shadow(0 30px 40px rgba(0, 0, 0, .45)); }
+.end-copy { position: relative; z-index: 1; padding: 52px 48px; max-width: min(640px, 60%); }
 .end-card h2 { color: #fff; max-width: 12em; }
-.cmd-on-dark { margin-top: 26px; background: rgba(24, 6, 60, .55); border: 1.5px solid rgba(255, 255, 255, .55); box-shadow: none; }
+.end-note { margin-top: 12px; color: #efe8ff; font-size: 16px; }
+.cmd-on-dark { margin-top: 26px; background: rgba(24, 6, 60, .6); border: 1.5px solid rgba(255, 255, 255, .55); box-shadow: none; }
 .cmd-on-dark .cmd-text { color: #fff; }
 .cmd-on-dark .cmd-text b { color: #ffd23f; }
 .cmd-on-dark .copy { background: #fff; color: #1b1530; }
@@ -448,18 +539,20 @@ h1 {
 .paused, .paused *, .paused::after, .paused *::after, .paused *::before { animation-play-state: paused !important; }
 
 /* ---------- responsive ---------- */
-@media (min-width: 1240px) {
-  .sticker-fee .st-txt { white-space: nowrap; }
-}
 @media (min-width: 1160px) {
   .hero-grid { grid-template-columns: minmax(0, 1fr) 540px; }
   .cta-row .btn { padding: 0 22px; }
 }
 @media (min-width: 981px) {
   .shelf { overflow: visible; padding: 6px 0 12px; }
-  .shelf-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: auto; max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+  .shelf-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; width: auto; max-width: 1160px; margin: 0 auto; padding: 0 24px; } /* even rows; the lore clamp keeps them close */
   .coin-card { width: auto; }
   .shelf-row:not(.show-all) > li:nth-child(n+7) { display: none; }
+}
+/* Four steps side by side from 1180px; two by two below that; one column on phones. */
+@media (max-width: 1180px) {
+  .how-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+  .step:nth-child(2)::after { display: none; }
 }
 @media (max-width: 1100px) {
   .ways { grid-template-columns: 1fr 1fr; }
@@ -487,27 +580,48 @@ h1 {
   .coin-stage { display: none; }
   .phone { margin: 0 auto; }
   .sticker-coin { top: 124px; left: 0; }
-  .sticker-fee { top: 196px; left: auto; right: 0; }
   .stage-foot { margin: 16px auto 0; }
-  .band-grid { grid-template-columns: 1fr; gap: 36px; }
-  .band-scatter { width: 560px; right: -170px; bottom: 120px; top: auto; opacity: .38; }
-  .how-steps { grid-template-columns: 1fr; grid-template-rows: none; row-gap: 22px; }
-  .step { grid-row: auto; grid-template-rows: none; }
-  .step:not(:last-child)::after { top: auto; bottom: -23px; right: auto; left: 42px; width: 2px; height: 24px; background: repeating-linear-gradient(180deg, var(--accent) 0 5px, transparent 5px 9px); }
-  .mini { padding-top: 2px; }
+  .recent-sub { max-width: 30em; } /* clear of the scattered coins at the right edge */
+  .band-grid { grid-template-columns: 1fr; gap: 28px; }
+  .band-side { padding-top: 104px; }
+  .band-crown { width: 150px; top: -34px; right: 16px; }
+  .band::before { background: linear-gradient(180deg, rgba(16, 6, 42, .72) 0%, rgba(16, 6, 42, .6) 60%, rgba(16, 6, 42, .35) 100%); }
+}
+@media (max-width: 900px) {
+  /* The loop band: words first on the video's own violet, then the video, which fades up into them. */
+  .how-band { flex-direction: column; align-items: stretch; height: auto; background: #3a04a6; }
+  .how-band::before { display: none; }
+  .how-copy { order: -1; z-index: 1; padding-top: 44px; padding-bottom: 6px; background: linear-gradient(180deg, #2a048f 0%, #3a04a6 100%); }
+  .how-copy::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 96px; background: linear-gradient(180deg, #3a04a6 0%, rgba(58, 4, 166, .6) 45%, rgba(58, 4, 166, 0) 100%); pointer-events: none; }
+  .how-video { position: relative; inset: auto; z-index: 0; display: block; height: auto; aspect-ratio: 1.6; object-position: 96% 38%; }
+  .how-copy > * { max-width: 620px; }
+  .how-steps { margin-top: -54px; }
 }
 @media (max-width: 760px) {
+  .how-video { aspect-ratio: 1 / .92; }
   .ways { grid-template-columns: 1fr; }
   .ways .way:first-child { flex-direction: column; }
   .ways .way:first-child .way-art { border-right: 0; border-bottom: 1px solid var(--line); }
-  .end-card { display: block; min-height: 0; background: #2a0a6b; }
-  .end-art { position: relative; height: 210px; object-position: 82% 40%; z-index: 0; }
-  .end-card::before { display: none; }
-  .end-copy { padding: 26px 20px 28px; max-width: none; }
+  .how-steps { grid-template-columns: 1fr; margin-top: -54px; row-gap: 22px; }
+  .step { grid-row: auto; grid-template-rows: none; grid-template-columns: minmax(0, 1fr) 104px; grid-template-areas: "art-k art" "h art" "p p" "m m"; column-gap: 12px; align-items: center; }
+  .step-art { grid-area: art; width: 104px; height: 104px; margin: 0; border-radius: 22px; }
+  .step-art img { width: 100px; height: 100px; }
+  .step-art-at img { width: 100px; height: 100px; margin-top: 0; }
+  .at-chip { display: none; } /* too wide for the 104px art; the step's own words and mini post say it */
+  .step-k { grid-area: art-k; align-self: end; }
+  .step h3 { grid-area: h; align-self: start; }
+  .step > p { grid-area: p; }
+  .step .mini { grid-area: m; }
+  .step:not(:last-child)::after { display: block; top: auto; bottom: -23px; right: auto; left: 42px; width: 2px; height: 24px; background: repeating-linear-gradient(180deg, var(--accent) 0 5px, transparent 5px 9px); }
+  .end-card { display: block; min-height: 0; }
+  .end-bg { transform: none; object-position: 30% 50%; }
+  .end-card::before { background: linear-gradient(180deg, rgba(16, 6, 42, .2) 0%, rgba(16, 6, 42, .6) 42%, rgba(16, 6, 42, .7) 100%); }
+  .end-coin { position: relative; right: auto; top: auto; width: 190px; margin: 26px auto -14px; }
+  .end-copy { padding: 18px 20px 28px; max-width: none; }
 }
 @media (max-width: 640px) {
   .section { padding: 48px 0; }
-  .how { padding-top: 44px; }
+  .how { padding-bottom: 48px; }
   .post-title { gap: 12px; margin-bottom: 20px; }
   .post-title > img { width: 40px; height: 40px; }
   .hero { padding: 12px 0 30px; }
@@ -518,6 +632,7 @@ h1 {
   .cmd { margin-top: 16px; padding: 10px 10px 10px 14px; border-radius: 18px; }
   .cmd-label { font-size: 13px; }
   .cmd-text { font-size: 16px; }
+  .cmd-hint { font-size: 14px; }
   .copy { padding: 0 14px; }
   .glimpse { font-size: 13.5px; }
   .cta-row { margin-top: 16px; gap: 10px; flex-wrap: nowrap; }
@@ -526,12 +641,15 @@ h1 {
   .trust-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 13.5px; padding-top: 12px; padding-bottom: 12px; }
   .trust-row li { padding-left: 17px; line-height: 1.4; }
   .trust-row li::before { width: 9px; height: 9px; top: .4em; }
+  .how-band h2 { font-size: clamp(36px, 11vw, 46px); margin-top: 14px; }
+  .how-lead { font-size: 16.5px; margin-top: 12px; }
+  .how-kicker { font-size: 14px; }
   .how-steps { row-gap: 18px; }
-  .step { padding: 16px 16px 16px; row-gap: 6px; border-radius: 22px; }
+  .step { padding: 14px 14px 16px 16px; row-gap: 6px; border-radius: 22px; }
   .step-k { font-size: 19px; }
   .step-n { width: 30px; height: 30px; font-size: 15px; }
-  .step h3 { font-size: 17px; }
-  .step > p { font-size: 15px; line-height: 1.5; }
+  .step h3 { font-size: 17.5px; }
+  .step > p { font-size: 15px; line-height: 1.5; margin-top: 4px; }
   .mini > * { padding: 10px 12px; }
   .step:not(:last-child)::after { bottom: -19px; height: 20px; left: 30px; }
   .note-line { margin-top: 16px; font-size: 14.5px; }
@@ -539,6 +657,7 @@ h1 {
   .lookup-compact { width: 100%; }
   /* Phones: below the heading, behind the opaque lookup field and button, clear of every line of text. */
   .recent-scatter { width: 330px; right: -190px; top: 118px; }
+  .post-title > .fans-art { position: absolute; right: -8px; top: -46px; width: 74px; height: auto; margin: 0; }
   .way-art { display: none; }
   .ways { gap: 14px; }
   .way-copy { padding: 18px 18px 16px; }
@@ -548,6 +667,8 @@ h1 {
   .coin-card { width: min(78vw, 290px); }
   .band { padding: 52px 0; }
   .band-lead { font-size: 16.5px; }
+  .band-side { padding-top: 84px; }
+  .band-crown { width: 120px; right: 10px; top: -26px; }
   .reasons { margin: 20px 0 24px; gap: 12px; }
   .band .btn-gold { width: 100%; }
   .claim-mock { padding: 16px; border-radius: 22px; }
@@ -569,7 +690,8 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .coin-slot, .coin-slot::after, .c3-coin, .c3-face::after, .steam path, .ext-btn, .typing i { animation: none !important; }
-  .play :is(.s1, .s3, .s4, .s5, .s6, .sticker-coin, .sticker-fee) { animation: none !important; opacity: 1 !important; }
+  .coin-slot, .coin-slot::after, .c3-coin, .c3-face::after, .steam path, .ext-btn, .typing i, .band-crown, .fans-art { animation: none !important; }
+  .step-art img { transition: none !important; }
+  .play :is(.s1, .s3, .s4, .s5, .sticker-coin, .sticker-post) { animation: none !important; opacity: 1 !important; }
   .play .s2 { animation: none !important; opacity: 0 !important; }
 }

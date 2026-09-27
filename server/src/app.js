@@ -9,8 +9,12 @@ import { normalizeHandle } from './handles.js';
 import { metaSignatureOk, newCode, readToken, signToken, safeEqual } from './crypto.js';
 import { claimableAccounts, bindAccount } from './identity.js';
 import { codeMessages } from './instagram.js';
-import { mentionEvents, isLaunchRequest, launchedReply, existingReply } from './comments.js';
+import {
+  mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink,
+} from './comments.js';
 import { loadImage, tokenDescription } from './metadata.js';
+import { isBlocked } from './blocks.js';
+import { createPoster, MINT_FILE_RE } from './poster.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -32,12 +36,15 @@ function limiter(limit, windowMs) {
 
 /**
  * deps: { db, cfg, connection,
- *         pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, confirmLaunch, pendingFees, payOut, launchPaidByServer, balanceOf},
- *         ig: {usernameOf, reply}, comments: {readMention, replyToMention}, writeCoin,
- *         uploadMetadata, feePayer, fetchImpl }
+ *         pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, confirmLaunch, pendingFees, payOut, launchPaidByServer,
+ *                launchStatus, balanceOf},
+ *         ig: {usernameOf, reply}, comments: {readMention, replyToMention}, nameCoin,
+ *         uploadMetadata, feePayer, fetchImpl, poster? (src/poster.js; made here when not given) }
  */
 export function createApp(deps) {
   const { db, cfg, connection, pump, ig, uploadMetadata, feePayer } = deps;
+  const poster = deps.poster ?? createPoster({ db, cfg, fetchImpl: deps.fetchImpl });
+
   const app = express();
   app.set('trust proxy', process.env.TRUST_PROXY === '1');
   app.disable('x-powered-by');
@@ -60,7 +67,12 @@ export function createApp(deps) {
     res.sendStatus(403);
   });
   app.post('/webhooks/instagram', express.raw({ type: '*/*', limit: '1mb' }), async (req, res) => {
-    if (!metaSignatureOk(req.body, req.get('x-hub-signature-256'), cfg.ig.appSecret)) return res.sendStatus(401);
+    // Signed with the Instagram app secret or, when set, the Meta app's own secret: the two
+    // products of one Meta app (Instagram Login, Facebook Login) can sign with either.
+    const sig = req.get('x-hub-signature-256');
+    if (![cfg.ig.appSecret, cfg.metaAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
+      return res.sendStatus(401);
+    }
     res.sendStatus(200); // answer Meta at once; work after
     let body;
     try { body = JSON.parse(req.body.toString('utf8')); } catch { return; }
@@ -101,15 +113,36 @@ export function createApp(deps) {
     if (!username) return done('skipped', { note: 'post owner unknown' });
     if (username === cfg.ig.botUsername.toLowerCase()) return done('skipped', { username, note: 'our own post' });
 
-    // One comment-launched coin per creator; later requests point at it.
-    const existing = db.prepare(
-      `select * from token where username = ? and status = 'live' order by created_at limit 1`
-    ).get(username);
+    // A creator who opted out: launch nothing, and say so once for that creator (not once per post),
+    // without an @, so a troll commenting on every post cannot make us notify them again and again.
+    if (isBlocked(db, username)) {
+      const told = db.prepare(
+        `select 1 from comment_request
+          where username = ? and note = 'creator opted out' and comment_id != ?
+            and created_at >= (select created_at from creator_block where username = ?)
+          limit 1`
+      ).get(username, commentId, username);
+      if (!told) await reply(blockedReply(username)).catch((e) => console.error('reply failed', e));
+      return done('skipped', { username, note: 'creator opted out' });
+    }
+
+    // One comment-launched coin per creator; later requests point at it. A launch that was sent
+    // but is not known to have landed yet counts too: it is looked at again first.
+    let existing = currentCoin(username);
+    if (existing?.status === 'prepared') {
+      const outcome = await settleLaunch(existing);
+      if (outcome === 'pending') {
+        await reply(pendingReply({ username, publicUrl: cfg.publicUrl })).catch((e) => console.error('reply failed', e));
+        return done('existing', { username, mint: existing.mint, note: 'launch still unconfirmed' });
+      }
+      existing = currentCoin(username);
+    }
     if (existing) {
       await reply(existingReply({ username, ...existing, publicUrl: cfg.publicUrl }));
       return done('existing', { username, mint: existing.mint });
     }
 
+    // Pending launches count against the budget too (their rows are there).
     const today = db.prepare(
       `select count(*) n from token where source = 'comment' and created_at > ?`
     ).get(Date.now() - 24 * 60 * 60_000).n;
@@ -119,34 +152,112 @@ export function createApp(deps) {
       return done('failed', { username, note: today >= cfg.maxServerLaunchesPerDay ? 'daily budget' : 'fee payer low' });
     }
 
+    let launched, sent = null, image;
     try {
+      // Everything about the coin comes from the post: its picture, its caption (for the name and
+      // ticker), its link (the coin's website). The fan adds at most a lore, and only if Claude passes it.
       const m = mention.media;
       const imageUrl = m.media_type === 'VIDEO' ? m.thumbnail_url : (m.media_url || m.thumbnail_url);
       // A carousel or a post Meta sends no picture for gets the default coin image.
-      const image = imageUrl
-        ? await loadImage({ imageUrl }, deps.fetchImpl).catch(() => DEFAULT_IMAGE())
-        : DEFAULT_IMAGE();
-      const coin = await deps.writeCoin({ username, caption: m.caption });
+      const postImage = imageUrl ? await loadImage({ imageUrl }, deps.fetchImpl).catch(() => null) : null;
+      image = postImage ?? DEFAULT_IMAGE();
+      const coin = await deps.nameCoin({
+        username, caption: m.caption, image: postImage ?? undefined, lore: commentLore(mention.text, cfg.ig.botUsername),
+      });
+      const permalink = instagramPermalink(m.permalink);
       const acct = pump.getOrCreateAccount(db, username, cfg.vaultMasterKey);
       const uri = await uploadMetadata(cfg, {
         name: coin.name, symbol: coin.symbol, username, image,
-        description: tokenDescription(username, coin.lore, cfg.publicUrl),
+        description: coin.lore ?? '',
+        website: permalink ?? `${cfg.publicUrl}/u/${username}`,
       }, deps.fetchImpl);
       const { mint, signature } = await pump.launchPaidByServer(connection, {
         feePayer, vault: acct.vault_pubkey, name: coin.name, symbol: coin.symbol, uri,
+        // Recorded before it is sent: a send whose confirmation is lost may still land, and this row
+        // is what stops a second launch for the creator and counts against the day's budget.
+        onSigned: (s) => {
+          db.prepare(
+            `insert into token (mint, username, name, symbol, launcher, lore, source, post_permalink, status, signature, last_valid_height, created_at)
+             values (?, ?, ?, ?, ?, ?, 'comment', ?, 'prepared', ?, ?, ?)`
+          ).run(s.mint, username, coin.name, coin.symbol, feePayer.publicKey.toBase58(), coin.lore ?? null, permalink,
+            s.signature, s.lastValidBlockHeight ?? null, Date.now());
+          sent = s;
+        },
       });
-      db.prepare(
-        `insert into token (mint, username, name, symbol, launcher, lore, source, status, signature, created_at)
-         values (?, ?, ?, ?, ?, ?, 'comment', 'live', ?, ?)`
-      ).run(mint, username, coin.name, coin.symbol, feePayer.publicKey.toBase58(), coin.lore, signature, Date.now());
-      await reply(launchedReply({ username, ...coin, mint, publicUrl: cfg.publicUrl }));
-      done('launched', { username, mint });
+      db.prepare(`update token set status = 'live', signature = ? where mint = ?`).run(signature, mint);
+      launched = { mint, image, symbol: coin.symbol };
     } catch (e) {
       console.error('comment launch failed', e);
-      await reply('That one didn\'t go through. Try again in a few minutes.');
-      done('failed', { username, note: String(e.message).slice(0, 300) });
+      // Sent, but its confirmation was lost: find out before telling anyone to try again.
+      const outcome = sent && e?.sent ? await settleLaunch(currentRow(sent.mint), { announce: false }) : 'failed';
+      if (outcome === 'live') {
+        const row = currentRow(sent.mint);
+        launched = { mint: row.mint, image, symbol: row.symbol };
+      } else if (outcome === 'pending') {
+        await poster.keepSource(sent.mint, image).catch(() => false); // for the post, if it lands
+        await reply(pendingReply({ username, publicUrl: cfg.publicUrl })).catch(() => {});
+        return done('launched', { username, mint: sent.mint, note: UNCONFIRMED });
+      } else {
+        if (sent) dropLaunch(sent.mint);
+        await reply('That one didn\'t go through. Try again in a few minutes.').catch(() => {});
+        return done('failed', { username, note: String(e.message).slice(0, 300) });
+      }
     }
+    // The coin is live: tell the fan under their comment, then @instapaid.official posts about it
+    // (when the poster is on) and mentions the creator.
+    await reply(launchedReply({ username, symbol: launched.symbol, mint: launched.mint, publicUrl: cfg.publicUrl }))
+      .catch((e) => console.error('reply failed', e));
+    done('launched', { username, mint: launched.mint });
+    await poster.enqueue(launched.mint, launched.image).catch((e) => console.error('post enqueue failed', e));
   }
+
+  const UNCONFIRMED = 'sent, not confirmed yet';
+  const currentRow = (mint) => db.prepare('select * from token where mint = ?').get(mint);
+  /** The creator's coin: a live one first, else a comment launch still waiting for confirmation. */
+  const currentCoin = (username) => db.prepare(
+    `select * from token where username = ? and (status = 'live' or (source = 'comment' and status = 'prepared'))
+      order by status = 'live' desc, created_at limit 1`
+  ).get(username);
+  const dropLaunch = (mint) => db.prepare(
+    `delete from token where mint = ? and source = 'comment' and status = 'prepared'
+       and not exists (select 1 from post_job where post_job.mint = token.mint)`
+  ).run(mint);
+
+  /**
+   * Ask the chain what became of a comment launch that was sent but not confirmed: 'live' (marked
+   * live and, with `announce`, the fan told and the post queued), 'failed' (the row goes, so the
+   * creator can have a coin again) or 'pending' (left as it is).
+   */
+  async function settleLaunch(t, { announce = true } = {}) {
+    if (!t || t.status !== 'prepared' || t.source !== 'comment') return t ? 'live' : 'failed';
+    const acct = db.prepare('select vault_pubkey from account where username = ?').get(t.username);
+    const outcome = await pump.launchStatus(connection, {
+      mint: t.mint, vault: acct?.vault_pubkey, signature: t.signature, lastValidBlockHeight: t.last_valid_height,
+    }).catch(() => 'pending');
+    if (outcome === 'failed') dropLaunch(t.mint);
+    if (outcome !== 'live') return outcome;
+    const r = db.prepare(`update token set status = 'live' where mint = ? and status = 'prepared'`).run(t.mint);
+    if (r.changes && announce) {
+      // The fan who asked was told it was on its way; now tell them it is live.
+      const asked = db.prepare(`select comment_id, media_id from comment_request where mint = ? and note = ?`).get(t.mint, UNCONFIRMED);
+      if (asked) {
+        db.prepare(`update comment_request set note = null where comment_id = ?`).run(asked.comment_id);
+        await deps.comments.replyToMention(cfg, { commentId: asked.comment_id, mediaId: asked.media_id },
+          launchedReply({ username: t.username, symbol: t.symbol, mint: t.mint, publicUrl: cfg.publicUrl }), deps.fetchImpl)
+          .catch((e) => console.error('reply failed', e));
+      }
+      await poster.enqueue(t.mint).catch((e) => console.error('post enqueue failed', e));
+    }
+    return 'live';
+  }
+
+  /** Every comment launch still waiting for confirmation, looked at again (index.js runs this every few minutes). */
+  app.locals.settlePending = () => enqueue(async () => {
+    const rows = db.prepare(`select * from token where source = 'comment' and status = 'prepared' order by created_at`).all();
+    const out = {};
+    for (const t of rows) out[t.mint] = await settleLaunch(t);
+    return out;
+  });
 
   async function verifyCode(igsid, code) {
     const v = db.prepare(`select * from verification where code = ? and status = 'pending'`).get(code);
@@ -162,6 +273,26 @@ export function createApp(deps) {
     if (r.changes) await ig.reply(cfg.ig, igsid, `Verified as @${username}. Go back to the claim page to collect your fees.`);
   }
 
+  // For the host's health check: the process is up and the database answers.
+  app.get('/healthz', (req, res) => {
+    try {
+      db.prepare('select 1').get();
+      res.set('Cache-Control', 'no-store').json({ ok: true });
+    } catch {
+      res.status(503).set('Cache-Control', 'no-store').json({ ok: false });
+    }
+  });
+
+  // The poster's cards. Instagram fetches them from here when it makes the post, so they are public;
+  // only <mint>.jpg names, straight from POSTS_DIR.
+  app.get('/posts/:file', (req, res) => {
+    const file = req.params.file;
+    if (!cfg.postsDir || !MINT_FILE_RE.test(file)) return res.sendStatus(404);
+    res.sendFile(file, {
+      root: cfg.postsDir, dotfiles: 'deny', headers: { 'Cache-Control': 'public, max-age=86400' },
+    }, (err) => { if (err && !res.headersSent) res.sendStatus(404); });
+  });
+
   app.use('/api', express.json({ limit: '6mb' }));
   app.use('/api/accounts', (req, res, next) => { res.set('Access-Control-Allow-Origin', '*'); next(); });
 
@@ -174,7 +305,7 @@ export function createApp(deps) {
   // `claimed` says whether the creator has verified and bound their vault (what /u/<name> shows).
   app.get('/api/recent', (req, res) => {
     const rows = db.prepare(
-      `select t.mint, t.username, t.name, t.symbol, t.lore, t.created_at, a.igsid is not null as claimed
+      `select t.mint, t.username, t.name, t.symbol, t.lore, t.post_permalink, t.created_at, a.igsid is not null as claimed
          from token t join account a using (username)
         where t.status = 'live'
         order by t.created_at desc, t.rowid desc
@@ -191,7 +322,7 @@ export function createApp(deps) {
     const acct = db.prepare('select * from account where username = ?').get(username);
     if (!acct) return res.json({ username, tokens: [], pendingLamports: '0', verified: false });
     const tokens = db.prepare(
-      `select mint, name, symbol, lore, source, created_at from token where username = ? and status = 'live' order by created_at desc`
+      `select mint, name, symbol, lore, source, post_permalink, created_at from token where username = ? and status = 'live' order by created_at desc`
     ).all(username);
     const pending = await pump.pendingFees(connection, acct.vault_pubkey).catch(() => 0n);
     res.json({
@@ -206,6 +337,7 @@ export function createApp(deps) {
     const cleanName = String(name ?? '').trim();
     const cleanSymbol = String(symbol ?? '').trim().toUpperCase();
     if (!username) return res.status(400).json({ error: 'Enter a real Instagram username.' });
+    if (isBlocked(db, username)) return res.status(403).json({ error: `@${username} has asked not to have coins made for them.` });
     if (!cleanName || cleanName.length > 32) return res.status(400).json({ error: 'Name is 1–32 characters.' });
     if (!/^[A-Z0-9]{1,10}$/.test(cleanSymbol)) return res.status(400).json({ error: 'Ticker is 1–10 letters or digits.' });
     if (!isPubkey(launcher)) return res.status(400).json({ error: 'Connect a Solana wallet first.' });
@@ -225,6 +357,8 @@ export function createApp(deps) {
       db.prepare(
         `insert into token (mint, username, name, symbol, launcher, status, created_at) values (?, ?, ?, ?, ?, 'prepared', ?)`
       ).run(built.mint, username, cleanName, cleanSymbol, launcher, Date.now());
+      // Kept for the poster's card, drawn when the launch is confirmed.
+      await poster.keepSource(built.mint, image).catch((e) => console.error('keep picture failed', e.message));
       res.json({ mint: built.mint, tx: built.tx, vault: acct.vault_pubkey });
     } catch (e) {
       console.error('prepare failed', e);
@@ -234,13 +368,17 @@ export function createApp(deps) {
 
   app.post('/api/launch/confirm', async (req, res) => {
     const { mint, signature } = req.body ?? {};
-    const t = typeof mint === 'string' && db.prepare('select t.*, a.vault_pubkey from token t join account a using (username) where mint = ?').get(mint);
+    const t = typeof mint === 'string'
+      && db.prepare(`select t.*, a.vault_pubkey from token t join account a using (username) where mint = ? and t.source = 'web'`).get(mint);
     if (!t) return res.status(404).json({ error: 'Unknown launch.' });
     if (t.status === 'live') return res.json({ ok: true, username: t.username });
     const ok = await pump.confirmLaunch(connection, mint, t.vault_pubkey);
     if (!ok) return res.status(409).json({ error: 'Not on-chain yet. Try again in a few seconds.' });
-    db.prepare(`update token set status = 'live', signature = ? where mint = ?`).run(typeof signature === 'string' ? signature.slice(0, 100) : null, mint);
+    const r = db.prepare(`update token set status = 'live', signature = ? where mint = ? and status = 'prepared'`)
+      .run(typeof signature === 'string' ? signature.slice(0, 100) : null, mint);
     res.json({ ok: true, username: t.username });
+    // After the answer: a website launch is checked by Claude before its post is queued.
+    if (r.changes) poster.enqueue(mint).catch((e) => console.error('post enqueue failed', e));
   });
 
   app.post('/api/verify/start', (req, res) => {

@@ -2,3 +2,5 @@ node_modules/
 /server/.env
 *.db
 *.db-*
+# The poster's cards and the pictures kept from website launches (POSTS_DIR default).
+/server/posts/

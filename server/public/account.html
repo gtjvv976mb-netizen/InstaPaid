@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Creator page — instapaid</title>
-<meta name="description" content="A creator's page on InstaPaid: the fan-made coins launched for this Instagram account, their lore, the creator fees waiting, and whether the account has claimed.">
+<meta name="description" content="A creator's page on InstaPaid: the fan-made coins launched for this Instagram account, the posts they were named from, the creator fees waiting, and whether the account has claimed.">
 <meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="profile">
@@ -43,7 +43,10 @@
   <div class="wrap page-narrow acct">
     <section class="card acct-card" aria-labelledby="at">
       <div class="acct-top">
-        <span class="acct-ava" id="ava" aria-hidden="true">@</span>
+        <span class="ava-crowned">
+          <img class="acct-crown" src="/media/creators-320.webp" srcset="/media/creators-320.webp 320w, /media/creators.webp 640w" sizes="(max-width: 640px) 56px, 66px" width="320" height="320" alt="" aria-hidden="true">
+          <span class="acct-ava" id="ava" aria-hidden="true">@</span>
+        </span>
         <div class="acct-id">
           <span class="handle">Creator page on instapaid.fun</span>
           <h1 id="at">@…</h1>
@@ -75,10 +78,10 @@
         <button class="btn btn-primary" type="submit">Look up</button>
       </div>
       <p class="lookup-err" id="lookup-u-err" hidden></p>
-      <p class="hint lookup-hint">Got here from a reply under a post? The reply names the page: instapaid.fun/u/ and the creator's username.</p>
+      <p class="hint lookup-hint">Got here from our reply under a comment, or a post by @instapaid.official? They name the page: instapaid.fun/u/ and the creator's username.</p>
     </form>
 
-    <p class="fine takedown-line">Is this your account and you don't want coins in your name? DM <span data-bot>@instapaid.official</span> from it and tell us.</p>
+    <p class="fine takedown-line">Is this your account and you don't want coins in your name? DM <span data-bot>@instapaid.official</span> from it and tell us. We stop new ones and stop posting about you.</p>
   </div>
 </main>
 
@@ -104,6 +107,13 @@ import { $, api, sol, wireLookup, isHandle } from '/common.js';
 for (const form of document.querySelectorAll('[data-lookup]')) wireLookup(form);
 api('/api/config').then((c) => { for (const el of document.querySelectorAll('[data-bot]')) el.textContent = '@' + c.botUsername; }).catch(() => {});
 
+/** The Instagram post a coin was named from, only when it really is an instagram.com address. */
+function postUrl(v) {
+  try {
+    const x = new URL(String(v || ''));
+    return x.protocol === 'https:' && (x.hostname === 'www.instagram.com' || x.hostname === 'instagram.com') ? x.href : null;
+  } catch { return null; }
+}
 const u = decodeURIComponent(location.pathname.split('/')[2] || '');
 $('#at').textContent = '@' + u;
 $('#ava').textContent = (u.replace(/[^a-z0-9]/gi, '')[0] || '@').toUpperCase();
@@ -141,14 +151,26 @@ if (a.error) {
     const head = Object.assign(document.createElement('p'), { className: 'token-head' });
     head.append(Object.assign(document.createElement('b'), { textContent: t.name }), ' ', Object.assign(document.createElement('span'), { className: 'tick', textContent: '$' + t.symbol }));
     what.append(head);
-    if (t.lore) what.append(Object.assign(document.createElement('p'), { className: 'hint token-lore', textContent: t.lore }));
+    if (t.lore) {
+      const lore = Object.assign(document.createElement('p'), { className: 'token-lore' });
+      lore.append(Object.assign(document.createElement('span'), { className: 'token-lore-k', textContent: 'Fan lore' }), t.lore);
+      what.append(lore);
+    }
     const meta = Object.assign(document.createElement('p'), { className: 'token-meta' });
     meta.append(Object.assign(document.createElement('span'), { className: 'fan-made', textContent: 'Fan-made' }),
       Object.assign(document.createElement('span'), { className: 'hint', textContent: (t.source === 'comment' ? 'Launched by comment · ' : 'Launched on the website · ') + new Date(t.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) }));
     what.append(meta);
+    const links = Object.assign(document.createElement('div'), { className: 'token-links' });
     const link = Object.assign(document.createElement('a'), { className: 'token-link', href: `https://pump.fun/coin/${encodeURIComponent(t.mint)}`, target: '_blank', rel: 'noopener', textContent: 'pump.fun' });
     link.setAttribute('aria-label', `$${t.symbol} on pump.fun (opens in a new tab)`);
-    li.append(coin, what, link);
+    links.append(link);
+    const post = postUrl(t.post_permalink);
+    if (post) {
+      const a = Object.assign(document.createElement('a'), { className: 'token-link', href: post, target: '_blank', rel: 'noopener', textContent: 'Original post' });
+      a.setAttribute('aria-label', `The Instagram post $${t.symbol} was named from (opens in a new tab)`);
+      links.append(a);
+    }
+    li.append(coin, what, links);
     $('#tokens').append(li);
   }
 }
