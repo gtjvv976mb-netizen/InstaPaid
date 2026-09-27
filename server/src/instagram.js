@@ -24,16 +24,23 @@ export function codeMessages(body) {
 export async function usernameOf(cfg, igsid, fetchImpl = fetch) {
   const url = `${graph(cfg, encodeURIComponent(igsid))}?fields=username&access_token=${encodeURIComponent(cfg.accessToken)}`;
   const r = await fetchImpl(url);
-  if (!r.ok) throw new Error(`instagram profile lookup ${r.status}`);
+  if (!r.ok) throw new Error(`instagram profile lookup ${r.status}: ${await metaError(r)}`);
   const j = await r.json();
   if (!j.username) throw new Error('instagram profile has no username');
   return String(j.username).toLowerCase();
 }
 
 export async function reply(cfg, igsid, text, fetchImpl = fetch) {
-  await fetchImpl(`${graph(cfg, 'me/messages')}?access_token=${encodeURIComponent(cfg.accessToken)}`, {
+  const r = await fetchImpl(`${graph(cfg, 'me/messages')}?access_token=${encodeURIComponent(cfg.accessToken)}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ recipient: { id: igsid }, message: { text } }),
-  }).catch(() => {});
+  }).catch((e) => { console.warn('dm reply: request failed', e.message); return null; });
+  if (r && !r.ok) console.warn(`dm reply: Instagram said ${r.status}: ${await metaError(r)}`);
+}
+
+// Meta's error message only (no tokens are ever in it), for the logs.
+async function metaError(r) {
+  const j = await r.json().catch(() => null);
+  return String(j?.error?.message ?? '').slice(0, 300) || 'no details';
 }

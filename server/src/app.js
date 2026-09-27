@@ -71,12 +71,19 @@ export function createApp(deps) {
     // products of one Meta app (Instagram Login, Facebook Login) can sign with either.
     const sig = req.get('x-hub-signature-256');
     if (![cfg.ig.appSecret, cfg.metaAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
+      // Shape only, never the body: a wrong secret in Render is the usual cause.
+      console.warn(`webhook: rejected, signature ${sig ? 'does not match IG_APP_SECRET or META_APP_SECRET' : 'header missing'}`);
       return res.sendStatus(401);
     }
     res.sendStatus(200); // answer Meta at once; work after
     let body;
-    try { body = JSON.parse(req.body.toString('utf8')); } catch { return; }
-    for (const { igsid, code } of codeMessages(body)) {
+    try { body = JSON.parse(req.body.toString('utf8')); } catch { console.warn('webhook: body is not JSON'); return; }
+    const codes = codeMessages(body);
+    const entries = Array.isArray(body?.entry) ? body.entry : [];
+    const messaging = entries.reduce((n, e) => n + (e.messaging?.length ?? 0), 0);
+    const fields = [...new Set(entries.flatMap((e) => (e.changes ?? []).map((c) => c.field)))];
+    console.log(`webhook: object=${body?.object} entries=${entries.length} messaging=${messaging} changes=[${fields.join(',')}] codes=${codes.length}`);
+    for (const { igsid, code } of codes) {
       try { await verifyCode(igsid, code); } catch (e) { console.error('verify failed', e.message); }
     }
     if (cfg.igUserId) {
@@ -261,8 +268,9 @@ export function createApp(deps) {
 
   async function verifyCode(igsid, code) {
     const v = db.prepare(`select * from verification where code = ? and status = 'pending'`).get(code);
-    if (!v) return;
+    if (!v) { console.log('verify: code not found or already used'); return; }
     if (v.expires_at < Date.now()) {
+      console.log('verify: code expired');
       db.prepare(`update verification set status = 'expired' where id = ?`).run(v.id);
       return ig.reply(cfg.ig, igsid, 'That code has expired. Start again on the claim page for a new one.');
     }
@@ -270,7 +278,10 @@ export function createApp(deps) {
     const r = db.prepare(
       `update verification set status = 'verified', igsid = ?, username = ? where id = ? and status = 'pending'`
     ).run(igsid, username, v.id);
-    if (r.changes) await ig.reply(cfg.ig, igsid, `Verified as @${username}. Go back to the claim page to collect your fees.`);
+    if (r.changes) {
+      console.log(`verify: verified @${username}`);
+      await ig.reply(cfg.ig, igsid, `Verified as @${username}. Go back to the claim page to collect your fees.`);
+    }
   }
 
   // For the host's health check: the process is up and the database answers.
