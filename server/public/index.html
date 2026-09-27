@@ -86,78 +86,101 @@
         </ul>
       </div>
 
-      <!-- The stage: a post, a fan's comment and our reply, played in sequence. An illustration. -->
+      <!-- The stage: a post, a fan's comment and our reply, played in sequence. An illustration.
+           The phone is a CSS 3D model (home.js builds its rim): drag it, flick it, or turn it with the arrow keys. -->
       <div class="hero-stage" data-stage data-motion>
-        <div class="coin-slot coin-stage">
-          <img class="coin-img" src="/media/hero-coin-512.webp" srcset="/media/hero-coin-512.webp 512w, /media/hero-coin.webp 1024w" sizes="280px" width="512" height="512" alt="">
-        </div>
-
-        <div class="phone" role="img" aria-label="Illustration: under a bakery post by baker.example, captioned 4 a.m. and the first loaf is out, a fan comments: @instapaid.official make a token for this creator: the baker who never sleeps. instapaid.official replies: $LOAF is live for @baker.example. Coin: pump.fun/coin/7xKq…c9fQ. @baker.example can claim the creator fees: instapaid.fun/u/baker.example. Fan-made, not by @baker.example. The coin, First Loaf, wears the post's photo, and instapaid.official posts it on its feed, mentioning @baker.example so they can claim.">
-          <div class="phone-screen">
-            <div class="app-bar" aria-hidden="true"><span class="ab-tag">Illustration</span><span class="ab-title">Public post</span></div>
-            <div class="post-head">
-              <span class="ava ava-peach">BE</span>
-              <span class="pm-who"><b>baker.example</b><small>Example account</small></span>
+        <p id="p3-how" hidden>Drag it or use the arrow keys to turn it. Home turns it back.</p>
+        <div class="p3" data-p3 tabindex="0" role="group" aria-label="3D preview of a post" aria-describedby="p3-how">
+          <div class="p3-glow" aria-hidden="true"></div>
+          <div class="p3-floor" aria-hidden="true"></div>
+          <div class="p3-rig" data-p3-rig>
+            <!-- Around the phone, at different depths: the coin, sparkles and the stickers. -->
+            <div class="p3-coin" aria-hidden="true">
+              <div class="coin-slot coin-stage">
+                <img class="coin-img" src="/media/hero-coin-512.webp" srcset="/media/hero-coin-512.webp 512w, /media/hero-coin.webp 1024w" sizes="280px" width="512" height="512" alt="" draggable="false">
+              </div>
             </div>
-            <div class="post-media">
-              <svg viewBox="0 36 320 132" aria-hidden="true">
-                <defs>
-                  <linearGradient id="bg-m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7cf"/><stop offset="1" stop-color="#ffc9b0"/></linearGradient>
-                  <linearGradient id="loaf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d98a3d"/><stop offset="1" stop-color="#9c5421"/></linearGradient>
-                  <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset=".45" stop-color="#f5b400"/><stop offset="1" stop-color="#a55e00"/></linearGradient>
-                  <clipPath id="coin-clip"><circle cx="32" cy="32" r="26.2"/></clipPath>
-                </defs>
-                <g id="loaf-photo">
-                  <rect y="0" width="320" height="220" fill="url(#bg-m)"/>
-                  <circle cx="262" cy="60" r="24" fill="#fff4e4" opacity=".8"/>
-                  <rect x="0" y="160" width="320" height="60" fill="#e8b48f"/>
-                  <ellipse cx="160" cy="162" rx="104" ry="12" fill="#c98c62" opacity=".6"/>
-                  <path d="M68 162c0-50 40-82 92-82s92 32 92 82z" fill="url(#loaf)"/>
-                  <path d="M108 112c18 10 34 10 52 0M150 98c18 10 34 10 52 0M128 134c18 10 34 10 52 0" fill="none" stroke="#f6d6a8" stroke-width="7" stroke-linecap="round"/>
-                </g>
-                <g class="steam" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".85">
-                  <path d="M130 70c-8-10 8-16 0-28"/><path d="M160 64c-8-10 8-16 0-28"/><path d="M190 70c-8-10 8-16 0-28"/>
-                </g>
-              </svg>
-            </div>
-            <p class="caption"><b>baker.example</b> 4 a.m. and the first loaf is out.</p>
+            <i class="p3-spark sp1" aria-hidden="true"></i><i class="p3-spark sp2" aria-hidden="true"></i><i class="p3-spark sp3" aria-hidden="true"></i><i class="p3-spark sp4" aria-hidden="true"></i>
 
-            <div class="thread">
-              <div class="cmt s1">
-                <span class="ava ava-teal">FE</span>
-                <div class="cmt-body">
-                  <p><b>fan.example</b> <span class="mention">@instapaid.official</span> make a token for this creator: <span class="lore-in">the baker who never sleeps</span></p>
+            <div class="phone" role="img" aria-label="Illustration: under a bakery post by baker.example, captioned 4 a.m. and the first loaf is out, a fan comments: @instapaid.official make a token for this creator: the baker who never sleeps. instapaid.official replies: $LOAF is live for @baker.example. Coin: pump.fun/coin/7xKq…c9fQ. @baker.example can claim the creator fees: instapaid.fun/u/baker.example. Fan-made, not by @baker.example. The coin, First Loaf, wears the post's photo, and instapaid.official posts it on its feed, mentioning @baker.example so they can claim.">
+              <!-- The body: rim (built by home.js), side keys and the back, behind the screen. -->
+              <div class="p3-body" aria-hidden="true" data-p3-body>
+                <div class="p3-back">
+                  <i class="p3-cam"><b></b><b></b><s></s></i>
+                  <svg class="p3-at" viewBox="0 0 400 400"><path d="M242 158V226a28 28 0 0 0 56 0V200a98 98 0 1 0-38 78" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="200" cy="200" r="42" fill="none" stroke="#fff" stroke-width="22"/></svg>
+                  <i class="p3-sheen" data-p3-sheen></i>
                 </div>
               </div>
-
-              <div class="reply-wrap">
-                <div class="typing s2">
-                  <img src="/mark.svg" alt="" width="22" height="22"><span>instapaid.official is replying</span><i></i><i></i><i></i>
+              <div class="phone-screen">
+                <div class="app-bar" aria-hidden="true"><span class="ab-tag">Illustration</span><span class="ab-title">Public post</span></div>
+                <div class="post-head">
+                  <span class="ava ava-peach">BE</span>
+                  <span class="pm-who"><b>baker.example</b><small>Example account</small></span>
                 </div>
-                <div class="cmt reply s3">
-                  <img class="ava" src="/mark.svg" alt="" width="26" height="26">
-                  <div class="cmt-body">
-                    <p><b>instapaid.official</b> <strong class="tick">$LOAF</strong> is live for <span class="mention">@baker.example</span></p>
-                    <p class="links s4"><span>Coin: pump.fun/coin/7xKq…c9fQ</span><span>@baker.example can claim the creator fees: instapaid.fun/u/<wbr>baker.example</span></p>
-                    <p class="fanmade s5">Fan-made, not by @baker.example.</p>
+                <div class="post-media">
+                  <svg viewBox="0 36 320 132" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="bg-m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7cf"/><stop offset="1" stop-color="#ffc9b0"/></linearGradient>
+                      <linearGradient id="loaf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d98a3d"/><stop offset="1" stop-color="#9c5421"/></linearGradient>
+                      <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset=".45" stop-color="#f5b400"/><stop offset="1" stop-color="#a55e00"/></linearGradient>
+                      <clipPath id="coin-clip"><circle cx="32" cy="32" r="26.2"/></clipPath>
+                    </defs>
+                    <g id="loaf-photo">
+                      <rect y="0" width="320" height="220" fill="url(#bg-m)"/>
+                      <circle cx="262" cy="60" r="24" fill="#fff4e4" opacity=".8"/>
+                      <rect x="0" y="160" width="320" height="60" fill="#e8b48f"/>
+                      <ellipse cx="160" cy="162" rx="104" ry="12" fill="#c98c62" opacity=".6"/>
+                      <path d="M68 162c0-50 40-82 92-82s92 32 92 82z" fill="url(#loaf)"/>
+                      <path d="M108 112c18 10 34 10 52 0M150 98c18 10 34 10 52 0M128 134c18 10 34 10 52 0" fill="none" stroke="#f6d6a8" stroke-width="7" stroke-linecap="round"/>
+                    </g>
+                    <g class="steam" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".85">
+                      <path d="M130 70c-8-10 8-16 0-28"/><path d="M160 64c-8-10 8-16 0-28"/><path d="M190 70c-8-10 8-16 0-28"/>
+                    </g>
+                  </svg>
+                </div>
+                <p class="caption"><b>baker.example</b> 4 a.m. and the first loaf is out.</p>
+
+                <div class="thread">
+                  <div class="cmt s1">
+                    <span class="ava ava-teal">FE</span>
+                    <div class="cmt-body">
+                      <p><b>fan.example</b> <span class="mention">@instapaid.official</span> make a token for this creator: <span class="lore-in">the baker who never sleeps</span></p>
+                    </div>
+                  </div>
+
+                  <div class="reply-wrap">
+                    <div class="typing s2">
+                      <img src="/mark.svg" alt="" width="22" height="22"><span>instapaid.official is replying</span><i></i><i></i><i></i>
+                    </div>
+                    <div class="cmt reply s3">
+                      <img class="ava" src="/mark.svg" alt="" width="26" height="26">
+                      <div class="cmt-body">
+                        <p><b>instapaid.official</b> <strong class="tick">$LOAF</strong> is live for <span class="mention">@baker.example</span></p>
+                        <p class="links s4"><span>Coin: pump.fun/coin/7xKq…c9fQ</span><span>@baker.example can claim the creator fees: instapaid.fun/u/<wbr>baker.example</span></p>
+                        <p class="fanmade s5">Fan-made, not by @baker.example.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+              <!-- The glass: a glare that slides as the phone turns. -->
+              <div class="p3-glass" aria-hidden="true"><i data-p3-glare></i></div>
+              <!-- Then we post it on our feed and mention the creator. -->
+              <div class="sticker sticker-post" aria-hidden="true">
+                <img class="st-ava" src="/mark.svg" alt="" width="38" height="38">
+                <span class="st-txt"><b>Posted on instapaid.official</b><small>Mentions <span class="st-at">@baker.example</span><span class="st-more"> to claim</span></small></span>
+              </div>
+            </div>
+
+            <!-- The coin wears the post's photo. -->
+            <div class="sticker sticker-coin" aria-hidden="true">
+              <svg class="post-coin" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="31" fill="url(#ring)"/><g clip-path="url(#coin-clip)"><svg x="5" y="5" width="54" height="54" viewBox="70 38 180 180"><use href="#loaf-photo"/></svg></g><circle cx="32" cy="32" r="26.2" fill="none" stroke="#8a4b00" stroke-width="1.6"/>
+              </svg>
+              <span class="st-txt"><b>First Loaf <span class="st-tick">$LOAF</span></b><small>Named from the post</small></span>
             </div>
           </div>
-          <!-- Then we post it on our feed and mention the creator. -->
-          <div class="sticker sticker-post" aria-hidden="true">
-            <img class="st-ava" src="/mark.svg" alt="" width="38" height="38">
-            <span class="st-txt"><b>Posted on instapaid.official</b><small>Mentions <span class="st-at">@baker.example</span><span class="st-more"> to claim</span></small></span>
-          </div>
-        </div>
-
-        <!-- The coin wears the post's photo. -->
-        <div class="sticker sticker-coin" aria-hidden="true">
-          <svg class="post-coin" viewBox="0 0 64 64">
-            <circle cx="32" cy="32" r="31" fill="url(#ring)"/><g clip-path="url(#coin-clip)"><svg x="5" y="5" width="54" height="54" viewBox="70 38 180 180"><use href="#loaf-photo"/></svg></g><circle cx="32" cy="32" r="26.2" fill="none" stroke="#8a4b00" stroke-width="1.6"/>
-          </svg>
-          <span class="st-txt"><b>First Loaf <span class="st-tick">$LOAF</span></b><small>Named from the post</small></span>
+          <span class="p3-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h16M7.5 8.5 4 12l3.5 3.5M16.5 8.5 20 12l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="h-drag">Drag to turn</span><span class="h-keys">Arrow keys turn it</span></span>
         </div>
         <div class="stage-foot">
           <button class="replay" type="button" data-replay><svg aria-hidden="true"><use href="/icons.svg#replay"/></svg>Play it again</button>
