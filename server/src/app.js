@@ -165,7 +165,24 @@ export function createApp(deps) {
   app.use('/api', express.json({ limit: '6mb' }));
   app.use('/api/accounts', (req, res, next) => { res.set('Access-Control-Allow-Origin', '*'); next(); });
 
-  app.get('/api/config', (req, res) => res.json({ botUsername: cfg.ig.botUsername, publicUrl: cfg.publicUrl }));
+  // platformFeeBps lets the claim page show any platform share before anything is sent.
+  app.get('/api/config', (req, res) => res.json({
+    botUsername: cfg.ig.botUsername, publicUrl: cfg.publicUrl, platformFeeBps: cfg.platformFeeBps || 0,
+  }));
+
+  // Public: the newest live coins, for the home page's "Recently launched" strip. No prices;
+  // `claimed` says whether the creator has verified and bound their vault (what /u/<name> shows).
+  app.get('/api/recent', (req, res) => {
+    const rows = db.prepare(
+      `select t.mint, t.username, t.name, t.symbol, t.lore, t.created_at, a.igsid is not null as claimed
+         from token t join account a using (username)
+        where t.status = 'live'
+        order by t.created_at desc, t.rowid desc
+        limit 12`
+    ).all();
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json({ tokens: rows.map((r) => ({ ...r, claimed: !!r.claimed })) });
+  });
 
   // Public: what an Instagram account has waiting. The extension shows this on profiles.
   app.get('/api/accounts/:username', async (req, res) => {
@@ -294,6 +311,11 @@ export function createApp(deps) {
   app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife));
   app.use(express.static(join(here, '..', 'public'), { extensions: ['html'] }));
   app.get('/u/:username', (req, res) => res.sendFile(join(here, '..', 'public', 'account.html')));
+  // The "See a creator's page" form without JavaScript: /u?u=name → /u/name.
+  app.get('/u', (req, res) => {
+    const u = normalizeHandle(String(req.query.u ?? ''));
+    res.redirect(302, u ? `/u/${encodeURIComponent(u)}` : '/#creators');
+  });
 
   return app;
 }

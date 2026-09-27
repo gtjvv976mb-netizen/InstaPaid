@@ -50,7 +50,7 @@ export async function replyToMention(cfg, { commentId, mediaId }, message, fetch
 
 export function launchedReply({ username, name, symbol, mint, lore, publicUrl }) {
   return [
-    `$${symbol} is live for @${username} 🚀`,
+    `$${symbol} is live for @${username}.`,
     '',
     lore,
     '',

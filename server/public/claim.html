@@ -1,38 +1,138 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claim fees — InstaPaid</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Claim your fees — instapaid</title>
+<meta name="description" content="Instagram creators: claim the creator fees from coins fans made for you. Get a one-time code, DM it to @instapaid.official, and send the fees to any Solana wallet.">
+<meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="InstaPaid">
+<meta property="og:url" content="https://instapaid.fun/claim">
+<meta property="og:title" content="Claim your creator fees — InstaPaid">
+<meta property="og:description" content="Fans made you a coin? Prove the account is yours with a DM and send its creator fees to any Solana wallet.">
+<meta property="og:image" content="https://instapaid.fun/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
-</head><body>
-<header><a class="brand" href="/">InstaPaid</a><nav><a href="/launch">Launch</a></nav></header>
-<main>
-  <div class="card" id="start">
-    <h1>Claim your creator fees</h1>
-    <p class="sub">Prove the Instagram account is yours by sending us a one-time code by DM. We never ask for your password.</p>
-    <button class="primary" id="begin" type="button">Get my code</button>
-    <div id="msg0" hidden></div>
-  </div>
+</head>
+<body>
 
-  <div class="card" id="dm" hidden>
-    <h2>Send this code by DM</h2>
-    <ol class="steps">
-      <li>Copy the code.</li>
-      <li>From the account you want to claim for, send it as a message to <a id="bot" target="_blank" rel="noopener"></a>.</li>
-      <li>Keep this page open. It moves on by itself as soon as the message arrives.</li>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap top-bar">
+    <a class="brand" href="/" aria-label="instapaid, home">
+      <img src="/mark.svg" alt="" width="38" height="38">
+      <span class="wordmark" aria-hidden="true"></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a class="nav-link hide-md" href="/#how">How it works</a>
+      <a class="nav-link hide-md" href="/#faq">FAQ</a>
+      <a class="nav-link" href="/claim" aria-current="page"><span class="long">Claim fees</span><span class="short">Claim</span></a>
+      <a class="btn btn-primary btn-sm" href="/launch"><span class="long">Launch a coin</span><span class="short">Launch</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="page">
+  <div class="wrap page-narrow">
+    <div class="page-head">
+      <img src="/mark.svg" alt="" width="46" height="46">
+      <div>
+        <span class="handle">For creators</span>
+        <h1 class="page-title">Claim your creator fees</h1>
+      </div>
+    </div>
+
+    <ol class="progress" id="progress" aria-label="Claim steps">
+      <li class="on" aria-current="step"><span>1</span>Get a code</li>
+      <li><span>2</span>DM it to us</li>
+      <li><span>3</span>Choose a wallet</li>
     </ol>
-    <div class="code" id="code"></div>
-    <button type="button" id="copy">Copy code</button>
-    <div class="note warn" id="wait">Waiting for your message… The code works for 15 minutes.</div>
-  </div>
 
-  <div class="card" id="pay" hidden>
-    <h2>Verified as <span id="me"></span></h2>
-    <ul class="list" id="accts"></ul>
-    <label for="dest">Send to this Solana wallet</label>
-    <input id="dest" autocomplete="off" spellcheck="false" placeholder="Wallet address">
-    <button class="primary" id="claim" type="button">Claim everything</button>
-    <div id="msg" hidden></div>
+    <div class="card" id="start">
+      <h2>Prove the account is yours</h2>
+      <p class="sub">You'll get a one-time code. Send it by DM from the Instagram account the coins were made for, then choose any Solana wallet. You don't need a wallet until the last step.</p>
+      <ul class="side-list">
+        <li><svg aria-hidden="true"><use href="/icons.svg#clock"/></svg><span>The code works for 15 minutes.</span></li>
+        <li><svg aria-hidden="true"><use href="/icons.svg#eye"/></svg><span>You'll see what's waiting, and any platform share, before anything is sent.</span></li>
+        <li><svg aria-hidden="true"><use href="/icons.svg#wallet"/></svg><span>We pay the network fee.</span></li>
+      </ul>
+      <button class="primary" id="begin" type="button"><svg aria-hidden="true"><use href="/icons.svg#key"/></svg>Get my code</button>
+      <div id="msg0" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <div class="card" id="dm" hidden>
+      <h2>Send this code by DM</h2>
+      <div class="code-card" role="group" aria-labelledby="code-label">
+        <span class="code-label" id="code-label">Your one-time code</span>
+        <div class="code" id="code"></div>
+        <button type="button" id="copy" class="copy code-copy"><svg aria-hidden="true"><use href="/icons.svg#copy"/></svg><span data-copy-label>Copy code</span></button>
+        <p class="sr-only" role="status" aria-live="polite" id="copy-status"></p>
+      </div>
+      <ol class="steps">
+        <li>Copy the code.</li>
+        <li>From the account you want to claim for, send it as a message to <a id="bot" target="_blank" rel="noopener"></a>.</li>
+        <li>Keep this page open. It moves on by itself as soon as the message arrives.</li>
+      </ol>
+      <a class="btn btn-ghost btn-block" id="open-dm" target="_blank" rel="noopener" hidden><svg aria-hidden="true"><use href="/icons.svg#send"/></svg>Open the DM on Instagram</a>
+      <div class="note warn" id="wait" role="status" aria-live="polite">Waiting for your message… The code works for 15 minutes.</div>
+    </div>
+
+    <div class="card" id="pay" hidden>
+      <h2>Verified as <span id="me"></span></h2>
+      <p class="sub">Here's what's waiting. Nothing is sent until you press the button.</p>
+      <ul class="list fees-list" id="accts"></ul>
+      <p class="share" id="share" hidden></p>
+      <label for="dest">Send to this Solana wallet</label>
+      <input id="dest" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Wallet address">
+      <p class="hint field-hint">Any Solana wallet address. We pay the network fee. Your first claim ties these fees to your account for good, even if you change your username later.</p>
+      <button class="primary gold" id="claim" type="button"><svg aria-hidden="true"><use href="/icons.svg#send"/></svg>Send my fees</button>
+      <div id="msg" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <div class="scam">
+      <svg aria-hidden="true"><use href="/icons.svg#shield"/></svg>
+      <div>
+        <p><b>We never ask for your password, seed phrase or private key, and never ask you to pay to claim.</b></p>
+        <p>The only DM we need is the code you got yourself on this page, sent to <b data-bot>@instapaid.official</b>. Anyone else claiming to be InstaPaid is not us.</p>
+      </div>
+    </div>
+
+    <details class="card more-info">
+      <summary>Good to know</summary>
+      <ul>
+        <li>Before a handle's first claim, whoever holds it when they verify can claim. After that, the fees stay with the account that claimed, through renames and recycled handles.</li>
+        <li>Very small balances (below about 0.001 SOL) can't be sent yet. If that happens, come back when more has built up.</li>
+        <li>Don't want coins made in your name? DM <span data-bot>@instapaid.official</span> from your account and tell us.</li>
+      </ul>
+    </details>
   </div>
 </main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32"><span class="wordmark" aria-hidden="true"></span></a>
+      <p>© 2026 instapaid.fun</p>
+    </div>
+    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="/#how">How it works</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/launch">Launch</a>
+      <a href="/claim">Claim fees</a>
+      <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
+    </nav>
+  </div>
+</footer>
+
 <script type="module" src="/claim.js"></script>
-</body></html>
+</body>
+</html>
