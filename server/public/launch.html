@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch a coin — InstaPaid</title>
+<link rel="stylesheet" href="/app.css">
+<script src="/vendor/web3.js"></script>
+</head><body>
+<header><a class="brand" href="/">InstaPaid</a><nav><a href="/claim">Claim fees</a></nav></header>
+<main>
+  <form class="card" id="f" novalidate>
+    <h1>Launch a coin</h1>
+    <p class="sub">Creator fees go to the Instagram account below. Only that account can claim them, after it proves it's theirs.</p>
+
+    <div class="who"><img id="pic" alt="" hidden><div><b id="at">@…</b><div class="hint" id="waiting"></div></div></div>
+
+    <label for="username">Instagram username</label>
+    <input id="username" name="username" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+
+    <div class="row">
+      <div><label for="name">Coin name</label><input id="name" maxlength="32" required></div>
+      <div><label for="symbol">Ticker</label><input id="symbol" maxlength="10" required></div>
+    </div>
+
+    <label for="description">Description <span class="hint">(optional)</span></label>
+    <textarea id="description" maxlength="400"></textarea>
+    <p class="hint">Every coin also says whose fees these are and that you launched it, not the account.</p>
+
+    <label for="image">Image <span class="hint">(defaults to the profile picture)</span></label>
+    <input id="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+
+    <label for="buy">Your first buy, in SOL <span class="hint">(optional)</span></label>
+    <input id="buy" type="number" min="0" max="50" step="0.01" value="0" inputmode="decimal">
+
+    <button class="primary" id="go" type="submit">Connect wallet and launch</button>
+    <div id="msg" hidden></div>
+  </form>
+</main>
+<script type="module" src="/launch.js"></script>
+</body></html>

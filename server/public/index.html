@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InstaPaid — tokens for Instagram accounts</title>
+<link rel="stylesheet" href="/app.css">
+</head><body>
+<header><a class="brand" href="/">InstaPaid</a><nav><a href="/launch">Launch</a><a href="/claim">Claim fees</a></nav></header>
+<main>
+  <div class="card">
+    <h1>Launch a coin for any Instagram account</h1>
+    <p class="sub">Coins go live on pump.fun. Their creator fees build up for the Instagram account itself, and only that account can claim them.</p>
+    <ol class="steps">
+      <li>Open a profile on instagram.com with the instapaid extension, or type a username here.</li>
+      <li>Name the coin and sign with your Solana wallet. You pay the pump.fun launch cost and any first buy.</li>
+      <li>The account's owner DMs a one-time code to <b id="bot">our Instagram account</b> and claims to any wallet.</li>
+    </ol>
+    <a class="btn primary" href="/launch">Launch a coin</a>
+  </div>
+  <div class="card">
+    <h2>Own an Instagram account?</h2>
+    <p class="sub">See what your coins have earned and claim it. You don't need a wallet until you claim.</p>
+    <a class="btn" href="/claim">Claim my fees</a>
+  </div>
+</main>
+<script type="module">
+import { api } from '/common.js';
+api('/api/config').then((c) => { document.getElementById('bot').textContent = '@' + c.botUsername; }).catch(() => {});
+</script>
+</body></html>

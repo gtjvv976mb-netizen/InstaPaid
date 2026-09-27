@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account — InstaPaid</title>
+<link rel="stylesheet" href="/app.css">
+</head><body>
+<header><a class="brand" href="/">InstaPaid</a><nav><a href="/launch">Launch</a><a href="/claim">Claim fees</a></nav></header>
+<main>
+  <div class="card">
+    <h1 id="at">@…</h1>
+    <p class="sub" id="status"></p>
+    <div class="big" id="fees">–</div>
+    <p class="hint">SOL in creator fees waiting for this account</p>
+    <a class="btn primary" id="launch">Launch a coin for this account</a>
+  </div>
+  <div class="card"><h2>Coins</h2><ul class="list" id="tokens"></ul></div>
+  <p class="hint">These coins were launched by fans. The account didn't make them and doesn't endorse them unless it says so itself.</p>
+</main>
+<script type="module">
+import { $, api, sol } from '/common.js';
+const u = decodeURIComponent(location.pathname.split('/')[2] || '');
+$('#at').textContent = '@' + u;
+$('#launch').href = '/launch?u=' + encodeURIComponent(u);
+const a = await api('/api/accounts/' + encodeURIComponent(u)).catch((e) => ({ error: e.message }));
+if (a.error) { $('#status').textContent = a.error; }
+else {
+  $('#fees').textContent = sol(a.pendingLamports);
+  $('#status').textContent = a.verified ? 'The owner has verified this account and claims its fees.' : 'The owner hasn\'t claimed yet. Fees keep building until they do.';
+  if (!a.tokens.length) $('#tokens').append(Object.assign(document.createElement('li'), { textContent: 'No coins yet.' }));
+  for (const t of a.tokens) {
+    const li = document.createElement('li');
+    li.append(Object.assign(document.createElement('span'), { textContent: `${t.name} ($${t.symbol})` }));
+    li.append(Object.assign(document.createElement('a'), { href: `https://pump.fun/coin/${t.mint}`, target: '_blank', rel: 'noopener', textContent: 'pump.fun' }));
+    $('#tokens').append(li);
+  }
+}
+</script>
+</body></html>

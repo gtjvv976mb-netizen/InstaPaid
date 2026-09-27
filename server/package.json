@@ -1,0 +1,27 @@
+{
+  "name": "instapaid-server",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@pump-fun/pump-sdk": "^2.0.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "better-sqlite3": "^13.0.3",
+    "bn.js": "^5.2.5",
+    "bs58": "^6.0.0",
+    "express": "^5.2.1"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "tweetnacl": "^1.0.3"
+  }
+}

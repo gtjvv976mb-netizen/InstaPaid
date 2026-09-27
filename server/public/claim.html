@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claim fees — InstaPaid</title>
+<link rel="stylesheet" href="/app.css">
+</head><body>
+<header><a class="brand" href="/">InstaPaid</a><nav><a href="/launch">Launch</a></nav></header>
+<main>
+  <div class="card" id="start">
+    <h1>Claim your creator fees</h1>
+    <p class="sub">Prove the Instagram account is yours by sending us a one-time code by DM. We never ask for your password.</p>
+    <button class="primary" id="begin" type="button">Get my code</button>
+    <div id="msg0" hidden></div>
+  </div>
+
+  <div class="card" id="dm" hidden>
+    <h2>Send this code by DM</h2>
+    <ol class="steps">
+      <li>Copy the code.</li>
+      <li>From the account you want to claim for, send it as a message to <a id="bot" target="_blank" rel="noopener"></a>.</li>
+      <li>Keep this page open. It moves on by itself as soon as the message arrives.</li>
+    </ol>
+    <div class="code" id="code"></div>
+    <button type="button" id="copy">Copy code</button>
+    <div class="note warn" id="wait">Waiting for your message… The code works for 15 minutes.</div>
+  </div>
+
+  <div class="card" id="pay" hidden>
+    <h2>Verified as <span id="me"></span></h2>
+    <ul class="list" id="accts"></ul>
+    <label for="dest">Send to this Solana wallet</label>
+    <input id="dest" autocomplete="off" spellcheck="false" placeholder="Wallet address">
+    <button class="primary" id="claim" type="button">Claim everything</button>
+    <div id="msg" hidden></div>
+  </div>
+</main>
+<script type="module" src="/claim.js"></script>
+</body></html>

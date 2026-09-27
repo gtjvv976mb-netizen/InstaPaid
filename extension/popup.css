@@ -1,0 +1,7 @@
+body { width: 280px; margin: 0; padding: 16px; font: 14px/1.45 system-ui, sans-serif; color: #1f2937; }
+h1 { font-size: 17px; margin: 0 0 8px; }
+p { color: #475467; margin: 0 0 12px; }
+button { display: block; width: 100%; min-height: 44px; margin-bottom: 8px; border-radius: 10px; border: 1px solid #e6e9ee; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+#launch { background: #c13584; border-color: #c13584; color: #fff; }
+a { color: #475467; font-size: 13px; }
+@media (prefers-color-scheme: dark) { body { background: #1d232a; color: #eef1f4; } p, a { color: #b9c1cb; } button { background: #15191e; color: #eef1f4; border-color: #2c343d; } }
