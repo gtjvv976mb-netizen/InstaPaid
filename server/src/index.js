@@ -5,6 +5,8 @@ import { createApp } from './app.js';
 import * as pump from './pump.js';
 import * as ig from './instagram.js';
 import { uploadMetadata } from './metadata.js';
+import * as comments from './comments.js';
+import { writeCoin } from './lore.js';
 
 assertConfig(config);
 const app = createApp({
@@ -14,6 +16,8 @@ const app = createApp({
   pump,
   ig,
   uploadMetadata,
+  comments,
+  writeCoin,
   feePayer: pump.parseSecretKey(config.feePayerSecret),
   fetchImpl: fetch,
 });

@@ -156,3 +156,24 @@ export async function payOut(connection, { vault, feePayer, destination, platfor
   const transferSig = await sendAndConfirm(connection, ixs, feePayer, [feePayer, vault]);
   return { collectSig, transferSig, lamports: balance - platformFee, platformFee };
 }
+
+/**
+ * A launch the server pays for (from a comment): the fee payer is the launcher, the vault is
+ * still the creator. Returns once the coin is confirmed on-chain.
+ */
+export async function launchPaidByServer(connection, { feePayer, vault, name, symbol, uri }) {
+  const built = await buildLaunchTx(connection, {
+    launcher: feePayer.publicKey.toBase58(), vault, name, symbol, uri, devBuySol: 0,
+  });
+  const tx = VersionedTransaction.deserialize(Buffer.from(built.tx, 'base64'));
+  tx.sign([feePayer]); // adds the payer's signature beside the mint's
+  const signature = await connection.sendTransaction(tx, { maxRetries: 3 });
+  const res = await connection.confirmTransaction(
+    { signature, blockhash: tx.message.recentBlockhash, lastValidBlockHeight: built.lastValidBlockHeight }, 'confirmed');
+  if (res.value.err) throw new Error(`launch ${signature} failed: ${JSON.stringify(res.value.err)}`);
+  return { mint: built.mint, signature };
+}
+
+export async function balanceOf(connection, pubkey) {
+  return BigInt(await connection.getBalance(pubkey, 'confirmed'));
+}

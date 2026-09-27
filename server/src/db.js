@@ -22,6 +22,8 @@ export function openDb(path) {
       name          text not null,
       symbol        text not null,
       launcher      text not null,
+      lore          text,
+      source        text not null default 'web' check (source in ('web','comment')),
       status        text not null check (status in ('prepared','live')),
       signature     text,
       created_at    integer not null
@@ -37,6 +39,17 @@ export function openDb(path) {
       username      text,
       created_at    integer not null,
       expires_at    integer not null
+    );
+
+    -- One row per comment that asked for a coin, so a webhook retry never launches twice.
+    create table if not exists comment_request (
+      comment_id    text primary key,
+      media_id      text not null,
+      username      text,                       -- the post's owner, when Meta says
+      status        text not null check (status in ('working','launched','existing','skipped','failed')),
+      mint          text,
+      note          text,
+      created_at    integer not null
     );
 
     create table if not exists claim (

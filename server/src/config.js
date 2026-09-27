@@ -26,6 +26,12 @@ export const config = {
     verifyToken: env('IG_WEBHOOK_VERIFY_TOKEN'),
     graphVersion: env('IG_GRAPH_VERSION', 'v23.0'),
   },
+  // Comment launches ("@bot make a token for this creator"): the Instagram API with Facebook Login.
+  igUserId: env('IG_USER_ID'),
+  fbAccessToken: env('IG_FB_ACCESS_TOKEN'),
+  fbGraphVersion: env('FB_GRAPH_VERSION', 'v23.0'),
+  maxServerLaunchesPerDay: Number(env('MAX_SERVER_LAUNCHES_PER_DAY', '20')),
+  minFeePayerSol: Number(env('MIN_FEE_PAYER_SOL', '0.1')),
   ipfsUploadUrl: env('IPFS_UPLOAD_URL', 'https://pump.fun/api/ipfs'),
   dbPath: env('DB_PATH', './instapaid.db'),
 };
@@ -41,5 +47,6 @@ export function assertConfig(c = config) {
   if (!c.ig.appSecret) problems.push('IG_APP_SECRET is required (webhook signatures)');
   if (!c.ig.accessToken) problems.push('IG_ACCESS_TOKEN is required (reading who sent a code)');
   if (!c.ig.verifyToken) problems.push('IG_WEBHOOK_VERIFY_TOKEN is required');
+  if (c.igUserId && !c.fbAccessToken) problems.push('IG_FB_ACCESS_TOKEN is required when IG_USER_ID is set (comment launches)');
   if (problems.length) throw new Error('Unsafe configuration:\n - ' + problems.join('\n - '));
 }

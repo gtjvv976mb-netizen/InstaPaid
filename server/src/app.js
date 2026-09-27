@@ -1,5 +1,6 @@
 import express from 'express';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -8,12 +9,14 @@ import { normalizeHandle } from './handles.js';
 import { metaSignatureOk, newCode, readToken, signToken, safeEqual } from './crypto.js';
 import { claimableAccounts, bindAccount } from './identity.js';
 import { codeMessages } from './instagram.js';
+import { mentionEvents, isLaunchRequest, launchedReply, existingReply } from './comments.js';
 import { loadImage, tokenDescription } from './metadata.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const VERIFY_TTL = 15 * 60_000;
 const CLAIM_TTL = 30 * 60_000;
+const DEFAULT_IMAGE = () => ({ buf: readFileSync(join(here, '..', 'public', 'coin-default.png')), type: 'image/png' });
 
 const isPubkey = (s) => { try { return PublicKey.isOnCurve(new PublicKey(s).toBytes()); } catch { return false; } };
 
@@ -28,8 +31,10 @@ function limiter(limit, windowMs) {
 }
 
 /**
- * deps: { db, cfg, connection, pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, confirmLaunch, pendingFees, payOut},
- *         ig: {usernameOf, reply}, uploadMetadata, feePayer, fetchImpl }
+ * deps: { db, cfg, connection,
+ *         pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, confirmLaunch, pendingFees, payOut, launchPaidByServer, balanceOf},
+ *         ig: {usernameOf, reply}, comments: {readMention, replyToMention}, writeCoin,
+ *         uploadMetadata, feePayer, fetchImpl }
  */
 export function createApp(deps) {
   const { db, cfg, connection, pump, ig, uploadMetadata, feePayer } = deps;
@@ -62,7 +67,86 @@ export function createApp(deps) {
     for (const { igsid, code } of codeMessages(body)) {
       try { await verifyCode(igsid, code); } catch (e) { console.error('verify failed', e.message); }
     }
+    if (cfg.igUserId) {
+      for (const ev of mentionEvents(body)) enqueue(() => handleMention(ev));
+    }
   });
+
+  // Comment launches run one at a time: two comments for the same creator must not make two
+  // coins, and the daily budget is counted before each launch.
+  let queue = Promise.resolve();
+  const enqueue = (job) => {
+    queue = queue.then(job).catch((e) => console.error('mention failed', e));
+    return queue;
+  };
+  app.locals.drain = () => queue;
+
+  async function handleMention({ commentId, mediaId }) {
+    const fresh = db.prepare(
+      `insert into comment_request (comment_id, media_id, status, created_at) values (?, ?, 'working', ?)
+       on conflict(comment_id) do nothing`
+    ).run(commentId, mediaId, Date.now());
+    if (!fresh.changes) return; // a retry of a comment we already handled
+    const done = (status, extra = {}) => db.prepare(
+      `update comment_request set status = ?, username = ?, mint = ?, note = ? where comment_id = ?`
+    ).run(status, extra.username ?? null, extra.mint ?? null, extra.note ?? null, commentId);
+    const reply = (message) => deps.comments.replyToMention(cfg, { commentId, mediaId }, message, deps.fetchImpl);
+
+    let mention;
+    try { mention = await deps.comments.readMention(cfg, { commentId }, deps.fetchImpl); }
+    catch (e) { return done('failed', { note: e.message }); }
+    if (!isLaunchRequest(mention.text, cfg.ig.botUsername)) return done('skipped', { note: 'not a launch request' });
+
+    const username = normalizeHandle(mention.media.username ?? '');
+    if (!username) return done('skipped', { note: 'post owner unknown' });
+    if (username === cfg.ig.botUsername.toLowerCase()) return done('skipped', { username, note: 'our own post' });
+
+    // One comment-launched coin per creator; later requests point at it.
+    const existing = db.prepare(
+      `select * from token where username = ? and status = 'live' order by created_at limit 1`
+    ).get(username);
+    if (existing) {
+      await reply(existingReply({ username, ...existing, publicUrl: cfg.publicUrl }));
+      return done('existing', { username, mint: existing.mint });
+    }
+
+    const today = db.prepare(
+      `select count(*) n from token where source = 'comment' and created_at > ?`
+    ).get(Date.now() - 24 * 60 * 60_000).n;
+    const funds = await pump.balanceOf(connection, feePayer.publicKey).catch(() => 0n);
+    if (today >= cfg.maxServerLaunchesPerDay || funds < BigInt(Math.round(cfg.minFeePayerSol * 1e9))) {
+      await reply(`Launches are paused for now. Try again later, or launch it yourself at ${cfg.publicUrl.replace(/^https?:\/\//, '')}/launch`);
+      return done('failed', { username, note: today >= cfg.maxServerLaunchesPerDay ? 'daily budget' : 'fee payer low' });
+    }
+
+    try {
+      const m = mention.media;
+      const imageUrl = m.media_type === 'VIDEO' ? m.thumbnail_url : (m.media_url || m.thumbnail_url);
+      // A carousel or a post Meta sends no picture for gets the default coin image.
+      const image = imageUrl
+        ? await loadImage({ imageUrl }, deps.fetchImpl).catch(() => DEFAULT_IMAGE())
+        : DEFAULT_IMAGE();
+      const coin = await deps.writeCoin({ username, caption: m.caption });
+      const acct = pump.getOrCreateAccount(db, username, cfg.vaultMasterKey);
+      const uri = await uploadMetadata(cfg, {
+        name: coin.name, symbol: coin.symbol, username, image,
+        description: tokenDescription(username, coin.lore, cfg.publicUrl),
+      }, deps.fetchImpl);
+      const { mint, signature } = await pump.launchPaidByServer(connection, {
+        feePayer, vault: acct.vault_pubkey, name: coin.name, symbol: coin.symbol, uri,
+      });
+      db.prepare(
+        `insert into token (mint, username, name, symbol, launcher, lore, source, status, signature, created_at)
+         values (?, ?, ?, ?, ?, ?, 'comment', 'live', ?, ?)`
+      ).run(mint, username, coin.name, coin.symbol, feePayer.publicKey.toBase58(), coin.lore, signature, Date.now());
+      await reply(launchedReply({ username, ...coin, mint, publicUrl: cfg.publicUrl }));
+      done('launched', { username, mint });
+    } catch (e) {
+      console.error('comment launch failed', e);
+      await reply('That one didn\'t go through. Try again in a few minutes.');
+      done('failed', { username, note: String(e.message).slice(0, 300) });
+    }
+  }
 
   async function verifyCode(igsid, code) {
     const v = db.prepare(`select * from verification where code = ? and status = 'pending'`).get(code);
@@ -90,7 +174,7 @@ export function createApp(deps) {
     const acct = db.prepare('select * from account where username = ?').get(username);
     if (!acct) return res.json({ username, tokens: [], pendingLamports: '0', verified: false });
     const tokens = db.prepare(
-      `select mint, name, symbol, created_at from token where username = ? and status = 'live' order by created_at desc`
+      `select mint, name, symbol, lore, source, created_at from token where username = ? and status = 'live' order by created_at desc`
     ).all(username);
     const pending = await pump.pendingFees(connection, acct.vault_pubkey).catch(() => 0n);
     res.json({

@@ -20,6 +20,38 @@ edits the transaction (to make themselves creator, say), the mint's signature no
 Solana rejects it. After it lands, `/api/launch/confirm` reads the bonding curve on-chain and lists the
 coin only if its creator really is the vault.
 
+**Or by comment.** Anyone comments `@instapaid.verify make a token for this creator` under a public
+post. Meta sends a `mentions` webhook. The server reads the comment and the post, and launches a coin
+for the **post's owner**, paying the launch from its own wallet. Claude writes the name, ticker and
+lore from the username and the caption. The bot then replies under the comment:
+
+```
+$GEO is live for @nat.geo 🚀
+
+<the lore>
+
+Coin: pump.fun/coin/<mint>
+Creator fees go to @nat.geo. Only they can claim: instapaid.example/u/nat.geo
+Fan-made, not by @nat.geo.
+```
+
+The rules:
+- Each creator gets one comment-launched coin; later requests get a reply pointing to that coin.
+- Each comment is handled once, even when Meta retries the webhook.
+- Comment launches run one at a time.
+- `MAX_SERVER_LAUNCHES_PER_DAY` and `MIN_FEE_PAYER_SOL` cap what the server spends. When a cap is
+  hit, the bot replies that launches are paused.
+
+Meta limits what the bot can see:
+- The comment must **@mention** the bot. The plain word "instapaid" sends nothing.
+- Posts on **private** accounts and Stories send nothing.
+- Comment mentions need the *Instagram API with Facebook Login*: a Facebook Page linked to the bot's
+  account. DM verification uses *Instagram Login*. One Meta app can have both.
+- Links in Instagram comments aren't clickable, so the reply spells them out.
+- The server asks Meta for the post owner's `username` on `mentioned_comment → media`. Meta's
+  reference doesn't list that field there. If Meta leaves it out, the request is skipped
+  (recorded as "post owner unknown"). **Check this first with a real comment.**
+
 **One vault per account.** pump.fun keeps creator fees per creator, so every coin launched for
 `@alice` pays into one creator vault. That covers both the bonding curve and PumpSwap after the coin
 graduates. The vault's key is created on the server and stored encrypted (AES-256-GCM under
@@ -53,7 +85,7 @@ account page shows whether a vault has been claimed.
 cd server
 npm install
 cp .env.example .env     # then fill it in (see below)
-npm test                 # 15 tests; the chain tests read mainnet (never send) and skip offline
+npm test                 # 25 tests; the chain tests read mainnet (never send) and skip offline
 npm start                # http://localhost:8787
 ```
 
@@ -94,6 +126,17 @@ were already claimed could not be matched.
   creator's fees with a separate fee payer also passes simulation, and the creator's balance rose by
   exactly the fees waiting. Collecting needs no signature from the creator; moving the money out of the
   vault does, and only the server holds that key.
+- Comment launches (mocked Instagram and chain):
+  - the post owner's vault is the creator;
+  - the reply carries the coin, the links, the lore and the fan-made line, and fits a comment;
+  - a webhook retry, a second fan, or two comments at once make one coin;
+  - forged webhooks, comments that don't ask, posts with no known owner, and our own posts are ignored;
+  - the daily cap and a low fee payer pause launches;
+  - a failed launch replies once;
+  - carousel posts use the default image.
+- The server-paid launch transaction is built on mainnet data and fully signed. It was not sent.
+- Claude's output is cleaned (length, ticker characters) before it goes on-chain or into a reply. The
+  live lore call has not been run here, because this machine has no Claude API key.
 - Browser: the launch and claim flows, at 1280px and 390px, with a stand-in wallet. The extension on a
   mock profile page adds the bar, shows the account's totals, opens the launch page with the profile
   picture, and removes itself when you navigate away.
@@ -103,6 +146,9 @@ one small launch and claim on mainnet before you announce it.
 
 ## Things to decide before launch
 
+- **Comment launches spend your SOL.** Each costs about 0.02 SOL from the fee payer. Anyone can
+  trigger one for any creator with a public post, up to the daily cap. `PLATFORM_FEE_BPS` (e.g. 2000,
+  TelePaid's 20%) is how that cost comes back.
 - **This is custodial.** Until an account claims, its fees sit in a wallet whose key your server holds.
   Keep the host locked down, and consider a KMS/HSM for `VAULT_MASTER_KEY`.
 - **Launching in someone's name.** Every coin's description says whose fees these are and that a fan
