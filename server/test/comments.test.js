@@ -59,12 +59,15 @@ test('a comment launches a coin for the post owner: named from the post, website
 
     const r = t.calls.mentionReplies[0];
     assert.equal(r.commentId, 'c1');
-    assert.equal(r.message, [
-      '$GEO is live for @nat.geo',
-      `Coin: pump.fun/coin/${row.mint}`,
-      '@nat.geo can claim the creator fees: instapaid.test/u/nat.geo',
-      'Fan-made, not by @nat.geo.',
-    ].join('\n'));
+    assert.equal(r.message, launchedReply({
+      username: 'nat.geo', name: row.name, symbol: 'GEO', mint: row.mint, lore: null,
+      postPermalink: PERMALINK, posted: false, publicUrl: 'https://instapaid.test',
+    }));
+    for (const must of ['Geo Coin ($GEO)', `📍 Address: ${row.mint}`, `pump.fun/coin/${row.mint}`, '@nat.geo, the creator fees',
+      'instapaid.test/u/nat.geo', 'Fan-made by the person who commented, not by @nat.geo', 'Not financial advice']) {
+      assert.ok(r.message.includes(must), must);
+    }
+    assert.doesNotMatch(r.message, /Lore:|posted it on our feed/);
 
     const acct = await (await t.get('/api/accounts/nat.geo')).json();
     assert.equal(acct.tokens[0].source, 'comment');
@@ -75,7 +78,7 @@ test('a comment launches a coin for the post owner: named from the post, website
   } finally { t.close(); }
 });
 
-test('the fan\'s lore becomes the description when Claude passes it, and never goes in the reply', async () => {
+test('the fan\'s lore becomes the description when Claude passes it, and is quoted in the reply; a refused lore goes nowhere', async () => {
   const text = '@instapaid.official make a token for this creator: king of sunsets https://scam.example';
   const t = await start({ mentions: { c1: ask('alice', text) } });
   try {
@@ -83,7 +86,8 @@ test('the fan\'s lore becomes the description when Claude passes it, and never g
     assert.equal(t.calls.lore[0].lore, 'king of sunsets', 'links stripped before Claude sees it');
     assert.equal(t.calls.uploads[0].description, 'king of sunsets');
     assert.equal(t.db.prepare('select lore from token').get().lore, 'king of sunsets');
-    assert.doesNotMatch(t.calls.mentionReplies[0].message, /sunsets/);
+    assert.ok(t.calls.mentionReplies[0].message.includes('📝 Lore: “king of sunsets”'));
+    assert.doesNotMatch(t.calls.mentionReplies[0].message, /scam\.example/, 'the stripped link never reaches the reply');
   } finally { t.close(); }
 
   const refused = await start({ mentions: { c1: ask('alice', '@instapaid.official make a token: buy now 100x') }, naming: { loreOk: false } });
@@ -212,9 +216,12 @@ test('a failed launch replies once and records why; carousel posts use the defau
 });
 
 test('reply fits in an Instagram comment', () => {
-  const m = launchedReply({ username: 'a'.repeat(30), symbol: 'ABCDEFGHIJ', mint: 'x'.repeat(44), publicUrl: 'https://instapaid.fun' });
-  assert.ok(m.length < 300);
+  const m = launchedReply({ username: 'a'.repeat(30), name: 'N'.repeat(32), symbol: 'ABCDEFGHIJ', mint: 'x'.repeat(44), lore: 'l'.repeat(400),
+    postPermalink: 'https://www.instagram.com/p/x/', posted: true, publicUrl: 'https://instapaid.fun' });
+  assert.ok(m.length < 2200, `${m.length} chars`); // Instagram's comment limit, at the longest name, lore and handle
   assert.ok(m.includes('instapaid.fun/u/' + 'a'.repeat(30)));
+  assert.ok(m.includes('📝 Lore: “' + 'l'.repeat(400) + '”'));
+  assert.ok(m.includes('posted it on our feed'));
 });
 
 // A launch whose confirmation is lost may still land: it is recorded before it is sent, counts as
@@ -232,7 +239,8 @@ test('a lost confirmation that landed: live, the fan told once, no second launch
     assert.equal(row.last_valid_height, 1000);
     assert.equal(t.calls.statusChecks.length, 1, 'the chain was asked before any reply');
     assert.deepEqual(t.calls.statusChecks[0], { mint: row.mint, vault: t.db.prepare('select vault_pubkey v from account').get().v, signature: 'sig1', lastValidBlockHeight: 1000 });
-    assert.equal(t.calls.mentionReplies[0].message, launchedReply({ username: 'alice', symbol: 'GEO', mint: row.mint, publicUrl: 'https://instapaid.test' }));
+    assert.match(t.calls.mentionReplies[0].message, /^🎉 Done! .*\$GEO\) is now live on pump\.fun, made for @alice\./);
+    assert.ok(t.calls.mentionReplies[0].message.includes(`📍 Address: ${row.mint}`));
     await hook(t, 'b');
     assert.equal(t.calls.serverLaunches.length, 1);
     assert.match(t.calls.mentionReplies[1].message, /already has a coin/);
@@ -292,7 +300,8 @@ test('still unknown: the fan is told it is on its way (not to retry), the creato
     assert.equal(t.db.prepare('select status from token where mint = ?').get(row.mint).status, 'live');
     const last = t.calls.mentionReplies.at(-1);
     assert.equal(last.commentId, 'a');
-    assert.equal(last.message, launchedReply({ username: 'alice', symbol: 'GEO', mint: row.mint, publicUrl: 'https://instapaid.test' }));
+    assert.match(last.message, /^🎉 Done! .*\$GEO\) is now live on pump\.fun, made for @alice\./);
+    assert.ok(last.message.includes(`📍 Address: ${row.mint}`));
     assert.deepEqual(await t.settlePending(), {}, 'nothing left to settle');
   } finally { t.close(); }
 });
@@ -308,7 +317,7 @@ test('an unknown launch that later expires is dropped by the periodic check, and
     t.chain.launchFails = false;
     await hook(t, 'b');
     assert.equal(t.db.prepare(`select count(*) n from token where status = 'live'`).get().n, 1);
-    assert.match(t.calls.mentionReplies.at(-1).message, /is live for @alice/);
+    assert.match(t.calls.mentionReplies.at(-1).message, /is now live on pump\.fun, made for @alice\./);
   } finally { t.close(); }
 });
 

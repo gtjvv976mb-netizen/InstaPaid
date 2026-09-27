@@ -15,9 +15,10 @@ test('the page reads usernames exactly as the server does', () => {
 });
 
 test('the comment reply makes no hype: no rocket, no moon', () => {
-  const m = launchedReply({ username: 'baker.example', symbol: 'LOAF', mint: 'M'.repeat(44), publicUrl: 'https://instapaid.fun' });
-  assert.match(m, /^\$LOAF is live for @baker\.example\n/);
-  assert.doesNotMatch(m, /🚀|🌕|moon/i);
+  const m = launchedReply({ username: 'baker.example', name: 'First Loaf', symbol: 'LOAF', mint: 'M'.repeat(44), publicUrl: 'https://instapaid.fun' });
+  assert.match(m, /^🎉 Done! First Loaf \(\$LOAF\) is now live on pump\.fun, made for @baker\.example\./);
+  assert.doesNotMatch(m, /🚀|🌕|moon|profit|gains|pump it|100x/i);
+  assert.match(m, /Not financial advice/);
 });
 
 test('the site loads nothing from another host', () => {

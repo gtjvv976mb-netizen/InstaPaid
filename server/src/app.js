@@ -160,6 +160,7 @@ export function createApp(deps) {
     }
 
     let launched, sent = null, image;
+    const permalink = instagramPermalink(mention.media.permalink);
     try {
       // Everything about the coin comes from the post: its picture, its caption (for the name and
       // ticker), its link (the coin's website). The fan adds at most a lore, and only if Claude passes it.
@@ -171,7 +172,6 @@ export function createApp(deps) {
       const coin = await deps.nameCoin({
         username, caption: m.caption, image: postImage ?? undefined, lore: commentLore(mention.text, cfg.ig.botUsername),
       });
-      const permalink = instagramPermalink(m.permalink);
       const acct = pump.getOrCreateAccount(db, username, cfg.vaultMasterKey);
       const uri = await uploadMetadata(cfg, {
         name: coin.name, symbol: coin.symbol, username, image,
@@ -192,14 +192,14 @@ export function createApp(deps) {
         },
       });
       db.prepare(`update token set status = 'live', signature = ? where mint = ?`).run(signature, mint);
-      launched = { mint, image, symbol: coin.symbol };
+      launched = { mint, image, symbol: coin.symbol, name: coin.name, lore: coin.lore ?? null };
     } catch (e) {
       console.error('comment launch failed', e);
       // Sent, but its confirmation was lost: find out before telling anyone to try again.
       const outcome = sent && e?.sent ? await settleLaunch(currentRow(sent.mint), { announce: false }) : 'failed';
       if (outcome === 'live') {
         const row = currentRow(sent.mint);
-        launched = { mint: row.mint, image, symbol: row.symbol };
+        launched = { mint: row.mint, image, symbol: row.symbol, name: row.name, lore: row.lore };
       } else if (outcome === 'pending') {
         await poster.keepSource(sent.mint, image).catch(() => false); // for the post, if it lands
         await reply(pendingReply({ username, publicUrl: cfg.publicUrl })).catch(() => {});
@@ -212,7 +212,10 @@ export function createApp(deps) {
     }
     // The coin is live: tell the fan under their comment, then @instapaid.official posts about it
     // (when the poster is on) and mentions the creator.
-    await reply(launchedReply({ username, symbol: launched.symbol, mint: launched.mint, publicUrl: cfg.publicUrl }))
+    await reply(launchedReply({
+      username, name: launched.name, symbol: launched.symbol, mint: launched.mint, lore: launched.lore,
+      postPermalink: permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+    }))
       .catch((e) => console.error('reply failed', e));
     done('launched', { username, mint: launched.mint });
     await poster.enqueue(launched.mint, launched.image).catch((e) => console.error('post enqueue failed', e));
@@ -250,7 +253,10 @@ export function createApp(deps) {
       if (asked) {
         db.prepare(`update comment_request set note = null where comment_id = ?`).run(asked.comment_id);
         await deps.comments.replyToMention(cfg, { commentId: asked.comment_id, mediaId: asked.media_id },
-          launchedReply({ username: t.username, symbol: t.symbol, mint: t.mint, publicUrl: cfg.publicUrl }), deps.fetchImpl)
+          launchedReply({
+            username: t.username, name: t.name, symbol: t.symbol, mint: t.mint, lore: t.lore,
+            postPermalink: t.post_permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+          }), deps.fetchImpl)
           .catch((e) => console.error('reply failed', e));
       }
       await poster.enqueue(t.mint).catch((e) => console.error('post enqueue failed', e));
@@ -272,7 +278,7 @@ export function createApp(deps) {
     if (v.expires_at < Date.now()) {
       console.log('verify: code expired');
       db.prepare(`update verification set status = 'expired' where id = ?`).run(v.id);
-      return ig.reply(cfg.ig, igsid, 'That code has expired. Start again on the claim page for a new one.');
+      return ig.reply(cfg.ig, igsid, '⏰ That code has expired (they last 15 minutes). Open the claim page again for a fresh one and DM it to me: it takes seconds.');
     }
     const username = await ig.usernameOf(cfg.ig, igsid);
     const r = db.prepare(
@@ -280,7 +286,7 @@ export function createApp(deps) {
     ).run(igsid, username, v.id);
     if (r.changes) {
       console.log(`verify: verified @${username}`);
-      await ig.reply(cfg.ig, igsid, `Verified as @${username}. Go back to the claim page to collect your fees.`);
+      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and hit Claim. We never ask for a password or seed phrase.`);
     }
   }
 
