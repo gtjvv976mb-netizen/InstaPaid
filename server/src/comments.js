@@ -91,20 +91,44 @@ export async function replyToMention(cfg, { commentId, mediaId }, message, fetch
 const host = (publicUrl) => publicUrl.replace(/^https?:\/\//, '');
 
 /** The reply under the fan's comment. No lore: the coin and the claim link only. */
-export function launchedReply({ username, symbol, mint, publicUrl }) {
-  return [
-    `$${symbol} is live for @${username}`,
-    `Coin: pump.fun/coin/${mint}`,
-    `@${username} can claim the creator fees: ${host(publicUrl)}/u/${username}`,
-    `Fan-made, not by @${username}.`,
-  ].join('\n');
+/**
+ * The reply under the comment once the coin is live. Lively but honest: no price talk, no "moon",
+ * no rocket, and it always says the coin is fan-made. It names the coin, its ticker, its address,
+ * the pump.fun page, where the creator claims, and (when the poster is on) that we posted it.
+ * Instagram caps a comment at 2200 characters and makes no link clickable, so links are plain.
+ */
+export function launchedReply({ username, name, symbol, mint, lore, postPermalink, posted, publicUrl }) {
+  const site = host(publicUrl);
+  const lines = [
+    `🎉 Done! ${name ? `${name} ($${symbol})` : `$${symbol}`} is now live on pump.fun, made for @${username}.`,
+    '',
+    `🪙 Coin: ${name || symbol}`,
+    `🔤 Ticker: $${symbol}`,
+    `📍 Address: ${mint}`,
+    `🔗 Trade it: pump.fun/coin/${mint}`,
+    `📸 Named after this post, and it wears the post's photo.`,
+  ];
+  if (lore) lines.push(`📝 Lore: “${lore}”`);
+  lines.push(
+    '',
+    `💰 @${username}, the creator fees from every trade are YOURS. Only you can claim them:`,
+    `👉 ${site}/u/${username}`,
+    `Prove it's you with one DM to @instapaid.official, pick any Solana wallet, and the fees are sent. No password, no seed phrase, ever.`,
+  );
+  if (posted) lines.push('', `📣 We also posted it on our feed and tagged @${username}.`);
+  lines.push(
+    '',
+    `ℹ️ Fan-made by the person who commented, not by @${username}. Meme coins are speculative and can go to zero. Not financial advice.`,
+    `❓ How it works: ${site}`,
+  );
+  return lines.join('\n');
 }
 
 /** When the launch was sent but Solana has not confirmed it yet. It is looked at again later. */
 export function pendingReply({ username, publicUrl }) {
   return [
-    `The coin for @${username} is sent and waiting for Solana to confirm it.`,
-    `It will show at ${host(publicUrl)}/u/${username} once it does.`,
+    `⏳ The coin for @${username} is sent and Solana is confirming it now. Hang tight!`,
+    `I'll reply here with the coin, its address and the claim link as soon as it lands. It will also show at ${host(publicUrl)}/u/${username}.`,
   ].join('\n');
 }
 
@@ -112,9 +136,12 @@ export function pendingReply({ username, publicUrl }) {
 export const blockedReply = (username) => `${username} has asked not to have coins made for them.`;
 
 export function existingReply({ username, name, symbol, mint, publicUrl }) {
+  const site = host(publicUrl);
   return [
-    `@${username} already has a coin: $${symbol} (${name}).`,
-    `Coin: pump.fun/coin/${mint}`,
-    `Creator fees go to @${username}: ${host(publicUrl)}/u/${username}`,
+    `@${username} already has a coin: ${name} ($${symbol}). One per creator, so it's all yours to trade 🙌`,
+    `📍 Address: ${mint}`,
+    `🔗 Trade it: pump.fun/coin/${mint}`,
+    `💰 Creator fees go to @${username}, who claims them at ${site}/u/${username}`,
+    `ℹ️ Fan-made, not by @${username}. Not financial advice.`,
   ].join('\n');
 }
