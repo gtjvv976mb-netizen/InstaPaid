@@ -10,9 +10,16 @@ export function codeMessages(body) {
   const out = [];
   if (body?.object !== 'instagram') return out;
   for (const entry of body.entry ?? []) {
-    for (const ev of entry.messaging ?? []) {
+    // Meta delivers DMs as entry.messaging[], but also as entry.changes[{field:'messages', value}]
+    // (its dashboard Test does, and some Instagram Login subscriptions do): read both.
+    const events = [
+      ...(entry.messaging ?? []),
+      ...(entry.changes ?? []).filter((c) => c?.field === 'messages').map((c) => c.value),
+    ];
+    for (const ev of events) {
       const text = ev?.message?.text;
       if (!text || ev.message.is_echo || !ev.sender?.id) continue;
+      if (entry.id && String(ev.sender.id) === String(entry.id)) continue; // the bot itself
       const m = text.toUpperCase().match(CODE_RE);
       if (m) out.push({ igsid: String(ev.sender.id), code: m[0] });
     }
