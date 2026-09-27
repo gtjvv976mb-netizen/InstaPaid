@@ -51,3 +51,19 @@ async function metaError(r) {
   const j = await r.json().catch(() => null);
   return String(j?.error?.message ?? '').slice(0, 300) || 'no details';
 }
+
+/**
+ * Subscribe @instapaid.official's messages to this app's webhook (POST /me/subscribed_apps).
+ * Meta only delivers real DMs to apps the account is subscribed to; the dashboard toggle does
+ * not always do this. Idempotent, so it runs at every start. Never throws.
+ */
+export async function subscribeMessages(cfg, fetchImpl = fetch) {
+  if (!cfg.accessToken || cfg.accessToken.length < 20) return { ok: false, reason: 'no Instagram token yet' };
+  try {
+    const r = await fetchImpl(`${graph(cfg, 'me/subscribed_apps')}?subscribed_fields=messages&access_token=${encodeURIComponent(cfg.accessToken)}`, { method: 'POST' });
+    if (r.ok) return { ok: true };
+    return { ok: false, reason: `Instagram said ${r.status}: ${await metaError(r)}` };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}

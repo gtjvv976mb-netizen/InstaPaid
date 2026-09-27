@@ -72,3 +72,17 @@ test('images only from Instagram CDNs; every coin carries the disclaimer', () =>
   assert.match(d, /claimable only by that account/);
   assert.match(d, /not by @alice/);
 });
+
+test('subscribeMessages: posts to me/subscribed_apps, skips placeholder tokens, never throws', async () => {
+  const { subscribeMessages } = await import('../src/instagram.js');
+  const cfg = { graphVersion: 'v23.0', accessToken: 'IGAA' + 'x'.repeat(40) };
+  let seen;
+  const ok = await subscribeMessages(cfg, async (url, init) => { seen = { url, init }; return new Response('{"success":true}', { status: 200 }); });
+  assert.equal(ok.ok, true);
+  assert.match(seen.url, /\/v23\.0\/me\/subscribed_apps\?subscribed_fields=messages&access_token=IGAA/);
+  assert.equal(seen.init.method, 'POST');
+  assert.equal((await subscribeMessages({ ...cfg, accessToken: 'x' }, async () => { throw new Error('should not call'); })).ok, false);
+  const bad = await subscribeMessages(cfg, async () => new Response('{"error":{"message":"Invalid OAuth access token"}}', { status: 400 }));
+  assert.match(bad.reason, /400: Invalid OAuth access token/);
+  assert.equal((await subscribeMessages(cfg, async () => { throw new Error('offline'); })).reason, 'offline');
+});
