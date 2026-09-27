@@ -47,6 +47,14 @@ test('webhook parsing skips echoes and finds the code in any case', () => {
   ] }] };
   assert.deepEqual(codeMessages(body), [{ igsid: '9', code: 'IP-ABCDEFGH' }]);
   assert.deepEqual(codeMessages({ object: 'page', entry: [] }), []);
+  // The same DM in the changes[] shape (Meta's dashboard Test, some Instagram Login subscriptions).
+  const changes = { object: 'instagram', entry: [{ id: 'bot', changes: [
+    { field: 'messages', value: { sender: { id: '7' }, recipient: { id: 'bot' }, message: { mid: 'm1', text: 'IP-ABCDEFGH' } } },
+    { field: 'messages', value: { sender: { id: 'bot' }, recipient: { id: '7' }, message: { mid: 'm2', text: 'IP-ABCDEFGH' } } },
+    { field: 'messages', value: { sender: { id: '8' }, message: { mid: 'm3', text: 'random text' } } },
+    { field: 'mentions', value: { comment_id: '1', media_id: '2' } },
+  ] }] };
+  assert.deepEqual(codeMessages(changes), [{ igsid: '7', code: 'IP-ABCDEFGH' }]);
 });
 
 test('Meta signature', () => {
