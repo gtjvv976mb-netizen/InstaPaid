@@ -10,13 +10,27 @@ function setUser(u) {
   $('#at').textContent = u ? '@' + u : '@…';
   if (!$('#name').dataset.touched) $('#name').value = u ? `${u}` : '';
   if (!$('#symbol').dataset.touched) $('#symbol').value = u.replace(/[^a-z0-9]/g, '').slice(0, 10).toUpperCase();
+  // The preview's status pill says what /u/<name> says, once the server has answered for this name.
+  const pill = $('#pv-status');
+  pill.hidden = true;
   if (u) api('/api/accounts/' + encodeURIComponent(u)).then((a) => {
+    if ($('#username').value !== u) return; // the name changed while this was on its way
     $('#waiting').textContent = a.tokens.length
       ? `${a.tokens.length} coin${a.tokens.length > 1 ? 's' : ''} already · ${sol(a.pendingLamports)} SOL waiting${a.verified ? ' · verified' : ''}`
       : 'No coins yet — this will be the first.';
-  }).catch(() => { $('#waiting').textContent = ''; });
+    pill.className = `status ${a.verified ? 'claimed' : 'open'}`;
+    pill.textContent = a.verified ? 'Claimed' : 'Not claimed yet';
+    pill.hidden = false;
+  }).catch(() => { if ($('#username').value === u) $('#waiting').textContent = ''; });
 }
-if (picUrl) { $('#pic').src = picUrl; $('#pic').hidden = false; }
+// The extension passes the profile picture's CDN address. It shows once it has loaded; if it is
+// missing or expired it stays hidden and is forgotten, so the form asks for an image instead.
+if (picUrl) {
+  const pic = $('#pic');
+  pic.addEventListener('load', () => { pic.hidden = false; }, { once: true });
+  pic.addEventListener('error', () => { picUrl = ''; pic.hidden = true; pic.removeAttribute('src'); }, { once: true });
+  pic.src = picUrl;
+}
 for (const id of ['name', 'symbol']) $('#' + id).addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
 $('#username').addEventListener('change', (e) => setUser(e.target.value));
 setUser(q.get('u') || '');

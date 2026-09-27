@@ -1,39 +1,172 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Launch a coin — InstaPaid</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Launch a coin — instapaid</title>
+<meta name="description" content="Launch a fan-made pump.fun coin for any Instagram account. You sign with your own Solana wallet; the coin's creator fees go to that account, and only it can claim them. Once it's live, we may post it on @instapaid.official and mention the account.">
+<meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="InstaPaid">
+<meta property="og:url" content="https://instapaid.fun/launch">
+<meta property="og:title" content="Launch a coin for an Instagram creator — InstaPaid">
+<meta property="og:description" content="Name it, add a description, sign with your own wallet. The creator fees go to the Instagram account, and only it can claim them.">
+<meta property="og:image" content="https://instapaid.fun/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
 <script src="/vendor/web3.js"></script>
-</head><body>
-<header><a class="brand" href="/">InstaPaid</a><nav><a href="/claim">Claim fees</a></nav></header>
-<main>
-  <form class="card" id="f" novalidate>
-    <h1>Launch a coin</h1>
-    <p class="sub">Creator fees go to the Instagram account below. Only that account can claim them, after it proves it's theirs.</p>
+</head>
+<body>
 
-    <div class="who"><img id="pic" alt="" hidden><div><b id="at">@…</b><div class="hint" id="waiting"></div></div></div>
+<a class="skip" href="#main">Skip to content</a>
 
-    <label for="username">Instagram username</label>
-    <input id="username" name="username" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+<header class="top">
+  <div class="wrap top-bar">
+    <a class="brand" href="/" aria-label="instapaid, home">
+      <img src="/mark.svg" alt="" width="38" height="38">
+      <span class="wordmark" aria-hidden="true"></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a class="nav-link hide-md" href="/#how">How it works</a>
+      <a class="nav-link hide-md" href="/#faq">FAQ</a>
+      <a class="nav-link" href="/claim"><span class="long">Claim fees</span><span class="short">Claim</span></a>
+      <a class="btn btn-primary btn-sm" href="/launch" aria-current="page"><span class="long">Launch a coin</span><span class="short">Launch</span></a>
+    </nav>
+  </div>
+</header>
 
-    <div class="row">
-      <div><label for="name">Coin name</label><input id="name" maxlength="32" required></div>
-      <div><label for="symbol">Ticker</label><input id="symbol" maxlength="10" required></div>
+<main id="main" class="page">
+  <div class="wrap page-grid">
+    <div class="main-col">
+      <div class="page-head">
+        <img src="/mark.svg" alt="" width="46" height="46">
+        <div>
+          <span class="handle">For fans</span>
+          <h1 class="page-title">Launch a coin</h1>
+        </div>
+        <img class="page-art" src="/media/step-launch-320.webp" srcset="/media/step-launch-320.webp 320w, /media/step-launch.webp 640w" sizes="(max-width: 640px) 92px, 132px" width="320" height="320" alt="" aria-hidden="true">
+      </div>
+
+      <form class="card launch-card" id="f" novalidate>
+        <p class="sub">The coin's creator fees go to the Instagram account below. Only that account can claim them, after it proves it's theirs. You never become the coin's creator. Once it's live, we may post it on <b data-bot>@instapaid.official</b> and mention the account, if its name and picture pass our check.</p>
+
+        <div class="who"><img id="pic" alt="" width="56" height="56" hidden><span class="who-ava" aria-hidden="true">@</span><div class="who-txt"><b id="at">@…</b><div class="hint" id="waiting"></div></div></div>
+
+        <label for="username">Instagram username</label>
+        <div class="at-field"><span aria-hidden="true">@</span><input id="username" name="username" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="username" required></div>
+
+        <div class="row">
+          <div><label for="name">Coin name</label><input id="name" maxlength="32" required></div>
+          <div class="narrow"><label for="symbol">Ticker</label><input id="symbol" maxlength="10" required autocapitalize="characters" spellcheck="false"></div>
+        </div>
+
+        <label for="description">Description <span class="hint">(optional, shown on pump.fun)</span></label>
+        <textarea id="description" maxlength="400" placeholder="A line or two about the coin. No promises about price."></textarea>
+        <p class="hint field-hint">Every coin also says whose fees these are and that a fan launched it, not the account.</p>
+
+        <label for="image">Image <span class="hint" id="image-hint">(required)</span></label>
+        <input id="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+
+        <label for="buy">Your first buy, in SOL <span class="hint">(optional)</span></label>
+        <input id="buy" type="number" min="0" max="50" step="0.01" value="0" inputmode="decimal">
+        <p class="hint field-hint">Meme coins are speculative and can lose all their value. Only use money you can afford to lose.</p>
+
+        <button class="primary" id="go" type="submit"><svg aria-hidden="true"><use href="/icons.svg#wallet"/></svg>Connect wallet and launch</button>
+        <div id="msg" role="status" aria-live="polite" hidden></div>
+      </form>
     </div>
 
-    <label for="description">Description <span class="hint">(optional)</span></label>
-    <textarea id="description" maxlength="400"></textarea>
-    <p class="hint">Every coin also says whose fees these are and that you launched it, not the account.</p>
-
-    <label for="image">Image <span class="hint">(defaults to the profile picture)</span></label>
-    <input id="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-
-    <label for="buy">Your first buy, in SOL <span class="hint">(optional)</span></label>
-    <input id="buy" type="number" min="0" max="50" step="0.01" value="0" inputmode="decimal">
-
-    <button class="primary" id="go" type="submit">Connect wallet and launch</button>
-    <div id="msg" hidden></div>
-  </form>
+    <aside class="side" aria-label="About this launch">
+      <div class="card preview" aria-hidden="true">
+        <span class="side-label">Preview</span>
+        <div class="pv-top">
+          <span class="coin-ava pv-coin" id="pv-coin">?</span>
+          <span class="pv-name"><b id="pv-name">Coin name</b><span class="tick" id="pv-tick">$TICKER</span></span>
+        </div>
+        <p class="pv-for">for <b id="pv-user">@username</b></p>
+        <p class="pv-meta"><span class="status open" id="pv-status" hidden>Not claimed yet</span><span class="fan-made">Fan-made</span></p>
+      </div>
+      <div class="card side-card">
+        <h2>What you pay</h2>
+        <ul class="side-list">
+          <li><svg aria-hidden="true"><use href="/icons.svg#wallet"/></svg><span>pump.fun's launch cost and Solana network fees, from your own wallet.</span></li>
+          <li><svg aria-hidden="true"><use href="/icons.svg#coin"/></svg><span>Any first buy you choose. It is optional.</span></li>
+          <li><svg aria-hidden="true"><use href="/icons.svg#lock"/></svg><span>The creator fees are never yours: they wait for the account.</span></li>
+        </ul>
+      </div>
+      <div class="card side-card free-card">
+        <img class="side-art" src="/media/step-comment-320.webp" srcset="/media/step-comment-320.webp 320w, /media/step-comment.webp 640w" sizes="84px" width="320" height="320" alt="" aria-hidden="true" loading="lazy">
+        <h2>Or launch by comment, free</h2>
+        <p>Comment <b><span data-bot>@instapaid.official</span> make a token for this creator</b> under one of their public posts, with your own lore after it if you like. The coin is named from the post and wears its photo; we pay the launch, reply with the coin and post it on our feed.</p>
+      </div>
+    </aside>
+  </div>
 </main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32"><span class="wordmark" aria-hidden="true"></span></a>
+      <p>© 2026 instapaid.fun</p>
+    </div>
+    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="/#how">How it works</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/launch">Launch</a>
+      <a href="/claim">Claim fees</a>
+      <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
+    </nav>
+  </div>
+</footer>
+
 <script type="module" src="/launch.js"></script>
-</body></html>
+<script type="module">
+// The preview card follows the form, including the values launch.js fills in from ?u=.
+import { $, api } from '/common.js';
+const pic = $('#pic');
+const show = () => {
+  const u = $('#username').value.trim().replace(/^@/, '').toLowerCase();
+  const tick = $('#symbol').value.trim().toUpperCase();
+  $('#pv-name').textContent = $('#name').value.trim() || 'Coin name';
+  $('#pv-tick').textContent = '$' + (tick || 'TICKER');
+  $('#pv-user').textContent = '@' + (u || 'username');
+  const coin = $('#pv-coin');
+  if (!coin.querySelector('img')) coin.textContent = (tick || u || '?').slice(0, 1).toUpperCase();
+};
+const face = (src) => {
+  const coin = $('#pv-coin');
+  coin.replaceChildren(Object.assign(document.createElement('img'), { src, alt: '' }));
+};
+// The profile picture (?pic= from the extension) counts only once it has really loaded: a missing or
+// expired picture leaves the "@" avatar and the letter coin, never a broken image. launch.js hides
+// #pic and forgets the address when it fails, so the form asks for an image instead.
+const picOk = () => !pic.hidden && !!pic.getAttribute('src') && pic.complete && pic.naturalWidth > 0;
+const syncPic = () => {
+  const ok = picOk();
+  $('#f').classList.toggle('has-pic', ok);
+  $('#image-hint').textContent = ok ? '(defaults to the profile picture)' : '(required)';
+  if ($('#image').files[0]) return; // a chosen file wins
+  if (ok) face(pic.src); else { $('#pv-coin').replaceChildren(); show(); }
+};
+for (const id of ['username', 'name', 'symbol']) { $('#' + id).addEventListener('input', show); $('#' + id).addEventListener('change', show); }
+new MutationObserver(show).observe($('#at'), { childList: true, characterData: true, subtree: true });
+new MutationObserver(syncPic).observe(pic, { attributes: true, attributeFilter: ['src', 'hidden'] });
+pic.addEventListener('load', syncPic);
+pic.addEventListener('error', syncPic);
+$('#image').addEventListener('change', () => {
+  const file = $('#image').files[0];
+  if (file) face(URL.createObjectURL(file)); else syncPic();
+});
+syncPic();
+show();
+api('/api/config').then((c) => { for (const el of document.querySelectorAll('[data-bot]')) el.textContent = '@' + c.botUsername; }).catch(() => {});
+</script>
+</body>
+</html>

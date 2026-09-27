@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d28d9"/><stop offset=".55" stop-color="#e1306c"/><stop offset="1" stop-color="#fbbf24"/></linearGradient>
+  <radialGradient id="gold" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="#fff3b0"/><stop offset=".35" stop-color="#ffd23f"/><stop offset=".8" stop-color="#f5a300"/><stop offset="1" stop-color="#d97f00"/></radialGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#b86a00"/></linearGradient>
+  <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#3b0764" flood-opacity=".45"/></filter>
+</defs>
+<rect width="400" height="400" fill="url(#bg)"/>
+<g filter="url(#sh)">
+ <ellipse cx="200" cy="300" rx="120" ry="30" fill="#b86a00"/><rect x="80" y="276" width="240" height="24" fill="#d98200"/><ellipse cx="200" cy="276" rx="120" ry="30" fill="#f5b300"/>
+ <circle cx="200" cy="176" r="124" fill="url(#rim)"/>
+ <circle cx="200" cy="170" r="112" fill="url(#gold)"/>
+ <path d="M200 238c-60-40-84-70-84-100a42 42 0 0 1 84-12 42 42 0 0 1 84 12c0 30-24 60-84 100z" fill="#c26d00" transform="translate(3 4)"/>
+ <path d="M200 238c-60-40-84-70-84-100a42 42 0 0 1 84-12 42 42 0 0 1 84 12c0 30-24 60-84 100z" fill="#fff"/>
+ <path d="M150 128a22 22 0 0 1 22-18" stroke="#ffd6e2" stroke-width="8" fill="none" stroke-linecap="round"/>
+</g>
+<path d="M322 70l7 18 18 7-18 7-7 18-7-18-18-7 18-7z" fill="#fff"/><path d="M74 96l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" fill="#fff"/>
+</svg>

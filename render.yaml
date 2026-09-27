@@ -1,0 +1,79 @@
+# Render Blueprint for instapaid.fun: one Node web service with a persistent disk for SQLite and
+# the poster's cards. In Render: New → Blueprint → pick this repo. Then fill in every "sync: false"
+# value in the dashboard (Environment tab) and add the custom domain instapaid.fun.
+# docs/LAUNCH.md walks through all of it.
+#
+# One instance only: the database is a file on the disk, and the auto-poster runs inside the web
+# process. Do not scale this service past 1.
+services:
+  - type: web
+    name: instapaid
+    runtime: node
+    rootDir: server
+    plan: starter            # a persistent disk needs a paid instance
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: PUBLIC_URL
+        value: https://instapaid.fun
+      - key: DB_PATH
+        value: /var/data/instapaid.db
+      - key: POSTS_DIR
+        value: /var/data/posts   # the auto-poster's cards, served at /posts/<mint>.jpg
+      - key: TRUST_PROXY
+        value: "1"
+      - key: RPC_URL
+        sync: false          # a paid Solana RPC (Helius, QuickNode…); the public one rate-limits
+      - key: FEE_PAYER_SECRET
+        sync: false
+      - key: VAULT_MASTER_KEY
+        sync: false          # openssl rand -hex 32 — back it up somewhere safe; losing it loses unclaimed fees
+      - key: SESSION_SECRET
+        sync: false          # openssl rand -hex 32
+      - key: IG_BOT_USERNAME
+        value: instapaid.official
+      - key: IG_ACCESS_TOKEN
+        sync: false          # Instagram Login token: DM verification
+      - key: IG_APP_SECRET
+        sync: false
+      - key: IG_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: META_APP_SECRET
+        sync: false          # optional: the Meta app's secret, if webhooks are signed with it rather than IG_APP_SECRET
+      - key: IG_GRAPH_VERSION
+        value: v23.0
+      - key: IG_USER_ID
+        sync: false          # the bot's Instagram professional account id: comment launches and the poster
+      - key: IG_FB_ACCESS_TOKEN
+        sync: false          # Facebook Login token (incl. instagram_content_publish)
+      - key: FB_GRAPH_VERSION
+        value: v23.0
+      - key: ANTHROPIC_API_KEY
+        sync: false          # names comment coins, checks fans' lore, checks website launches before they are posted
+      - key: PLATFORM_FEE_BPS
+        value: "0"
+      - key: MAX_SERVER_LAUNCHES_PER_DAY
+        value: "20"
+      - key: MIN_FEE_PAYER_SOL
+        value: "0.1"
+      # The auto-poster. Leave AUTO_POST at 0 until the app and tokens are set up; docs/LAUNCH.md
+      # step 15 turns it on for the first real test.
+      - key: AUTO_POST
+        value: "0"
+      - key: POST_MAX_PER_DAY
+        value: "25"
+      - key: POST_MIN_GAP_MIN
+        value: "20"
+      - key: POST_MAX_AGE_H
+        value: "24"
+      - key: POST_CREATOR_GAP_DAYS
+        value: "30"          # one post per creator a month
+      - key: POST_WEB_LAUNCHES
+        value: "1"           # 0 = never post website/extension launches

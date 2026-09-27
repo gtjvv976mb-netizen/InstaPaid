@@ -1,38 +1,179 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Account — InstaPaid</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Creator page — instapaid</title>
+<meta name="description" content="A creator's page on InstaPaid: the fan-made coins launched for this Instagram account, the posts they were named from, the creator fees waiting, and whether the account has claimed.">
+<meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="InstaPaid">
+<meta property="og:title" content="A creator's page on InstaPaid">
+<meta property="og:description" content="Fan-made coins for this Instagram account, the creator fees waiting, and whether the account has claimed. Only the account itself can claim.">
+<meta property="og:image" content="https://instapaid.fun/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
-</head><body>
-<header><a class="brand" href="/">InstaPaid</a><nav><a href="/launch">Launch</a><a href="/claim">Claim fees</a></nav></header>
-<main>
-  <div class="card">
-    <h1 id="at">@…</h1>
-    <p class="sub" id="status"></p>
-    <div class="big" id="fees">–</div>
-    <p class="hint">SOL in creator fees waiting for this account</p>
-    <a class="btn primary" id="launch">Launch a coin for this account</a>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap top-bar">
+    <a class="brand" href="/" aria-label="instapaid, home">
+      <img src="/mark.svg" alt="" width="38" height="38">
+      <span class="wordmark" aria-hidden="true"></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a class="nav-link hide-md" href="/#how">How it works</a>
+      <a class="nav-link hide-md" href="/#faq">FAQ</a>
+      <a class="nav-link" href="/claim"><span class="long">Claim fees</span><span class="short">Claim</span></a>
+      <a class="btn btn-primary btn-sm" href="/launch"><span class="long">Launch a coin</span><span class="short">Launch</span></a>
+    </nav>
   </div>
-  <div class="card"><h2>Coins</h2><ul class="list" id="tokens"></ul></div>
-  <p class="hint">These coins were launched by fans. The account didn't make them and doesn't endorse them unless it says so itself.</p>
+</header>
+
+<main id="main" class="page">
+  <div class="wrap page-narrow acct">
+    <section class="card acct-card" aria-labelledby="at">
+      <div class="acct-top">
+        <span class="ava-crowned">
+          <img class="acct-crown" src="/media/creators-320.webp" srcset="/media/creators-320.webp 320w, /media/creators.webp 640w" sizes="(max-width: 640px) 56px, 66px" width="320" height="320" alt="" aria-hidden="true">
+          <span class="acct-ava" id="ava" aria-hidden="true">@</span>
+        </span>
+        <div class="acct-id">
+          <span class="handle">Creator page on instapaid.fun</span>
+          <h1 id="at">@…</h1>
+          <span class="status open" id="claim-state" hidden>Not claimed yet</span>
+        </div>
+      </div>
+      <p class="sub acct-status" id="status" role="status"></p>
+      <div class="fees-box">
+        <span class="fees-label">Creator fees waiting</span>
+        <div class="fees-num"><span class="big" id="fees">–</span><span class="unit">SOL</span></div>
+        <p class="hint">Only this Instagram account can claim them, with a DM. Until then they wait in a vault InstaPaid keeps for this handle.</p>
+      </div>
+      <div class="acct-actions">
+        <a class="btn btn-gold" href="/claim" id="claim-link"><svg aria-hidden="true"><use href="/icons.svg#key"/></svg>Is this you? Claim your fees</a>
+        <a class="btn btn-ghost" id="launch"><svg aria-hidden="true"><use href="/icons.svg#rocket"/></svg>Launch a coin for this account</a>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="coins-title">
+      <h2 id="coins-title">Coins</h2>
+      <ul class="list tokens" id="tokens"></ul>
+      <p class="fine acct-fine">These coins were launched by fans. The account didn't make them and doesn't endorse them unless it says so itself. Meme coins are speculative and can lose all their value; a coin listed here is not a recommendation.</p>
+    </section>
+
+    <form class="card lookup" action="/u" method="get" data-lookup>
+      <label for="lookup-u">See another creator's page</label>
+      <div class="lookup-row">
+        <div class="lookup-field"><span aria-hidden="true">instapaid.fun/u/</span><input id="lookup-u" name="u" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="username" aria-describedby="lookup-u-err"></div>
+        <button class="btn btn-primary" type="submit">Look up</button>
+      </div>
+      <p class="lookup-err" id="lookup-u-err" hidden></p>
+      <p class="hint lookup-hint">Got here from our reply under a comment, or a post by @instapaid.official? They name the page: instapaid.fun/u/ and the creator's username.</p>
+    </form>
+
+    <p class="fine takedown-line">Is this your account and you don't want coins in your name? DM <span data-bot>@instapaid.official</span> from it and tell us. We stop new ones and stop posting about you.</p>
+  </div>
 </main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div class="foot-brand">
+      <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32"><span class="wordmark" aria-hidden="true"></span></a>
+      <p>© 2026 instapaid.fun</p>
+    </div>
+    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="/#how">How it works</a>
+      <a href="/#faq">FAQ</a>
+      <a href="/launch">Launch</a>
+      <a href="/claim">Claim fees</a>
+      <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
+    </nav>
+  </div>
+</footer>
+
 <script type="module">
-import { $, api, sol } from '/common.js';
+import { $, api, sol, wireLookup, isHandle } from '/common.js';
+for (const form of document.querySelectorAll('[data-lookup]')) wireLookup(form);
+api('/api/config').then((c) => { for (const el of document.querySelectorAll('[data-bot]')) el.textContent = '@' + c.botUsername; }).catch(() => {});
+
+/** The Instagram post a coin was named from, only when it really is an instagram.com address. */
+function postUrl(v) {
+  try {
+    const x = new URL(String(v || ''));
+    return x.protocol === 'https:' && (x.hostname === 'www.instagram.com' || x.hostname === 'instagram.com') ? x.href : null;
+  } catch { return null; }
+}
 const u = decodeURIComponent(location.pathname.split('/')[2] || '');
 $('#at').textContent = '@' + u;
+$('#ava').textContent = (u.replace(/[^a-z0-9]/gi, '')[0] || '@').toUpperCase();
+document.title = `@${u} — instapaid`;
 $('#launch').href = '/launch?u=' + encodeURIComponent(u);
-const a = await api('/api/accounts/' + encodeURIComponent(u)).catch((e) => ({ error: e.message }));
-if (a.error) { $('#status').textContent = a.error; }
-else {
+// An address that is no username (a typo, or an Instagram path such as /u/explore) is answered here,
+// as the home page's lookup does, without asking the server.
+const a = isHandle(u.trim().replace(/^@/, '').toLowerCase())
+  ? await api('/api/accounts/' + encodeURIComponent(u)).catch((e) => ({ error: e.message }))
+  : { error: 'That isn\'t an Instagram username. Look up another creator below.' };
+if (a.error) {
+  $('#status').textContent = a.error;
+  $('#tokens').append(Object.assign(document.createElement('li'), { className: 'empty', textContent: 'Nothing to show for this address.' }));
+} else {
   $('#fees').textContent = sol(a.pendingLamports);
-  $('#status').textContent = a.verified ? 'The owner has verified this account and claims its fees.' : 'The owner hasn\'t claimed yet. Fees keep building until they do.';
-  if (!a.tokens.length) $('#tokens').append(Object.assign(document.createElement('li'), { textContent: 'No coins yet.' }));
+  const state = $('#claim-state');
+  state.hidden = !a.tokens.length && !a.verified;
+  state.className = `status ${a.verified ? 'claimed' : 'open'}`;
+  state.textContent = a.verified ? 'Claimed' : 'Not claimed yet';
+  $('#status').textContent = a.verified
+    ? 'The owner has verified this account and claims its fees. The vault is tied to their account for good.'
+    : a.tokens.length
+      ? 'The owner hasn\'t claimed yet. Fees keep building until they do. Before the first claim, whoever holds this handle when they verify can claim.'
+      : 'No coins have been launched for this account yet.';
+  if (!a.tokens.length) {
+    $('#tokens').append(Object.assign(document.createElement('li'), { className: 'empty', textContent: 'No coins yet. A fan can launch the first one.' }));
+  }
   for (const t of a.tokens) {
     const li = document.createElement('li');
-    li.append(Object.assign(document.createElement('span'), { textContent: `${t.name} ($${t.symbol})` }));
-    li.append(Object.assign(document.createElement('a'), { href: `https://pump.fun/coin/${t.mint}`, target: '_blank', rel: 'noopener', textContent: 'pump.fun' }));
+    li.className = 'token';
+    const coin = Object.assign(document.createElement('span'), { className: 'coin-ava', textContent: (t.symbol || t.name || '?').slice(0, 1).toUpperCase() });
+    coin.setAttribute('aria-hidden', 'true');
+    const what = document.createElement('div');
+    what.className = 'token-what';
+    const head = Object.assign(document.createElement('p'), { className: 'token-head' });
+    head.append(Object.assign(document.createElement('b'), { textContent: t.name }), ' ', Object.assign(document.createElement('span'), { className: 'tick', textContent: '$' + t.symbol }));
+    what.append(head);
+    if (t.lore) {
+      const lore = Object.assign(document.createElement('p'), { className: 'token-lore' });
+      lore.append(Object.assign(document.createElement('span'), { className: 'token-lore-k', textContent: 'Fan lore' }), t.lore);
+      what.append(lore);
+    }
+    const meta = Object.assign(document.createElement('p'), { className: 'token-meta' });
+    meta.append(Object.assign(document.createElement('span'), { className: 'fan-made', textContent: 'Fan-made' }),
+      Object.assign(document.createElement('span'), { className: 'hint', textContent: (t.source === 'comment' ? 'Launched by comment · ' : 'Launched on the website · ') + new Date(t.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) }));
+    what.append(meta);
+    const links = Object.assign(document.createElement('div'), { className: 'token-links' });
+    const link = Object.assign(document.createElement('a'), { className: 'token-link', href: `https://pump.fun/coin/${encodeURIComponent(t.mint)}`, target: '_blank', rel: 'noopener', textContent: 'pump.fun' });
+    link.setAttribute('aria-label', `$${t.symbol} on pump.fun (opens in a new tab)`);
+    links.append(link);
+    const post = postUrl(t.post_permalink);
+    if (post) {
+      const a = Object.assign(document.createElement('a'), { className: 'token-link', href: post, target: '_blank', rel: 'noopener', textContent: 'Original post' });
+      a.setAttribute('aria-label', `The Instagram post $${t.symbol} was named from (opens in a new tab)`);
+      links.append(a);
+    }
+    li.append(coin, what, links);
     $('#tokens').append(li);
   }
 }
 </script>
-</body></html>
+</body>
+</html>

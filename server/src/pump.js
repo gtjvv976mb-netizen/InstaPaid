@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import {
-  ComputeBudgetProgram, Keypair, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction,
+  ComputeBudgetProgram, Keypair, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction,
 } from '@solana/web3.js';
 import BN from 'bn.js';
 import bs58 from 'bs58';
@@ -155,4 +155,71 @@ export async function payOut(connection, { vault, feePayer, destination, platfor
   }
   const transferSig = await sendAndConfirm(connection, ixs, feePayer, [feePayer, vault]);
   return { collectSig, transferSig, lamports: balance - platformFee, platformFee };
+}
+
+/**
+ * A launch the server pays for (from a comment): the fee payer is the launcher, the vault is
+ * still the creator. `onSigned({mint, signature, lastValidBlockHeight})` runs after the transaction
+ * is signed and before it is sent, so the caller can record the launch first: a send whose
+ * confirmation fails may still have landed. Returns once the coin is confirmed on-chain; throws
+ * LaunchSent when it was sent but not confirmed (ask launchStatus what happened).
+ */
+export async function launchPaidByServer(connection, { feePayer, vault, name, symbol, uri, onSigned }) {
+  const built = await buildLaunchTx(connection, {
+    launcher: feePayer.publicKey.toBase58(), vault, name, symbol, uri, devBuySol: 0,
+  });
+  const tx = VersionedTransaction.deserialize(Buffer.from(built.tx, 'base64'));
+  tx.sign([feePayer]); // adds the payer's signature beside the mint's
+  const signature = bs58.encode(tx.signatures[0]); // the payer signs first: this is the transaction's id
+  const sent = { mint: built.mint, signature, lastValidBlockHeight: built.lastValidBlockHeight };
+  await onSigned?.(sent);
+  try {
+    await connection.sendTransaction(tx, { maxRetries: 3 });
+  } catch (e) {
+    // The RPC answered and turned it down (a failed simulation, an unknown blockhash): it was not
+    // forwarded, so it cannot land. Anything else (a timeout, a dropped connection) may have gone out.
+    if (e instanceof SendTransactionError && !/already been processed/i.test(e.message)) throw new Error(`launch refused: ${e.message.split('\n')[0]}`);
+    throw new LaunchSent(sent, e);
+  }
+  let res;
+  try {
+    res = await connection.confirmTransaction(
+      { signature, blockhash: tx.message.recentBlockhash, lastValidBlockHeight: built.lastValidBlockHeight }, 'confirmed');
+  } catch (e) {
+    throw new LaunchSent(sent, e);
+  }
+  if (res.value.err) throw new Error(`launch ${signature} failed: ${JSON.stringify(res.value.err)}`);
+  return { mint: built.mint, signature };
+}
+
+/** A launch that was signed and handed to the network, whose outcome is not known yet. */
+export class LaunchSent extends Error {
+  constructor(sent, cause) {
+    super(`launch ${sent.signature} not confirmed: ${cause?.message ?? cause}`);
+    this.sent = sent;
+  }
+}
+
+/**
+ * What became of a launch that was sent: 'live' (the coin exists with this vault as creator, or the
+ * transaction is confirmed), 'failed' (it failed on-chain, or its blockhash expired without it
+ * landing, so it never will), or 'pending' (not known yet, or the RPC could not say).
+ */
+export async function launchStatus(connection, { mint, vault, signature, lastValidBlockHeight }) {
+  if (await confirmLaunch(connection, mint, vault)) return 'live';
+  try {
+    const st = (await connection.getSignatureStatuses([signature], { searchTransactionHistory: true })).value?.[0];
+    if (st?.err) return 'failed';
+    if (st?.confirmationStatus === 'confirmed' || st?.confirmationStatus === 'finalized') return 'live';
+    if (st) return 'pending';
+    if (lastValidBlockHeight != null && await connection.getBlockHeight('confirmed') > lastValidBlockHeight) {
+      // Expired. One more look for a coin that landed at the last moment.
+      return (await confirmLaunch(connection, mint, vault)) ? 'live' : 'failed';
+    }
+  } catch { /* the RPC could not say */ }
+  return 'pending';
+}
+
+export async function balanceOf(connection, pubkey) {
+  return BigInt(await connection.getBalance(pubkey, 'confirmed'));
 }

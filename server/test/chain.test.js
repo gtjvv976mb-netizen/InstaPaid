@@ -55,3 +55,18 @@ test('claim txs sign with exactly the keys the instructions need', { skip: !reac
   const t = compileSigned(move, feePayer, [feePayer, vault], blockhash);
   assert.equal(t.message.header.numRequiredSignatures, 2);
 });
+
+test('server-paid launch: the fee payer pays and signs, the vault is still the creator', { skip: !reachable && 'no RPC' }, async () => {
+  const feePayer = Keypair.generate();
+  const vault = Keypair.generate().publicKey;
+  const out = await buildLaunchTx(conn, {
+    launcher: feePayer.publicKey.toBase58(), vault: vault.toBase58(), name: 'T', symbol: 'T', uri: 'https://x', devBuySol: 0,
+  });
+  const tx = VersionedTransaction.deserialize(Buffer.from(out.tx, 'base64'));
+  tx.sign([feePayer]);
+  const { default: nacl } = await import('tweetnacl');
+  const msg = tx.message.serialize();
+  tx.message.staticAccountKeys.slice(0, 2).forEach((k, i) =>
+    assert.ok(nacl.sign.detached.verify(msg, tx.signatures[i], k.toBytes()), `signature ${i} valid`));
+  assert.equal(tx.message.staticAccountKeys[0].toBase58(), feePayer.publicKey.toBase58());
+});
