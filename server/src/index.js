@@ -29,6 +29,8 @@ const app = createApp({
 app.listen(config.port, () => {
   console.log(`instapaid on :${config.port} (${config.publicUrl})`);
   poster.start();
+  ig.subscribeMessages(config.ig).then((r) => console.log(
+    r.ok ? 'instagram: messages webhook subscribed for the bot account' : `instagram: messages webhook not subscribed (${r.reason})`));
 });
 
 // Comment launches that were sent but not confirmed (a lost confirmation, an RPC timeout): every two
