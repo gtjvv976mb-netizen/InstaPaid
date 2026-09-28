@@ -22,9 +22,10 @@
   --ok: #8ee3b0;
   --ok-tint: rgba(60, 180, 120, .16);
   --ok-line: rgba(142, 227, 176, .35);
-  --warn: #ffcf8a;
-  --warn-tint: rgba(255, 170, 80, .16);
-  --warn-line: rgba(255, 207, 138, .35);
+  /* "Needs attention": a peach-apricot, lighter than the coral accent and never a gold. */
+  --warn: #ffb28c;
+  --warn-tint: rgba(255, 150, 100, .16);
+  --warn-line: rgba(255, 178, 140, .38);
   --err: #ff9aa8;
   --err-tint: rgba(255, 90, 110, .16);
   --err-line: rgba(255, 154, 168, .38);
@@ -167,7 +168,7 @@ button { font: inherit; }
 .ava-peach { background: #ffd9c2; color: #6b2a10; }
 .ava-teal { background: #bfe9e0; color: #0b4a42; }
 .ava-lilac { background: #e9d3ff; color: #4a1a78; }
-.ava-sky { background: #cfe3ff; color: #0b3f74; }
+.ava-rose { background: linear-gradient(135deg, #ffc9b0, #ffb3c8); color: #5e1733; }
 /* A coin: frosted plum glass in a copper rim, a cream letter. */
 .coin-ava {
   flex: none; width: 46px; height: 46px; border-radius: 50%; display: inline-grid; place-items: center;
@@ -460,9 +461,19 @@ html.js [data-reveal][data-delay="3"] { transition-delay: .3s; }
   .page-head { position: relative; padding-right: 64px; }
   .page-head > .page-art { position: absolute; right: -10px; top: -22px; width: 82px; margin: 0; }
   .page-lead { font-size: 16px; margin-top: -10px; }
-  .claim-intro { margin-top: -8px; align-items: flex-start; flex-wrap: wrap; }
+  /* Phones: Pip and the picture side by side, the lead full width under them (not a narrow column). */
+  .claim-intro { margin-top: -6px; display: grid; grid-template-columns: 72px minmax(0, 1fr) 88px; align-items: center; gap: 4px 12px; }
+  .claim-intro .intro-mascot { grid-column: 1; grid-row: 1; }
+  .claim-intro .intro-art { grid-column: 3; grid-row: 1; margin: -6px -6px -6px 0; }
+  .claim-intro .page-lead { grid-column: 1 / -1; grid-row: 2; }
   .intro-art { width: 88px; margin: -6px -6px 0 0; }
   .intro-mascot { width: 72px; height: 72px; }
+  /* Phones, /launch: mark, title, Pip and the rocket in one row, none over another, all under the bar. */
+  .page-head.with-mascot { padding-right: 0; gap: 8px; }
+  .page-head.with-mascot > img:first-child { width: 40px; height: 40px; }
+  .page-head.with-mascot > div:not(.intro-mascot) { min-width: 0; }
+  .page-head.with-mascot .intro-mascot { width: 62px; height: 62px; margin-left: auto; }
+  .page-head.with-mascot > .page-art { position: static; width: 66px; margin: -4px -6px -4px 0; }
   .acct-top { padding-top: 14px; }
   .acct-crown { width: 56px; left: calc(50% - 28px); top: -38px; }
   .free-card .side-art { width: 72px; margin: -28px -8px 4px 8px; }
