@@ -169,7 +169,7 @@ export function createApp(deps) {
       return done('failed', { username, note: today >= cfg.maxServerLaunchesPerDay ? 'daily budget' : 'fee payer low' });
     }
 
-    let launched, sent = null, image;
+    let launched, sent = null, image, photo = false;
     const permalink = instagramPermalink(mention.media.permalink);
     try {
       // Everything about the coin comes from the post: its picture, its caption (for the name and
@@ -179,6 +179,7 @@ export function createApp(deps) {
       // A carousel or a post Meta sends no picture for gets the default coin image.
       const postImage = imageUrl ? await loadImage({ imageUrl }, deps.fetchImpl).catch(() => null) : null;
       image = postImage ?? DEFAULT_IMAGE();
+      photo = !!postImage; // the reply says the coin wears the post's photo only when it does
       const coin = await deps.nameCoin({
         username, caption: m.caption, image: postImage ?? undefined, lore: commentLore(mention.text, cfg.ig.botUsername),
       });
@@ -220,15 +221,16 @@ export function createApp(deps) {
         return done('failed', { username, note: String(e.message).slice(0, 300) });
       }
     }
-    // The coin is live: tell the fan under their comment, then @instapaid.official posts about it
-    // (when the poster is on) and mentions the creator.
+    // The coin is live: queue @instapaid.official's post about it (when the poster is on and the
+    // creator may be posted about), then tell the fan under their comment; the reply promises the
+    // post only when one was queued.
+    done('launched', { username, mint: launched.mint });
+    const queued = await poster.enqueue(launched.mint, launched.image).catch((e) => { console.error('post enqueue failed', e); return false; });
     await reply(launchedReply({
       username, name: launched.name, symbol: launched.symbol, mint: launched.mint, lore: launched.lore,
-      postPermalink: permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+      postPermalink: permalink, photo, posted: queued === true, publicUrl: cfg.publicUrl,
     }))
       .catch((e) => console.error('reply failed', e));
-    done('launched', { username, mint: launched.mint });
-    await poster.enqueue(launched.mint, launched.image).catch((e) => console.error('post enqueue failed', e));
   }
 
   const UNCONFIRMED = 'sent, not confirmed yet';
@@ -260,16 +262,18 @@ export function createApp(deps) {
     if (r.changes && announce) {
       // The fan who asked was told it was on its way; now tell them it is live.
       const asked = db.prepare(`select comment_id, media_id from comment_request where mint = ? and note = ?`).get(t.mint, UNCONFIRMED);
+      // Queued first, so the reply promises a post only when there will be one. Which picture the
+      // coin wears is not recorded, so this reply does not claim the post's photo.
+      const queued = await poster.enqueue(t.mint).catch((e) => { console.error('post enqueue failed', e); return false; });
       if (asked) {
         db.prepare(`update comment_request set note = null where comment_id = ?`).run(asked.comment_id);
         await deps.comments.replyToMention(cfg, { commentId: asked.comment_id, mediaId: asked.media_id },
           launchedReply({
             username: t.username, name: t.name, symbol: t.symbol, mint: t.mint, lore: t.lore,
-            postPermalink: t.post_permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+            postPermalink: t.post_permalink, posted: queued === true, publicUrl: cfg.publicUrl,
           }), deps.fetchImpl)
           .catch((e) => console.error('reply failed', e));
       }
-      await poster.enqueue(t.mint).catch((e) => console.error('post enqueue failed', e));
     }
     return 'live';
   }
@@ -315,7 +319,7 @@ export function createApp(deps) {
     ).run(igsid, username, v.id);
     if (r.changes) {
       console.log(`verify: verified @${username}`);
-      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and hit Claim. We never ask for a password or seed phrase.`);
+      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and tap Send my fees. We never ask for a password or seed phrase.`);
     }
   }
 
