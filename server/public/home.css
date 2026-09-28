@@ -138,19 +138,19 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   position: absolute; inset: 0; background: #0b0a0c; backface-visibility: hidden; -webkit-backface-visibility: hidden;
   box-shadow: inset 0 0 0 .8em #050406;
 }
-.duo-l .p3-face { border-radius: 7.5em 0 0 7.5em; }
-.duo-r .p3-face { border-radius: 0 7.5em 7.5em 0; }
+.duo-l .p3-face { border-radius: 12.5em 0 0 12.5em; }
+.duo-r .p3-face { border-radius: 0 12.5em 12.5em 0; }
 /* The frame's polished lip, seen round every face and back where the glass meets the titanium (never along the
    hinge, where the halves meet): a bright edge with a darker line inside it. */
 .p3-face::before, .p3-cover::before, .p3-face::after, .p3-cover::after { content: ""; position: absolute; z-index: 2; pointer-events: none; }
 .p3-face::before, .p3-cover::before { inset: 0; border-radius: inherit; border: .3em solid #eef0f2; }
 .p3-face::after, .p3-cover::after { inset: .3em; border: .16em solid #7c7e84; }
 .duo-l .p3-face::before, .duo-l .p3-face::after { border-right: 0; }
-.duo-l .p3-face::after { right: 0; border-radius: 7.2em 0 0 7.2em; }
+.duo-l .p3-face::after { right: 0; border-radius: 12.2em 0 0 12.2em; }
 .duo-r .p3-face::before, .duo-r .p3-face::after, .p3-cover::before, .p3-cover::after { border-left: 0; }
-.duo-r .p3-face::after, .p3-cover::after { left: 0; border-radius: 0 7.2em 7.2em 0; }
+.duo-r .p3-face::after, .p3-cover::after { left: 0; border-radius: 0 12.2em 12.2em 0; }
 .p3-skin::before {
-  content: ""; position: absolute; inset: 0 -2em 0 0; z-index: 2; border-radius: 7.5em 0 0 7.5em; pointer-events: none;
+  content: ""; position: absolute; inset: 0 -2em 0 0; z-index: 2; border-radius: 12.5em 0 0 12.5em; pointer-events: none;
   box-shadow: inset 0 0 0 .24em #fbfcfd, inset 0 0 0 .4em #74767c, inset 0 0 0 .62em #d3d5d9, inset 0 0 1.4em .62em rgba(120, 112, 110, .12);
 }
 /* A lit screen at night: a warm cream Instagram post, with its own darker words. */
@@ -158,8 +158,8 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   --s-ink: #2a1215; --s-ink-2: #5c3a40; --s-line: #f0dcd2; --s-tint: #ffe9de; --s-accent: #a83e27; /* 4.9:1 on the cream even under the coin's shadow */
   position: absolute; top: 2.2em; bottom: 2.2em; overflow: hidden; background: #fff6ef; color: var(--s-ink);
 }
-.scr-l { left: 2.2em; right: 0; border-radius: 5.3em 0 0 5.3em; }
-.scr-r { left: 0; right: 2.2em; border-radius: 0 5.3em 5.3em 0; }
+.scr-l { left: 2.2em; right: 0; border-radius: 10.3em 0 0 10.3em; }
+.scr-r { left: 0; right: 2.2em; border-radius: 0 10.3em 10.3em 0; }
 .scr-in { position: absolute; left: 0; top: 0; width: 100%; height: 100%; font-size: 11.5px; line-height: 1.36; }
 .scr-r .scr-in { font-size: 11px; line-height: 1.34; } /* the reply is the long pane */
 /* A narrower stage (a 1024 desk) draws the phone smaller: the words step down one size so the thread still fits. */
@@ -168,6 +168,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .phone-screen .tick { background: #ffe0d3; color: #8a2a3a; }
 .phone-screen .lore-in { background: #ffe4d4; color: #7a3410; }
 .app-bar { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 12px; border-bottom: 1px solid var(--s-line); }
+.scr-l .app-bar { padding-left: 20px; } /* clear of the display's round outer corner */
 .ab-title { font-weight: 800; font-size: 12px; }
 .ab-tag { padding: 1px 7px; border-radius: 999px; background: #ffe4d4; color: #7a3410; font-size: 10.5px; font-weight: 800; }
 .post-head { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; }
@@ -224,9 +225,9 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 
 /* The glass over each screen: a glare that slides as the phone turns (home.js). */
 .p3-glass { position: absolute; inset: 2.2em; overflow: hidden; pointer-events: none; }
-.duo-l .p3-face .p3-glass { right: 0; border-radius: 5.3em 0 0 5.3em; }
-.duo-r .p3-face .p3-glass { left: 0; border-radius: 0 5.3em 5.3em 0; }
-.p3-cover .p3-glass { border-radius: 1.2em 5.3em 5.3em 1.2em; }
+.duo-l .p3-face .p3-glass { right: 0; border-radius: 10.3em 0 0 10.3em; }
+.duo-r .p3-face .p3-glass { left: 0; border-radius: 0 10.3em 10.3em 0; }
+.p3-cover .p3-glass { border-radius: 1.2em 10.3em 10.3em 1.2em; }
 .p3-glass::before { content: ""; position: absolute; inset: 0; background: linear-gradient(152deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 22%); }
 .p3-glass i {
   position: absolute; top: -30%; bottom: -30%; left: 10%; width: 80%; opacity: 0;
@@ -259,8 +260,8 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   transform: translateZ(-2.6em) rotateY(180deg);
   backface-visibility: hidden; -webkit-backface-visibility: hidden;
 }
-.duo-r .p3-back { border-radius: 7.5em 0 0 7.5em; } /* turned round: its outer corners are on its own left */
-.duo-l .p3-back { border-radius: 0 7.5em 7.5em 0; }
+.duo-r .p3-back { border-radius: 12.5em 0 0 12.5em; } /* turned round: its outer corners are on its own left */
+.duo-l .p3-back { border-radius: 0 12.5em 12.5em 0; }
 /* Star White: frosted (matte) glass, so the light spreads softly across it instead of mirroring; a fine grain,
    a bright lip where it meets the frame, and a whisper of the room's coral low down. */
 .p3-skin {
@@ -282,14 +283,15 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   position: absolute; left: 3.4em; right: 3.4em; top: 3.4em; height: 23.5em; border-radius: 11.75em; transform-style: preserve-3d;
   transform: translateZ(1.2em);
   background:
-    radial-gradient(60% 90% at 18% 10%, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0) 70%),
-    linear-gradient(176deg, #fdfdfc 0%, #f4f3f1 55%, #eae8e5 100%);
-  box-shadow: inset 0 .25em .3em rgba(255, 255, 255, .9), inset 0 -.35em .6em rgba(120, 100, 96, .14), 0 .5em 1.4em rgba(60, 40, 40, .22), 0 .12em .2em rgba(60, 40, 40, .18);
+    radial-gradient(60% 90% at 18% 10%, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(176deg, #fcfcfb 0%, #f5f4f2 55%, #efeeeb 100%);
+  /* No outline and no hard shadow: the same white as the back, its edge a soft falloff. */
+  box-shadow: inset 0 .35em .6em rgba(255, 255, 255, .75), inset 0 -.5em 1.1em rgba(120, 100, 96, .06), 0 1.4em 2.8em -1em rgba(60, 40, 40, .12);
 }
 .pl-wall, .pl-top { position: absolute; inset: 0; border-radius: inherit; }
-.pl-wall { transform: translateZ(-.45em); background: #d4d0cc; box-shadow: 0 0 0 .08em #c4bfba; }
-.pl-w2 { transform: translateZ(-.9em); background: #c9c4bf; }
-.pl-top { transform: translateZ(0); box-shadow: inset 0 0 0 .14em rgba(255, 255, 255, .8); }
+.pl-wall { transform: translateZ(-.45em); background: #efeeeb; filter: blur(.3em); }
+.pl-w2 { transform: translateZ(-.9em); background: #e9e7e4; }
+.pl-top { transform: translateZ(0); }
 .p3-lens {
   position: absolute; top: 3.55em; width: 16.4em; height: 16.4em; border-radius: 50%; transform-style: preserve-3d;
   transform: translateZ(1.1em);
@@ -297,24 +299,32 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .p3-lens.l1 { left: 3.2em; }
 .p3-lens.l2 { left: 20.5em; }
 .p3-lens > i { position: absolute; inset: 0; border-radius: 50%; }
-.ln-wall { transform: translateZ(-.6em); background: #8e8f95; box-shadow: 0 .3em .8em rgba(40, 24, 24, .35); }
-/* The ring: thick, mirror-polished, bright where it faces the light and dark where it faces the room. */
+.p3-lens > .ln-wall { inset: -1.4em; }
+/* Round each ring, the housing slopes down into the plateau: a soft grey bevel a little behind the ring, with no
+   outline; the ring's bright lip is thin. */
+.ln-wall {
+  transform: translateZ(-.7em);
+  background: radial-gradient(circle closest-side, #a4a5aa 0 86%, #c2c2c5 90%, #dcdbda 95%, rgba(236, 234, 231, 0) 100%);
+  box-shadow: 0 .6em 1.4em -.4em rgba(40, 24, 24, .16);
+}
+/* The ring: mirror-polished titanium, a thin bright lip round the glass that is bright where it faces the light and
+   dark where it faces the room, and a softer grey bevel outside it. */
 .ln-ring {
   background:
-    radial-gradient(circle, rgba(0, 0, 0, 0) 60%, rgba(20, 18, 24, .5) 63.5%, rgba(0, 0, 0, 0) 66%),
+    radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 0 92.5%, rgba(120, 120, 126, .55) 94%, rgba(186, 186, 190, .6) 97%, rgba(214, 213, 213, .8) 100%),
+    radial-gradient(circle closest-side, #16151a 0 84%, #3a393f 85%, rgba(58, 57, 63, 0) 86.2%),
     conic-gradient(from 210deg, #ffffff, #b9bbc0 9%, #f7f7f8 17%, #54555b 30%, #c9cbcf 40%, #ffffff 50%, #eceef0 58%, #6c6d73 70%, #d7d9dc 82%, #ffffff 92%, #ffffff);
-  box-shadow: inset 0 0 0 .18em rgba(255, 255, 255, .9), 0 0 0 .12em rgba(90, 88, 92, .5);
 }
-/* The glass: dark, deep, with a small coloured element in the middle and one soft reflection. */
+/* The glass: large (84% of the ring), dark and deep, with a faint element in the middle and a soft reflection. */
 .ln-glass {
-  inset: 2.25em !important; transform: translateZ(.02em);
+  inset: 1.31em !important; transform: translateZ(.02em);
   background:
-    radial-gradient(circle at 36% 30%, rgba(255, 250, 245, .5) 0 4%, rgba(255, 250, 245, 0) 11%),
-    radial-gradient(circle at 50% 50%, var(--eye) 0 9%, #10131c 17%, #1c1a24 27%, #07060a 34%, #15141b 58%, #050407 72%, #2b2931 100%);
-  box-shadow: inset 0 0 0 .35em #0a090d, inset 0 0 0 .6em #2c2b31, inset 0 .6em 1.2em rgba(0, 0, 0, .6);
+    radial-gradient(55% 42% at 36% 28%, rgba(255, 250, 245, .09), rgba(255, 250, 245, 0) 72%),
+    radial-gradient(circle at 50% 50%, #08080b 0 6%, var(--eye) 10.5%, #0c0d12 15%, #16151c 26%, #0a090d 42%, #141319 64%, #1f1e24 84%, #2a2930 100%);
+  box-shadow: inset 0 0 0 .22em #0c0b0f, inset 0 .5em 1.1em rgba(0, 0, 0, .55);
 }
-.l1 .ln-glass { --eye: #3d5f9a; }
-.l2 .ln-glass { --eye: #9a7040; }
+.l1 .ln-glass { --eye: #262f40; }
+.l2 .ln-glass { --eye: #3a3129; }
 .p3-mic { position: absolute; left: 41.9em; top: 6em; width: 2.6em; height: 1.2em; border-radius: 1em; transform: translateZ(.02em); background: #2a262b; box-shadow: inset 0 .12em .2em rgba(0, 0, 0, .6), 0 0 0 .12em rgba(255, 255, 255, .7); }
 .p3-flash { position: absolute; left: 41.1em; top: 11.8em; width: 4.2em; height: 4.2em; border-radius: 50%; transform: translateZ(.1em); background: radial-gradient(circle at 50% 45%, #fffdf8 0 22%, #f3e6d6 44%, #d9c6b2 70%, #bfae9e); box-shadow: 0 0 0 .3em #e7e5e3, 0 0 0 .45em rgba(120, 110, 108, .35), inset 0 0 .5em rgba(110, 90, 70, .3); }
 
@@ -323,7 +333,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
    notification, and the fan's comment under it. */
 .p3-cover { background: #0b0a0c; box-shadow: inset 0 0 0 .8em #050406; }
 .osd {
-  position: absolute; inset: 2.2em; overflow: hidden; border-radius: 1.2em 5.3em 5.3em 1.2em; color: var(--ink);
+  position: absolute; inset: 2.2em; overflow: hidden; border-radius: 1.2em 10.3em 10.3em 1.2em; color: var(--ink);
   background:
     radial-gradient(70% 36% at 70% 12%, rgba(255, 122, 89, .42), rgba(255, 122, 89, 0) 70%),
     radial-gradient(70% 45% at 18% 96%, rgba(163, 52, 95, .5), rgba(163, 52, 95, 0) 70%),
@@ -333,7 +343,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .osd-cam { right: 3.8em; top: 4.2em; width: 5.2em; height: 5.2em; }
 /* The lock screen is drawn in millimetres too (1em = 1 mm here), so it fits the display at every size. */
 .osd-time { margin: 0 0 3.6em; text-align: center; line-height: 1.1; }
-.osd-time small { display: block; font-size: max(10px, 3.8em); font-weight: 650; color: #f3ddd3; }
+.osd-time small { display: block; font-size: max(10px, 3.8em); font-weight: 650; color: #fff1ea; }
 .osd-time b { display: block; margin-top: .6em; font-family: var(--display); font-size: 13.9em; font-weight: 750; letter-spacing: -.045em; line-height: 1; color: #fff3ea; }
 .osd-note {
   display: flex; gap: 2.5em; align-items: flex-start;
@@ -358,13 +368,18 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   transform: translate3d(0, 0, calc(-5.2em + var(--fold, 0) * 5.65em)) rotateY(calc(var(--fold, 0) * 90deg)) scale3d(calc(.34 + var(--fold, 0) * .66), 1, calc(.5 + var(--fold, 0) * .5));
 }
 .p3-hf {
+  /* Polished titanium, lit like the rails (home.js: deep reflections of the room between bright highlights); its
+     rounded ends catch a dark line and a bright one. */
   position: absolute; top: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background: linear-gradient(180deg, #8d8e93, #f3f4f6 2.5%, #d2d4d8 18%, #a9abb0 40%, #eef0f2 62%, #c3c5c9 84%, #f3f4f6 97.5%, #85868b);
+  background: linear-gradient(180deg, #1e1d22 0, #f2f3f5 .7%, #6d6e74 1.8%, #b4b6ba 3.4%, #a9abb0 30%, #b8babe 55%, #a6a8ad 80%, #b4b6ba 96.6%, #6d6e74 98.2%, #f2f3f5 99.3%, #1e1d22 100%);
 }
 .p3-hf::before, .p3-hf::after { content: ""; position: absolute; inset: 0; }
 .p3-hf::before { background: #0c0a0d; opacity: var(--dk, .2); }
 .p3-hf::after { background: #fff8f2; opacity: var(--gl, 0); }
-.p3-hcap { position: absolute; background: linear-gradient(90deg, #8e8f94, #e4e5e8 45%, #a3a4a9); backface-visibility: visible; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+/* The seams where the cover meets each half: a thin dark line down each edge. */
+.p3-hf > b { position: absolute; top: 0; bottom: 0; z-index: 1; width: 42%; background: linear-gradient(90deg, #121115, #2a292e); }
+.p3-hf > b.sr { right: 0; } .p3-hf > b.sl { left: 0; }
+.p3-hcap { position: absolute; background: linear-gradient(90deg, #2c2c31, #9fa1a6 20%, #eef0f2 45%, #6b6c72 72%, #26252a); backface-visibility: visible; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
 
 /* Around the phone: the coin and, in .p3-props, the sparkles and stickers, which shrink away as it folds. */
 .p3 .sticker, .p3-coin, .p3-spark { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
@@ -388,7 +403,12 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 
 /* The sequence. Without JS everything simply shows; home.js arms it, closes the phone, and plays it in view:
    the notification on the cover, the phone opens (home.js, at 1.7 s), then the thread. */
-.armed:not(.play) :is(.n1, .s1, .s3, .s4, .s5, .sticker) { opacity: 0; }
+/* The story starts closed, so with scripts the phone is closed from the first paint, before home.js has run
+   (html.p3-js: set in the head, only where modules run, so a browser that never runs home.js keeps the open
+   fallback), and nothing of the story shows until it plays. */
+.p3-js .p3:not(.p3-live) .duo { --fold: 1; --rz: 0deg; }
+.p3-js .p3:not(.p3-live) .p3-props { visibility: hidden; }
+.armed:not(.play) :is(.n1, .s1, .s3, .s4, .s5, .sticker), .p3-js [data-stage]:not(.play) :is(.n1, .s1, .s3, .s4, .s5, .sticker) { opacity: 0; }
 .play .n1 { animation: rise .55s .45s cubic-bezier(.2, .9, .3, 1.2) backwards; }
 .play .s1 { animation: rise .55s 2.7s cubic-bezier(.2, .9, .3, 1.2) backwards; }
 .play .s2 { animation: typing 1.7s 3.2s ease backwards; }
@@ -778,8 +798,8 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   /* Open and held in portrait, the outer display (on the back) is on its side as well: its lock screen turns with
      it (the other way, as it faces the other way), and shows the newest notification only. Closed, it stands
      upright again (home.js), and so does the lock screen. */
-  .p3:not(.p3-closed) .osd-in { width: calc(113.4 * var(--u)); height: calc(77.9 * var(--u)); padding-top: 5em; transform-origin: 0 0; transform: translate(calc(77.9 * var(--u)), 0) rotate(90deg); }
-  .p3:not(.p3-closed) .osd-old { display: none; }
+  .p3-live:not(.p3-closed) .osd-in { width: calc(113.4 * var(--u)); height: calc(77.9 * var(--u)); padding-top: 5em; transform-origin: 0 0; transform: translate(calc(77.9 * var(--u)), 0) rotate(90deg); }
+  .p3-live:not(.p3-closed) .osd-old { display: none; }
   .post-media svg { max-height: calc(34 * var(--u)); }
   .scr-in { line-height: 1.34; }
   .app-bar { height: 22px; }

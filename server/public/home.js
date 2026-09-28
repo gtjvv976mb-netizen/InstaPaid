@@ -35,18 +35,30 @@ const replay = () => { stage.classList.remove('play'); void stage.offsetWidth; p
 stage.classList.add('armed');
 $('[data-replay]').addEventListener('click', replay);
 
-// ---- Motion budget: pause animations that are off-screen; play the thread the first time it shows ----
+// ---- Motion budget: pause animations that are off-screen; play the thread the first time it shows. The stage
+//      also holds while the tab is hidden, and the story's own timer (when the phone opens) holds with it, so the
+//      CSS timeline and the fold never drift apart. ----
+let stageIn = false;
+const holdStage = () => {
+  const hold = !stageIn || document.hidden;
+  stage.classList.toggle('paused', hold);
+  p3?.hold(hold);
+};
 if ('IntersectionObserver' in window) {
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) {
-      e.target.classList.toggle('paused', !e.isIntersecting);
-      if (e.target === stage && e.isIntersecting && !stage.classList.contains('play')) play();
+      if (e.target !== stage) { e.target.classList.toggle('paused', !e.isIntersecting); continue; }
+      stageIn = e.isIntersecting;
+      if (stageIn && !stage.classList.contains('play')) play();
+      holdStage();
     }
   }, { rootMargin: '0px 0px -12% 0px' });
   for (const el of document.querySelectorAll('[data-motion]')) io.observe(el);
 } else {
+  stageIn = true;
   play();
 }
+document.addEventListener('visibilitychange', holdStage);
 
 function phone3d(scene) {
   const rig = scene.querySelector('[data-p3-rig]');
@@ -68,7 +80,7 @@ function phone3d(scene) {
   //      hinge cover is a flattened half-round on the spine, HB each side of its middle and HA proud: home.css
   //      turns it at half the fold and narrows it open, so open it is a band down the back and closed it is the
   //      spine column, the full thickness, 2 mm beside the halves (84.1 mm in all). ----
-  const H = 117.8, T = 5.2, R = 7.5, HB = 5.65, HA = 2, FACETS = 8, HF = 12;
+  const H = 117.8, T = 5.2, R = 12.5, HB = 5.65, HA = 2, FACETS = 10, HF = 12;
   const mm = (v) => `${+v.toFixed(3)}em`;
   // Every rail piece stands on the half's outline with its outward normal at angle phi in the half's own frame
   // (0 = right, 90 = down); the left half's pieces are turned with it as it folds (side 'l'). Hinge facets
@@ -127,6 +139,8 @@ function phone3d(scene) {
     const l = Math.hypot(nx, nz); nx /= l; nz /= l;
     const el = document.createElement('i');
     el.className = 'p3-hf';
+    // The end facets carry the seam lines, on the edge against each half (a facet's +x runs toward smaller t).
+    if (i === 0 || i === HF - 1) el.append(Object.assign(document.createElement('b'), { className: i === 0 ? 'sr' : 'sl' }));
     el.style.left = mm(-w / 2); el.style.width = mm(w);
     el.style.transform = `translate3d(${mm(cx)}, 0, ${mm(cz)}) rotateY(${(Math.atan2(nx, nz) / RAD).toFixed(2)}deg)`;
     hinge.append(el);
@@ -145,13 +159,34 @@ function phone3d(scene) {
   const L1 = norm(-0.55, -0.7, 0.6), L2 = norm(0.9, -0.1, 0.25);
   const H1 = norm(L1[0], L1[1], L1[2] + 1), H2 = norm(L2[0], L2[1], L2[2] + 1);
   const dot = (a, x, y, z) => a[0] * x + a[1] * y + a[2] * z;
+  // What a mirror with this normal shows the viewer: the view reflected into a studio, as polished metal is
+  // photographed. Mostly bright, with two black cards (one just right of the camera, one far left), a dark floor
+  // and the dark room behind, so a curved rail or the hinge cover sweeps through near-black bands between bright
+  // ones. Returned as [brightness 0..1, highlight 0..1] (the highlight: the softbox up and to the left, the warm
+  // light on the right).
+  const bump = (v, c, w) => { const q = (v - c) / w; return q * q < 1 ? (1 - q * q) ** 2 : 0; };
+  const smooth = (a, b, v) => { const q = Math.min(1, Math.max(0, (v - a) / (b - a))); return q * q * (3 - 2 * q); };
+  const mirror = (nx, ny, nz) => {
+    const rx = 2 * nz * nx, ry = 2 * nz * ny, rz = 2 * nz * nz - 1;
+    const phi = Math.atan2(rx, rz) / RAD;
+    let e = 0.86;
+    e -= 0.9 * bump(phi, 16, 30) + 0.85 * bump(phi, -66, 22);
+    e *= (1 - 0.85 * smooth(0.25, 0.75, ry)) * (1 - 0.9 * smooth(100, 145, Math.abs(phi)));
+    const hi = Math.min(1, bump(phi, -34, 13) * smooth(0.35, -0.2, ry) + 0.6 * bump(phi, 72, 11) * smooth(0.5, 0, ry));
+    return [Math.max(0, e), hi];
+  };
 
   // ---- State. Angles in degrees: y turns about the vertical axis (+ = the face turns right), x about the
   //      horizontal one (+ = the face tips up). fold runs 0 (open, flat) to 1 (closed). ----
   let restY = 0, restX = 0, limY = 40, limX = 22, idleScale = 1, rz = 0;
+  // The hinge: where it is, its speed, where it is going, how briskly. The story always starts closed, so it is
+  // closed from the first frame drawn here (home.css closes it before that, from the first paint).
+  let fold = 1, foldV = 0, foldTo = 1, foldK = 40;
+  // At rest, open, it turns a little left so the thread reads; closed, a little right, so the spine (the polished
+  // hinge cover down its left edge) shows beside the outer display, as the phone is usually photographed.
   const pose = () => {
-    const small = compact.matches;
-    restY = small ? -10 : -24; restX = small ? 4 : 7;
+    const small = compact.matches, shut = foldTo === 1;
+    restY = shut ? (small ? 18 : 28) : (small ? -10 : -24); restX = small ? 4 : 7;
     limY = small ? 34 : 40; limX = small ? 15 : 22; idleScale = small ? 0.6 : 1;
     rz = small ? 90 : 0; // open, held in portrait on a narrow stage; it eases upright as it closes (render)
   };
@@ -162,7 +197,6 @@ function phone3d(scene) {
   let hovY = 0, hovX = 0, hovTY = 0, hovTX = 0; // lean toward the mouse
   let idleAmp = 0, liftAmp = 0, modeT = 0; // idle sway and idle lift (eased apart, so a grab never jumps)
   let spinTo = null, spinFrom = 0, spinV = 0, spinK = 0; // a flick's landing angle (null: none), start, speed, slowing rate
-  let fold = 0, foldV = 0, foldTo = 0, foldK = 40; // the hinge: where it is, its speed, where it is going, how briskly
   let drag = null, lastTap = null, visible = false, raf = 0, last = 0, mouse = null;
 
   const reduced = () => false; // motion is always on
@@ -179,9 +213,11 @@ function phone3d(scene) {
 
   // ---- The fold: a spring to open (0) or closed (1), with a firm stop at each end. ----
   const setFold = (to, { snap = false, brisk = false } = {}) => {
+    const turn = to !== foldTo;
     foldTo = to; foldK = brisk ? 110 : 40;
     if (snap) { fold = to; foldV = 0; }
     foldBtn?.setAttribute('aria-pressed', String(to === 1));
+    if (turn) { pose(); settle(); } // to the other resting pose, the short way
     wake();
   };
   const folding = () => Math.abs(fold - foldTo) > 0.0004 || Math.abs(foldV) > 0.002;
@@ -287,13 +323,12 @@ function phone3d(scene) {
       if (nz < -0.05) continue; // facing away: hidden by backface-visibility
       const d1 = Math.max(0, dot(L1, nx, ny, nz)), d2 = Math.max(0, dot(L2, nx, ny, nz));
       const h1 = Math.max(0, dot(H1, nx, ny, nz)), h2 = Math.max(0, dot(H2, nx, ny, nz));
+      const [e, hi] = mirror(nx, ny, nz);
       let dk, gl;
-      if (p.side === 'h') { // polished, a touch softer than the rails: broad highlights, darker reflections
-        const lum = 0.24 + 0.66 * d1 + 0.4 * d2;
-        dk = Math.min(0.6, Math.max(0, 0.74 - lum)); gl = Math.min(0.85, 0.8 * h1 ** 14 + 0.5 * h2 ** 10);
+      if (p.side === 'h') { // polished, like the rails: near-black where it reflects the dark, bright between
+        dk = Math.min(0.8, Math.max(0, 0.8 * (1 - e) - 0.1 * d1)); gl = Math.min(0.85, 0.75 * hi + 0.3 * h1 ** 14);
       } else { // mirror-polished: hard highlights, deep darks where it reflects the room
-        const lum = 0.2 + 0.7 * d1 + 0.42 * d2;
-        dk = Math.min(0.62, Math.max(0, 0.78 - lum)); gl = Math.min(0.95, 0.95 * h1 ** 28 + 0.55 * h2 ** 18);
+        dk = Math.min(0.8, Math.max(0, 0.78 * (1 - e) - 0.12 * d1 - 0.08 * d2)); gl = Math.min(0.95, 0.7 * hi + 0.6 * h1 ** 28 + 0.4 * h2 ** 18);
       }
       if (Math.abs(dk - p.dk) > 0.004) { p.el.style.setProperty('--dk', dk.toFixed(3)); p.dk = dk; }
       if (Math.abs(gl - p.gl) > 0.004) { p.el.style.setProperty('--gl', gl.toFixed(3)); p.gl = gl; }
@@ -316,7 +351,8 @@ function phone3d(scene) {
     for (const g of glares) {
       const nz = (g.face === 'r' ? world(0, 0, 1) : g.face === 'l' ? world(sa, 0, ca) : world(-sa, 0, -ca))[2];
       g.el.style.transform = `translate3d(${(-wrap(Y, 0) * 1.5 - 20).toFixed(1)}%, ${(X * 0.8).toFixed(1)}%, 0)`;
-      g.el.style.opacity = (nz > 0 ? 0.8 * tilt * nz : 0).toFixed(3);
+      // The outer display is dark glass under light words: its glare stays fainter, so the date keeps 4.5:1.
+      g.el.style.opacity = (nz > 0 ? (g.face === 'o' ? 0.5 : 0.8) * tilt * nz : 0).toFixed(3);
     }
     // The crease shows at an angle, and only while the inner display is open.
     // The crease: faint head-on, clearer as the phone turns or begins to fold; gone once the halves close on it.
@@ -492,13 +528,24 @@ function phone3d(scene) {
   // ---- The story ("Play it again", and the first time the stage shows): the phone is closed, the creator's
   //      outer display lights up with our mention, and at 1.7 s it opens onto the thread (home.css times the
   //      rest). Fold / Open is the person's own control: pressing it ends the story's timer. ----
-  let storyT = 0, played = false;
-  const endStory = () => { clearTimeout(storyT); storyT = 0; };
+  //      The timer holds while the stage is paused (off-screen, or the tab hidden: hold()), as the CSS does.
+  let storyT = 0, storyLeft = 0, storyAt = 0, held = false, played = false;
+  const endStory = () => { clearTimeout(storyT); storyT = 0; storyLeft = 0; };
+  const arm = (ms) => {
+    storyLeft = ms; storyAt = performance.now();
+    if (!held) storyT = setTimeout(() => { storyT = 0; storyLeft = 0; setFold(0); }, ms);
+  };
+  function hold(on) {
+    if (on === held) return;
+    held = on;
+    if (on) { if (storyT) { clearTimeout(storyT); storyT = 0; storyLeft = Math.max(0, storyLeft - (performance.now() - storyAt)); } }
+    else if (storyLeft) arm(storyLeft);
+  }
   function story() {
     endStory();
     setFold(1, played ? { brisk: true } : { snap: true }); // the first time it starts closed; again, it closes first
     played = true;
-    storyT = setTimeout(() => { storyT = 0; setFold(0); }, 1700);
+    arm(1700);
   }
   foldBtn?.addEventListener('click', () => { endStory(); used(); setFold(foldTo === 1 ? 0 : 1); });
 
@@ -513,9 +560,9 @@ function phone3d(scene) {
   render(performance.now());
   // The same controls for scripts and tests (scene.p3): fold(to, snap) and look(y, x), which sets the pose still.
   const api = {
-    story, fold: (to, snap = false) => setFold(to, { snap }),
+    story, hold, fold: (to, snap = false) => setFold(to, { snap }),
     look(y, x) { endStory(); ry = y; rx = x; vy = vx = 0; keyY = keyX = 0; hovY = hovX = hovTY = hovTX = 0; idleAmp = liftAmp = 0; spinTo = null; mode = 'rest'; render(performance.now()); },
-    state: () => ({ y: ry, x: rx, fold, mode }),
+    state: () => ({ y: ry, x: rx, fold, mode, rest: [restY, restX], story: storyLeft }),
   };
   scene.p3 = api;
   return api;
