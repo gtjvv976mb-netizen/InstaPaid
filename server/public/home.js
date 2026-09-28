@@ -41,7 +41,8 @@ if ('IntersectionObserver' in window) {
 
 // ---- The phone in 3D: drag it, flick it, turn it with the arrow keys. CSS 3D, so the thread stays live
 //      HTML. Only transforms and opacity change, in one requestAnimationFrame loop that sleeps when the phone
-//      is off-screen, the tab is hidden, or (under Reduce Motion) nothing is moving. ----
+//      is off-screen, the tab is hidden, or nothing is moving. Motion is always on: nothing here reads
+//      Reduce Motion. ----
 const scene = $('[data-p3]');
 if (scene) phone3d(scene);
 
@@ -53,7 +54,6 @@ function phone3d(scene) {
   const sheen = scene.querySelector('[data-p3-sheen]');
   const floor = scene.querySelector('.p3-floor');
   const glow = scene.querySelector('.p3-glow');
-  const still = matchMedia('(prefers-reduced-motion: reduce)');
   const compact = matchMedia('(max-width: 980px)');
   const hover = matchMedia('(hover: hover) and (pointer: fine)');
   const RAD = Math.PI / 180;
@@ -118,7 +118,7 @@ function phone3d(scene) {
   let spinTo = null, spinFrom = 0, spinV = 0, spinK = 0; // a flick's landing angle (null: none), start, speed, slowing rate
   let drag = null, lastTap = null, visible = false, raf = 0, last = 0, mouse = null;
 
-  const reduced = () => still.matches;
+  const reduced = () => false; // motion is always on
   const soft = (v, lim) => lim * Math.tanh(v / lim);          // a clamp that eases into its limit
   const unsoft = (v, lim) => lim * Math.atanh(Math.max(-0.995, Math.min(0.995, v / lim)));
   const wrap = (a, around) => a - 360 * Math.round((a - around) / 360); // the same angle, nearest `around`
@@ -389,29 +389,33 @@ function phone3d(scene) {
   } else { visible = true; wake(); }
   document.addEventListener('visibilitychange', () => (document.hidden ? sleep() : wake()));
   compact.addEventListener?.('change', () => { pose(); settle(); });
-  still.addEventListener?.('change', () => { if (reduced()) { idleAmp = liftAmp = 0; hovY = hovX = hovTY = hovTX = 0; } settle(); });
 
   scene.classList.add('p3-live');
   render(performance.now());
 }
 
-// ---- The loop in "How it works": decorative. It plays only while on screen, and never under
-//      Reduce Motion (then the poster stays; the inline script by the video stops the autoplay). ----
+// ---- The film behind the hero: decorative. It plays only while on screen (and always: motion is never
+//      switched off here). ----
 const loop = $('[data-loop]');
 if (loop) {
-  const still = matchMedia('(prefers-reduced-motion: reduce)');
   let onScreen = false;
   const sync = () => {
-    if (still.matches || !onScreen) { if (!loop.paused) loop.pause(); return; }
+    if (!onScreen) { if (!loop.paused) loop.pause(); return; }
     if (loop.paused) loop.play().catch(() => { /* no autoplay or no codec: the poster stays */ });
   };
-  still.addEventListener?.('change', () => {
-    if (still.matches) { loop.removeAttribute('autoplay'); loop.pause(); loop.load(); } // back to the poster
-    sync();
-  });
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; sync(); }, { threshold: 0.05 }).observe(loop);
   } else { onScreen = true; sync(); }
+}
+
+// ---- Scroll reveal: each [data-reveal] rises once as it comes into view. ----
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+  for (const el of document.querySelectorAll('[data-reveal]')) io.observe(el);
+} else {
+  for (const el of document.querySelectorAll('[data-reveal]')) el.classList.add('in');
 }
 
 // ---- Recently launched: live coins from /api/recent replace the examples ----

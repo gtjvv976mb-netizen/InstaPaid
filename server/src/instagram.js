@@ -3,15 +3,15 @@ import { CODE_RE } from './crypto.js';
 const graph = (cfg, path) => `https://graph.instagram.com/${cfg.graphVersion}/${path}`;
 
 /**
- * The messages in a webhook body that could carry a code: text from someone other than the bot.
+ * Every text DM to the bot in a webhook body, from someone other than the bot itself.
  * Shape: { object: 'instagram', entry: [{ messaging: [{ sender: {id}, recipient: {id}, message: {text, is_echo} }] }] }
+ * Meta also delivers DMs as entry.changes[{field:'messages', value}] (its dashboard Test does,
+ * and some Instagram Login subscriptions do): both are read.
  */
-export function codeMessages(body) {
+export function textMessages(body) {
   const out = [];
   if (body?.object !== 'instagram') return out;
   for (const entry of body.entry ?? []) {
-    // Meta delivers DMs as entry.messaging[], but also as entry.changes[{field:'messages', value}]
-    // (its dashboard Test does, and some Instagram Login subscriptions do): read both.
     const events = [
       ...(entry.messaging ?? []),
       ...(entry.changes ?? []).filter((c) => c?.field === 'messages').map((c) => c.value),
@@ -21,10 +21,15 @@ export function codeMessages(body) {
       if (!text || ev.message.is_echo || !ev.sender?.id) continue;
       if (entry.id && String(ev.sender.id) === String(entry.id)) continue; // the bot itself
       const m = text.toUpperCase().match(CODE_RE);
-      if (m) out.push({ igsid: String(ev.sender.id), code: m[0] });
+      out.push({ igsid: String(ev.sender.id), code: m ? m[0] : null });
     }
   }
   return out;
+}
+
+/** The DMs that carry a claim code. */
+export function codeMessages(body) {
+  return textMessages(body).filter((m) => m.code);
 }
 
 /** The sender's current username, from the User Profile API (allowed once they have messaged the bot). */

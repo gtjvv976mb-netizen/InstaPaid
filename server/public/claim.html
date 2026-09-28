@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <title>Claim your fees — instapaid</title>
 <meta name="description" content="Mentioned by @instapaid.official? Fans made you a coin. Claim its creator fees: get a one-time code, DM it to @instapaid.official, and send the fees to any Solana wallet.">
-<meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1a1114">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="InstaPaid">
 <meta property="og:url" content="https://instapaid.fun/claim">
@@ -20,6 +19,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
+<script src="/mascot.js" defer></script>
 </head>
 <body>
 
@@ -50,8 +50,9 @@
       </div>
     </div>
     <div class="claim-intro">
+      <div class="intro-mascot" data-mascot data-size="sm"></div>
       <p class="page-lead">Did <b data-bot>@instapaid.official</b> mention you in a post? A fan made you a coin, and its creator fees are yours. Prove the account is yours with one DM, then send them to any Solana wallet.</p>
-      <img class="intro-art" src="/media/step-claim-320.webp" srcset="/media/step-claim-320.webp 320w, /media/step-claim.webp 640w" sizes="(max-width: 640px) 88px, 124px" width="320" height="320" alt="" aria-hidden="true">
+      <img class="intro-art" src="/media/step-claim-400.webp" srcset="/media/step-claim-400.webp 400w, /media/step-claim.webp 640w" sizes="(max-width: 640px) 88px, 124px" width="400" height="400" alt="" aria-hidden="true">
     </div>
 
     <ol class="progress" id="progress" aria-label="Claim steps">
@@ -97,7 +98,7 @@
       <label for="dest">Send to this Solana wallet</label>
       <input id="dest" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Wallet address">
       <p class="hint field-hint">Any Solana wallet address. We pay the network fee. Your first claim ties these fees to your account for good, even if you change your username later.</p>
-      <button class="primary gold" id="claim" type="button"><svg aria-hidden="true"><use href="/icons.svg#send"/></svg>Send my fees</button>
+      <button class="primary" id="claim" type="button"><svg aria-hidden="true"><use href="/icons.svg#send"/></svg>Send my fees</button>
       <div id="msg" role="status" aria-live="polite" hidden></div>
     </div>
 
@@ -126,13 +127,14 @@
       <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32"><span class="wordmark" aria-hidden="true"></span></a>
       <p>© 2026 instapaid.fun</p>
     </div>
-    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
+    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Coins launch on pump.fun, which we don't run. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
     <nav class="foot-links" aria-label="Footer">
       <a href="/#how">How it works</a>
       <a href="/#faq">FAQ</a>
       <a href="/launch">Launch</a>
       <a href="/claim">Claim fees</a>
       <a href="/privacy">Privacy</a>
+      <a href="/data-deletion">Data deletion</a>
       <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
     </nav>
   </div>

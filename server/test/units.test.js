@@ -86,3 +86,26 @@ test('subscribeMessages: posts to me/subscribed_apps, skips placeholder tokens, 
   assert.match(bad.reason, /400: Invalid OAuth access token/);
   assert.equal((await subscribeMessages(cfg, async () => { throw new Error('offline'); })).reason, 'offline');
 });
+
+test('welcomeDm: official, tells a creator with coins what is waiting and how to claim; a stranger what this is', async () => {
+  const { welcomeDm } = await import('../src/comments.js');
+  const withCoins = welcomeDm({ username: 'nat.geo', publicUrl: 'https://instapaid.fun', coins: [
+    { name: 'Golden Hour', symbol: 'GEO', pendingLamports: 1_500_000_000n },
+    { name: 'Sunset', symbol: 'SUN', pendingLamports: 0n },
+  ] });
+  for (const must of ['Hello @nat.geo, this is InstaPaid.', '• Golden Hour ($GEO)', '• Sunset ($SUN)', 'Waiting for you right now: 1.5 SOL',
+    'instapaid.fun/claim', 'Get my code', 'never asks for your password, seed phrase or private key', 'instapaid.fun/u/nat.geo']) {
+    assert.ok(withCoins.includes(must), must);
+  }
+  assert.ok(withCoins.length <= 1000, `${withCoins.length} chars (Instagram DM limit)`);
+  assert.doesNotMatch(withCoins, /🚀|moon|profit/i);
+
+  const none = welcomeDm({ username: 'someone', publicUrl: 'https://instapaid.fun', coins: [] });
+  assert.match(none, /No coin has been launched for @someone yet/);
+  assert.match(none, /make a token for this creator/);
+  assert.ok(none.length <= 1000);
+  assert.match(welcomeDm({ username: null, coins: [], publicUrl: 'https://instapaid.fun' }), /Hello you, this is InstaPaid/);
+
+  const many = welcomeDm({ username: 'x', publicUrl: 'https://instapaid.fun', coins: Array.from({ length: 5 }, (_, i) => ({ name: 'N' + i, symbol: 'S' + i, pendingLamports: 0n })) });
+  assert.match(many, /• and 2 more/);
+});

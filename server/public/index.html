@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 <title>instapaid — one comment, a coin for the creator</title>
 <meta name="description" content="Comment &quot;@instapaid.official make a token&quot; under any public Instagram post. A fan-made pump.fun coin launches for the post's owner, named from the post and wearing its photo. We post it on our feed and mention the creator, and only they can claim its fees.">
-<meta name="theme-color" content="#fbf9ff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#100c1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1a1114">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="InstaPaid">
 <meta property="og:url" content="https://instapaid.fun/">
@@ -16,7 +15,7 @@
 <meta property="og:image" content="https://instapaid.fun/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The InstaPaid gold @ coin beside the words: One comment. A coin for the creator.">
+<meta property="og:image:alt" content="The InstaPaid @ coin beside the words: One comment. A coin for the creator.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -24,6 +23,7 @@
 <link rel="stylesheet" href="/home.css">
 <script>document.documentElement.classList.add('js');</script>
 <script type="module" src="/home.js"></script>
+<script src="/mascot.js" defer></script>
 </head>
 <body>
 
@@ -46,19 +46,18 @@
 
 <main id="main">
 
-  <!-- ============ HERO ============ -->
+  <!-- ============ HERO: the film ============ -->
   <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-glow" aria-hidden="true"></div>
+    <!-- Decorative: a phone on a plum surface, warm bubbles rising. The words say everything it shows. -->
+    <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="/media/hero-loop-poster.webp" width="1280" height="724" aria-hidden="true" tabindex="-1" disablepictureinpicture data-loop>
+      <source src="/media/hero-loop-480.mp4" type="video/mp4" media="(max-width: 760px)">
+      <source src="/media/hero-loop.mp4" type="video/mp4">
+    </video>
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <div class="hero-top">
-          <p class="kicker"><svg aria-hidden="true"><use href="/icons.svg#spark"/></svg>Comment. Coin. Claim.</p>
-          <div class="coin-slot coin-top" data-motion>
-            <img class="coin-img" src="/media/hero-coin-512.webp" width="512" height="512" alt="" fetchpriority="high">
-          </div>
-        </div>
-        <h1 id="hero-title">One comment. <span class="sticker-words">A coin for the creator.</span></h1>
-        <p class="lead">Mention us under any public Instagram post. A meme coin launches on pump.fun for whoever posted it, named from the post and wearing its photo. We post it on our feed and mention the creator, and only they can claim its fees.</p>
+        <p class="kicker"><svg aria-hidden="true"><use href="/icons.svg#spark"/></svg>Comment. Coin. Claim.</p>
+        <h1 id="hero-title">One comment. <span class="hl">A coin for the creator.</span></h1>
+        <p class="lead">Mention us under any public Instagram post. A meme coin launches on pump.fun for whoever posted it, named from the post and wearing its photo. We post it on our feed and mention the creator, and <b>only they can claim its fees</b>.</p>
 
         <div class="cmd" role="group" aria-labelledby="cmd-label">
           <span class="cmd-label" id="cmd-label">Comment this under a public post</span>
@@ -69,15 +68,9 @@
           <p class="cmd-hint"><svg aria-hidden="true"><use href="/icons.svg#spark"/></svg><span>Want lore? Add it after the command: <q>…for this creator: the king of sunsets</q></span></p>
         </div>
 
-        <!-- Phones: the reply, right under the command, so the demo starts on the first screen. -->
-        <div class="glimpse" aria-hidden="true">
-          <img src="/mark.svg" alt="" width="26" height="26">
-          <p><b>instapaid.official</b> 🎉 Done! First Loaf (<strong class="tick">$LOAF</strong>) is live, made for <span class="mention">@baker.example</span> <span class="g-more">… 💰 the creator fees are yours. Fan-made, not by @baker.example.</span></p>
-        </div>
-
         <div class="cta-row">
           <a class="btn btn-primary" href="/launch">Launch a coin <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
-          <a class="btn btn-ghost" href="/claim"><span class="long">I'm a creator — claim fees</span><span class="short">Creators: claim</span></a>
+          <a class="btn btn-ghost" href="/claim"><span class="long">Claim fees</span><span class="short">Claim fees</span></a>
         </div>
         <ul class="ticks">
           <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg>Only the creator can claim</li>
@@ -96,9 +89,7 @@
           <div class="p3-rig" data-p3-rig>
             <!-- Around the phone, at different depths: the coin, sparkles and the stickers. -->
             <div class="p3-coin" aria-hidden="true">
-              <div class="coin-slot coin-stage">
-                <img class="coin-img" src="/media/hero-coin-512.webp" srcset="/media/hero-coin-512.webp 512w, /media/hero-coin.webp 1024w" sizes="280px" width="512" height="512" alt="" draggable="false">
-              </div>
+              <img class="coin-img" src="/media/coin-400.webp" srcset="/media/coin-400.webp 400w, /media/coin.webp 800w" sizes="270px" width="400" height="400" alt="" draggable="false" fetchpriority="high">
             </div>
             <i class="p3-spark sp1" aria-hidden="true"></i><i class="p3-spark sp2" aria-hidden="true"></i><i class="p3-spark sp3" aria-hidden="true"></i><i class="p3-spark sp4" aria-hidden="true"></i>
 
@@ -122,7 +113,7 @@
                     <defs>
                       <linearGradient id="bg-m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7cf"/><stop offset="1" stop-color="#ffc9b0"/></linearGradient>
                       <linearGradient id="loaf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d98a3d"/><stop offset="1" stop-color="#9c5421"/></linearGradient>
-                      <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset=".45" stop-color="#f5b400"/><stop offset="1" stop-color="#a55e00"/></linearGradient>
+                      <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd6c4"/><stop offset=".45" stop-color="#e0876a"/><stop offset="1" stop-color="#7a3a30"/></linearGradient>
                       <clipPath id="coin-clip"><circle cx="32" cy="32" r="26.2"/></clipPath>
                     </defs>
                     <g id="loaf-photo">
@@ -175,7 +166,7 @@
             <!-- The coin wears the post's photo. -->
             <div class="sticker sticker-coin" aria-hidden="true">
               <svg class="post-coin" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="31" fill="url(#ring)"/><g clip-path="url(#coin-clip)"><svg x="5" y="5" width="54" height="54" viewBox="70 38 180 180"><use href="#loaf-photo"/></svg></g><circle cx="32" cy="32" r="26.2" fill="none" stroke="#8a4b00" stroke-width="1.6"/>
+                <circle cx="32" cy="32" r="31" fill="url(#ring)"/><g clip-path="url(#coin-clip)"><svg x="5" y="5" width="54" height="54" viewBox="70 38 180 180"><use href="#loaf-photo"/></svg></g><circle cx="32" cy="32" r="26.2" fill="none" stroke="#7a3a30" stroke-width="1.6"/>
               </svg>
               <span class="st-txt"><b>First Loaf <span class="st-tick">$LOAF</span></b><small>Named from the post</small></span>
             </div>
@@ -187,6 +178,9 @@
           <span class="illus">Illustration · example accounts</span>
         </div>
       </div>
+
+      <!-- The mascot's spot: mascot.js fills it. -->
+      <div class="mascot-slot" data-mascot data-size="lg"></div>
     </div>
   </section>
 
@@ -200,35 +194,20 @@
     </ul>
   </div>
 
-  <!-- ============ HOW IT WORKS: the loop, then four steps ============ -->
-  <section class="how" id="how" aria-labelledby="how-title">
-    <div class="how-band">
-      <!-- Decorative: coins bursting out of a comment. The heading and the steps say the same in words. -->
-      <video class="how-video" autoplay muted loop playsinline preload="metadata" poster="/media/hero-loop-poster.webp" width="1280" height="724" aria-hidden="true" tabindex="-1" disablepictureinpicture data-loop>
-        <source src="/media/hero-loop-480.mp4" type="video/mp4" media="(max-width: 760px)">
-        <source src="/media/hero-loop.mp4" type="video/mp4">
-      </video>
-      <script>
-        // Reduce Motion: the poster only. Runs before the video has data, so it never starts.
-        (function () {
-          var v = document.currentScript.previousElementSibling;
-          if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            v.removeAttribute('autoplay'); v.preload = 'none'; v.autoplay = false; v.pause();
-          }
-        })();
-      </script>
-      <div class="wrap how-copy">
-        <p class="how-kicker"><svg aria-hidden="true"><use href="/icons.svg#spark"/></svg>How it works</p>
-        <h2 id="how-title">One comment in. <span>A coin out.</span></h2>
-        <p class="how-lead">Mention <b data-bot>@instapaid.official</b> under a public post. The coin is named from the post, wears its photo and links back to it. Then we post it on our feed and mention the creator, who is the only one who can claim.</p>
-      </div>
-    </div>
-
+  <!-- ============ HOW IT WORKS: four steps ============ -->
+  <section class="section how" id="how" aria-labelledby="how-title">
     <div class="wrap">
+      <div class="sec-head" data-reveal>
+        <div>
+          <span class="pill"><svg aria-hidden="true"><use href="/icons.svg#spark"/></svg>How it works</span>
+          <h2 class="sec-title" id="how-title">One comment in. <em>A coin out.</em></h2>
+          <p class="sec-lead">Mention <b data-bot>@instapaid.official</b> under a public post. The coin is named from the post, wears its photo and links back to it. Then we post it on our feed and mention the creator, who is the only one who can claim.</p>
+        </div>
+      </div>
       <ol class="how-steps">
-        <li class="step">
+        <li class="step" data-reveal>
           <div class="step-art" aria-hidden="true">
-            <img src="/media/step-comment-320.webp" srcset="/media/step-comment-320.webp 320w, /media/step-comment.webp 640w" sizes="(max-width: 640px) 104px, 168px" width="320" height="320" alt="" loading="lazy" aria-hidden="true">
+            <img src="/media/step-comment-400.webp" srcset="/media/step-comment-400.webp 400w, /media/step-comment.webp 800w" sizes="(max-width: 760px) 100px, 150px" width="400" height="400" alt="" loading="lazy" aria-hidden="true">
           </div>
           <span class="step-k"><span class="step-n">1</span>Comment</span>
           <h3>A fan mentions us</h3>
@@ -237,25 +216,25 @@
             <div class="mini-cmt"><span class="ava ava-teal sm">FE</span><p><span class="mention" data-bot>@instapaid.official</span> make a token for this creator: <span class="lore-in">the baker who never sleeps</span></p></div>
           </div>
         </li>
-        <li class="step">
+        <li class="step" data-reveal data-delay="1">
           <div class="step-art" aria-hidden="true">
-            <img src="/media/step-launch-320.webp" srcset="/media/step-launch-320.webp 320w, /media/step-launch.webp 640w" sizes="(max-width: 640px) 104px, 168px" width="320" height="320" alt="" loading="lazy" aria-hidden="true">
+            <img src="/media/step-launch-400.webp" srcset="/media/step-launch-400.webp 400w, /media/step-launch.webp 800w" sizes="(max-width: 760px) 100px, 150px" width="400" height="400" alt="" loading="lazy" aria-hidden="true">
           </div>
           <span class="step-k"><span class="step-n">2</span>Coin</span>
-          <h3>Named from the post</h3>
+          <h3>We read the post and launch</h3>
           <p>The coin goes live on pump.fun for the <b>post's owner</b>: its name comes from the post, its picture is the post's photo, and its link opens the post.</p>
           <div class="mini">
             <div class="mini-coin">
               <svg class="post-coin" viewBox="0 0 64 64" aria-hidden="true">
-                <circle cx="32" cy="32" r="31" fill="url(#ring)"/><g clip-path="url(#coin-clip)"><svg x="5" y="5" width="54" height="54" viewBox="70 38 180 180"><use href="#loaf-photo"/></svg></g><circle cx="32" cy="32" r="26.2" fill="none" stroke="#8a4b00" stroke-width="1.6"/>
+                <circle cx="32" cy="32" r="31" fill="url(#ring)"/><g clip-path="url(#coin-clip)"><svg x="5" y="5" width="54" height="54" viewBox="70 38 180 180"><use href="#loaf-photo"/></svg></g><circle cx="32" cy="32" r="26.2" fill="none" stroke="#7a3a30" stroke-width="1.6"/>
               </svg>
               <p><b>First Loaf</b> <strong class="tick">$LOAF</strong><span class="dim">Link: the post on Instagram</span></p>
             </div>
           </div>
         </li>
-        <li class="step">
-          <div class="step-art step-art-at" aria-hidden="true">
-            <img src="/media/hero-coin-512.webp" width="512" height="512" alt="" loading="lazy" aria-hidden="true">
+        <li class="step" data-reveal data-delay="2">
+          <div class="step-art" aria-hidden="true">
+            <img src="/media/step-post-400.webp" srcset="/media/step-post-400.webp 400w, /media/step-post.webp 800w" sizes="(max-width: 760px) 100px, 150px" width="400" height="400" alt="" loading="lazy" aria-hidden="true">
             <span class="at-chip">@baker.example</span>
           </div>
           <span class="step-k"><span class="step-n">3</span>Post</span>
@@ -265,9 +244,9 @@
             <div class="mini-cmt"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><p><b>instapaid.official</b><br><span class="dim">New coin <strong class="tick">$LOAF</strong> for <span class="mention">@baker.example</span></span></p></div>
           </div>
         </li>
-        <li class="step">
+        <li class="step" data-reveal data-delay="3">
           <div class="step-art" aria-hidden="true">
-            <img src="/media/step-claim-320.webp" srcset="/media/step-claim-320.webp 320w, /media/step-claim.webp 640w" sizes="(max-width: 640px) 104px, 168px" width="320" height="320" alt="" loading="lazy" aria-hidden="true">
+            <img src="/media/step-claim-400.webp" srcset="/media/step-claim-400.webp 400w, /media/step-claim.webp 800w" sizes="(max-width: 760px) 100px, 150px" width="400" height="400" alt="" loading="lazy" aria-hidden="true">
           </div>
           <span class="step-k"><span class="step-n">4</span>Claim</span>
           <h3>Only the creator claims</h3>
@@ -278,27 +257,24 @@
           </div>
         </li>
       </ol>
-      <p class="note-line"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>Public posts only: private accounts and Stories don't reach us. A creator who already has a coin doesn't get another by comment; asking again gets a reply pointing to it.</span></p>
+      <p class="note-line" data-reveal><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>Public posts only: private accounts and Stories don't reach us. A creator who already has a coin doesn't get another by comment; asking again gets a reply pointing to it.</span></p>
     </div>
   </section>
 
   <!-- ============ RECENTLY LAUNCHED ============ -->
   <section class="section recent" id="recent" aria-labelledby="recent-title">
-    <img class="recent-scatter" src="/media/coins-scatter.webp" width="1600" height="905" alt="" aria-hidden="true" loading="lazy">
+    <img class="recent-scatter" src="/media/scatter-900.webp" srcset="/media/scatter-900.webp 900w, /media/scatter.webp 1600w" sizes="(max-width: 980px) 520px, 900px" width="900" height="506" alt="" aria-hidden="true" loading="lazy">
     <div class="wrap">
-      <div class="recent-head">
-        <div class="post-title">
-          <img src="/mark.svg" alt="" width="46" height="46" loading="lazy">
-          <div>
-            <span class="handle">Just launched</span>
-            <h2 id="recent-title">Recently launched <span class="tag" id="recent-tag"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg>Examples</span></h2>
-          </div>
+      <div class="recent-head" data-reveal>
+        <div>
+          <span class="pill"><svg aria-hidden="true"><use href="/icons.svg#coin"/></svg>Just launched</span>
+          <h2 class="sec-title" id="recent-title">Recently launched <span class="tag" id="recent-tag"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg>Examples</span></h2>
         </div>
         <form class="lookup lookup-compact" action="/u" method="get" data-lookup>
           <label for="lookup-top">See a creator's page</label>
           <div class="lookup-row">
             <div class="lookup-field"><span aria-hidden="true">instapaid.fun/u/</span><input id="lookup-top" name="u" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="username" aria-describedby="lookup-top-err"></div>
-            <button class="btn btn-ink" type="submit">Look up</button>
+            <button class="btn btn-peach" type="submit">Look up</button>
           </div>
           <p class="lookup-err" id="lookup-top-err" hidden></p>
         </form>
@@ -361,11 +337,10 @@
 
   <!-- ============ FOR CREATORS ============ -->
   <section class="band" id="creators" aria-labelledby="creators-title">
-    <img class="band-bg" src="/media/bg-texture-960.webp" srcset="/media/bg-texture-960.webp 960w, /media/bg-texture.webp 1920w" sizes="100vw" width="1920" height="1086" alt="" aria-hidden="true" loading="lazy">
     <div class="wrap band-grid">
-      <div class="band-copy">
-        <span class="pill pill-gold"><svg aria-hidden="true"><use href="/icons.svg#key"/></svg>For creators</span>
-        <h2 id="creators-title">Only the creator can claim.</h2>
+      <div class="band-copy" data-reveal>
+        <span class="pill"><svg aria-hidden="true"><use href="/icons.svg#key"/></svg>For creators</span>
+        <h2 class="sec-title" id="creators-title">Only the creator <em>can claim.</em></h2>
         <p class="band-lead">Did <b data-bot>@instapaid.official</b> mention you in a post? A fan made you a coin, and its creator fees are yours. Until you claim, they wait in a vault InstaPaid keeps for your handle. If there is a platform share, the claim page shows it before anything is sent.</p>
         <ul class="reasons">
           <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Tied to the account, not a wallet.</b> Fees wait for the Instagram username the coin was launched for.</span></li>
@@ -373,21 +348,21 @@
           <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Any Solana wallet.</b> You choose where the fees go when you claim.</span></li>
           <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Bound after the first claim.</b> If you rename, or someone later takes your old handle, the fees stay with you.</span></li>
         </ul>
-        <a class="btn btn-gold" href="/claim">Claim your fees <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
+        <a class="btn btn-primary" href="/claim">Claim your fees <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
 
         <form class="lookup lookup-dark" action="/u" method="get" data-lookup>
           <label for="lookup-cr">See what's waiting on a creator's page</label>
           <div class="lookup-row">
             <div class="lookup-field"><span aria-hidden="true">instapaid.fun/u/</span><input id="lookup-cr" name="u" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="yourname" aria-describedby="lookup-cr-err"></div>
-            <button class="btn btn-outline-light" type="submit">Look up</button>
+            <button class="btn btn-ghost" type="submit">Look up</button>
           </div>
           <p class="lookup-err" id="lookup-cr-err" hidden></p>
         </form>
         <p class="takedown"><svg aria-hidden="true"><use href="/icons.svg#chat"/></svg><span><b>Don't want coins in your name?</b> DM <span data-bot>@instapaid.official</span> from your account and tell us. We stop new ones and stop posting about you.</span></p>
       </div>
 
-      <div class="band-side">
-        <img class="band-crown" src="/media/creators-320.webp" srcset="/media/creators-320.webp 320w, /media/creators.webp 640w" sizes="(max-width: 640px) 120px, 190px" width="320" height="320" alt="" aria-hidden="true" loading="lazy">
+      <div class="band-side" data-reveal data-delay="1">
+        <img class="band-crown" src="/media/creators-400.webp" srcset="/media/creators-400.webp 400w, /media/creators.webp 800w" sizes="(max-width: 640px) 120px, 210px" width="400" height="400" alt="" aria-hidden="true" loading="lazy">
         <div class="claim-mock" role="img" aria-label="Illustration of the claim page for @baker.example: step 1, your one-time code IP-7K2FQ9XM; step 2, DM received from @baker.example; step 3, enter a Solana wallet and press Send my fees.">
           <div class="cm-head" aria-hidden="true">
             <span class="ava ava-peach">BE</span>
@@ -418,16 +393,15 @@
   <!-- ============ FOR FANS ============ -->
   <section class="section fans" id="fans" aria-labelledby="fans-title">
     <div class="wrap">
-      <div class="post-title fans-title">
-        <img src="/mark.svg" alt="" width="46" height="46" loading="lazy">
+      <div class="sec-head fans-head" data-reveal>
         <div>
-          <span class="handle">For fans</span>
-          <h2 id="fans-title">Three ways to give someone a coin</h2>
+          <span class="pill"><svg aria-hidden="true"><use href="/icons.svg#chat"/></svg>For fans</span>
+          <h2 class="sec-title" id="fans-title">Three ways to give someone <em>a coin</em></h2>
         </div>
-        <img class="fans-art" src="/media/fans-320.webp" srcset="/media/fans-320.webp 320w, /media/fans.webp 640w" sizes="(max-width: 640px) 92px, 176px" width="320" height="320" alt="" aria-hidden="true" loading="lazy">
+        <img class="fans-art" src="/media/fans-400.webp" srcset="/media/fans-400.webp 400w, /media/fans.webp 800w" sizes="(max-width: 640px) 84px, 190px" width="400" height="400" alt="" aria-hidden="true" loading="lazy">
       </div>
       <div class="ways">
-        <article class="way">
+        <article class="way" data-reveal>
           <div class="way-art" aria-hidden="true">
             <div class="mini-cmt cmt-card"><span class="ava ava-teal sm">FE</span><p><span class="mention" data-bot>@instapaid.official</span> make a token for this creator: <span class="lore-in">the king of sunsets</span></p></div>
           </div>
@@ -437,7 +411,7 @@
             <button class="text-link copy-link" type="button" data-copy="#cmd"><svg aria-hidden="true"><use href="/icons.svg#copy"/></svg><span data-copy-label>Copy the comment</span></button>
           </div>
         </article>
-        <article class="way">
+        <article class="way" data-reveal data-delay="1">
           <div class="way-art" aria-hidden="true">
             <div class="browser">
               <div class="browser-bar"><i></i><i></i><i></i><span>instapaid.fun/launch</span></div>
@@ -454,7 +428,7 @@
             <a class="text-link" href="/launch">Open the launcher <svg aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
           </div>
         </article>
-        <article class="way">
+        <article class="way" data-reveal data-delay="2">
           <div class="way-art" aria-hidden="true">
             <div class="profile-mock">
               <span class="ava ava-lilac lg">DE</span>
@@ -468,18 +442,17 @@
           </div>
         </article>
       </div>
-      <p class="note-line"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>You never become the coin's creator: its fees go to the person it's for, and every coin says it's fan-made.</span></p>
+      <p class="note-line" data-reveal><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>You never become the coin's creator: its fees go to the person it's for, and every coin says it's fan-made.</span></p>
     </div>
   </section>
 
   <!-- ============ FAQ ============ -->
   <section class="section faq-sec" id="faq" aria-labelledby="faq-title">
     <div class="wrap wrap-narrow">
-      <div class="post-title">
-        <img src="/mark.svg" alt="" width="46" height="46" loading="lazy">
+      <div class="sec-head" data-reveal>
         <div>
-          <span class="handle">instapaid.official</span>
-          <h2 id="faq-title">Questions in the comments</h2>
+          <span class="pill"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg>instapaid.official</span>
+          <h2 class="sec-title" id="faq-title">Questions in <em>the comments</em></h2>
         </div>
       </div>
 
@@ -559,20 +532,18 @@
             <p>No. Meme coins are speculative and can lose all their value. Nothing here is financial advice, and nothing here says any coin will go up. Only use money you can afford to lose.</p>
           </div></div>
         </details>
-      </div>
     </div>
   </section>
 
   <!-- ============ CLOSING ============ -->
   <section class="closing" aria-labelledby="end-title">
     <div class="wrap">
-      <div class="end-card">
-        <img class="end-bg" src="/media/bg-texture-960.webp" srcset="/media/bg-texture-960.webp 960w, /media/bg-texture.webp 1920w" sizes="(min-width: 1200px) 1112px, 100vw" width="1920" height="1086" alt="" aria-hidden="true" loading="lazy">
-        <div class="coin-slot end-coin" data-motion aria-hidden="true">
-          <img class="coin-img" src="/media/hero-coin-512.webp" srcset="/media/hero-coin-512.webp 512w, /media/hero-coin.webp 1024w" sizes="(max-width: 760px) 190px, 360px" width="512" height="512" alt="" loading="lazy">
+      <div class="end-card" data-reveal>
+        <div class="end-coin" aria-hidden="true">
+          <img src="/media/coin-400.webp" srcset="/media/coin-400.webp 400w, /media/coin.webp 800w" sizes="(max-width: 760px) 190px, 360px" width="400" height="400" alt="" loading="lazy">
         </div>
         <div class="end-copy">
-          <h2 id="end-title">Find a post you love. Leave the comment.</h2>
+          <h2 class="sec-title" id="end-title">Find a post you love. Leave the comment.</h2>
           <div class="cmd cmd-on-dark">
             <div class="cmd-row">
               <code class="cmd-text" id="cmd-end"><b data-bot>@instapaid.official</b> make a token for this creator</code>
@@ -581,8 +552,8 @@
           </div>
           <p class="end-note">We name it from the post, post it on our feed and mention the creator.</p>
           <div class="cta-row">
-            <a class="btn btn-light" href="/launch">Launch a coin <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
-            <a class="btn btn-outline-light" href="/claim"><span class="long">I'm a creator — claim fees</span><span class="short">Creators: claim</span></a>
+            <a class="btn btn-primary" href="/launch">Launch a coin <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
+            <a class="btn btn-ghost" href="/claim"><span class="long">I'm a creator — claim fees</span><span class="short">Creators: claim</span></a>
           </div>
         </div>
       </div>
@@ -596,13 +567,14 @@
       <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32" loading="lazy"><span class="wordmark" aria-hidden="true"></span></a>
       <p>© 2026 instapaid.fun</p>
     </div>
-    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
+    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Coins launch on pump.fun, which we don't run. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
     <nav class="foot-links" aria-label="Footer">
       <a href="#how">How it works</a>
       <a href="#faq">FAQ</a>
       <a href="/launch">Launch</a>
       <a href="/claim">Claim fees</a>
       <a href="/privacy">Privacy</a>
+      <a href="/data-deletion">Data deletion</a>
       <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
     </nav>
   </div>
