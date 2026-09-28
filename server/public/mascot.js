@@ -41,8 +41,11 @@
 .pip.has-3d .pip-3d{animation:pip-bob 3.6s ease-in-out infinite;transform-origin:50% 95%}
 .pip.has-3d.is-jump .pip-3d{animation:pip-jump .62s cubic-bezier(.3,1.4,.4,1) 1}
 .pip-say{position:absolute;z-index:3;left:50%;bottom:calc(100% - 4%);transform:translate(-50%,8px) scale(.9);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:9px 13px;border-radius:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);white-space:nowrap;max-width:min(260px,80vw);white-space:normal;text-align:center;width:max-content;transition:transform .25s cubic-bezier(.2,.9,.3,1.3),opacity .2s}
-.pip-say::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
+.pip-say::after{content:"";position:absolute;left:50%;top:100%;margin-left:calc(-7px + var(--tail,0px));border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
 .pip.is-say .pip-say{opacity:1;transform:translate(-50%,-6px) scale(1)}
+.pip.say-below .pip-say{bottom:auto;top:calc(100% - 2%);transform:translate(-50%,-8px) scale(.9)}
+.pip.say-below .pip-say::after{top:auto;bottom:100%;border-top:0;border-bottom:7px solid #fff3ea}
+.pip.say-below.is-say .pip-say{transform:translate(-50%,6px) scale(1)}
 [data-size="sm"] .pip-say{font-size:12px;padding:7px 10px}
 @keyframes pip-bob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-6px) scale(1.01,.99)}}
 @keyframes pip-jump{0%{transform:translateY(0) scale(1.06,.9)}35%{transform:translateY(-34px) scale(.96,1.06)}70%{transform:translateY(0) scale(1.08,.9)}100%{transform:translateY(0) scale(1,1)}}
@@ -184,6 +187,28 @@
       io.observe(el);
     } else setTimeout(wave, 800);
 
+    // Keep the bubble on screen: shift it sideways (the tail still points at Pip) and open it below
+    // Pip when the sticky top bar leaves no room above. Measured from layout sizes, not the
+    // transformed rect: the bubble is mid scale(.9) transition when this runs.
+    const place = () => {
+      say.style.marginLeft = '0px';
+      say.style.setProperty('--tail', '0px');
+      el.classList.remove('say-below');
+      const pr = el.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const w = say.offsetWidth, h = say.offsetHeight, c = pr.left + pr.width / 2, pad = 8;
+      let dx = 0;
+      if (c - w / 2 < pad) dx = pad - (c - w / 2);
+      else if (c + w / 2 > vw - pad) dx = vw - pad - (c + w / 2);
+      say.style.marginLeft = `${dx.toFixed(1)}px`;
+      const room = Math.max(0, w / 2 - 22); // the tail stays on the straight edge, clear of the corners
+      say.style.setProperty('--tail', `${Math.max(-room, Math.min(room, -dx)).toFixed(1)}px`);
+      const bar = document.querySelector('header.top');
+      const barBottom = bar && getComputedStyle(bar).position !== 'static' ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+      const top = pr.top + pr.height * 0.04 - 6 - h;
+      if (top < barBottom + pad) el.classList.add('say-below');
+    };
+
     let line = Math.floor(Math.random() * LINES.length), sayT = 0;
     const jump = () => {
       if (el.classList.contains('is-jump')) return;
@@ -191,6 +216,7 @@
       setTimeout(() => el.classList.remove('is-jump'), 650);
       say.textContent = LINES[line++ % LINES.length];
       el.classList.add('is-say');
+      place();
       clearTimeout(sayT);
       sayT = setTimeout(() => el.classList.remove('is-say'), 2600);
     };
