@@ -20,7 +20,7 @@ for (const btn of document.querySelectorAll('[data-copy]')) {
 // ---- "See a creator's page" ----
 for (const form of document.querySelectorAll('[data-lookup]')) wireLookup(form);
 
-// ---- The phone in 3D: an iPhone Duo. Drag it, flick it, turn it with the arrow keys; Fold / Open closes and
+// ---- The phone in 3D: a book-style foldable. Drag it, flick it, turn it with the arrow keys; Fold / Open closes and
 //      opens it. CSS 3D, so the screens stay live HTML. Only transforms, opacity and the lighting's custom
 //      properties change, in one requestAnimationFrame loop that sleeps when the phone is off-screen, the tab is
 //      hidden, or nothing is moving. Motion is always on: nothing here reads Reduce Motion. ----
@@ -63,14 +63,16 @@ function phone3d(scene) {
   const hover = matchMedia('(hover: hover) and (pointer: fine)');
   const RAD = Math.PI / 180;
 
-  // ---- The body, in millimetres (1em on .duo): Apple's numbers. Each half is 82.3 × 117.8 × 5.4; the corners
-  //      away from the hinge are rounded R; the hinge cover is a half-cylinder of radius HR on the spine, a
-  //      little proud of the backs, so open it shows as a satin strip down the back and closed it wraps the spine. ----
-  const H = 117.8, T = 5.4, R = 7.5, HR = 6.4, FACETS = 8, HF = 14;
+  // ---- The body, in millimetres (1em on .duo): the device's published measurements. Each half is 82.3 × 117.8
+  //      × 5.2 (closed, two halves and a 0.9 mm gap make 11.3); the corners away from the hinge are rounded R. The
+  //      hinge cover is a flattened half-round on the spine, HB each side of its middle and HA proud: home.css
+  //      turns it at half the fold and narrows it open, so open it is a band down the back and closed it is the
+  //      spine column, the full thickness, 2 mm beside the halves (84.1 mm in all). ----
+  const H = 117.8, T = 5.2, R = 7.5, HB = 5.65, HA = 2, FACETS = 8, HF = 12;
   const mm = (v) => `${+v.toFixed(3)}em`;
   // Every rail piece stands on the half's outline with its outward normal at angle phi in the half's own frame
   // (0 = right, 90 = down); the left half's pieces are turned with it as it folds (side 'l'). Hinge facets
-  // ('h') keep their angle th from the back (-z) and turn at half the fold.
+  // ('h') keep their normal (nx, nz) in the cover's own frame and turn at half the fold.
   const pieces = [];
   const piece = (parent, cls, box, transform, side, phi) => {
     const el = document.createElement('i');
@@ -103,34 +105,38 @@ function phone3d(scene) {
       }
     }
     if (side === 'r') {
-      // The right edge: Touch ID in the side button, Camera Control below it. USB-C in the bottom rail.
-      piece(body, 'p3-v p3-key', { top: 24, height: 12.5, right: -out - kw / 2, width: kw }, 'rotateY(90deg)', side, 0);
-      piece(body, 'p3-v p3-key', { top: 42, height: 8, right: -out - kw / 2, width: kw }, 'rotateY(90deg)', side, 0);
+      // The right half (the back with the cameras): on its outer edge the long side button (Touch ID) above the
+      // shorter Camera Control; volume up and down on its top edge; USB-C in the bottom rail.
+      piece(body, 'p3-v p3-key', { top: 29, height: 19, right: -out - kw / 2, width: kw }, 'rotateY(90deg)', side, 0);
+      piece(body, 'p3-v p3-key', { top: 76, height: 12, right: -out - kw / 2, width: kw }, 'rotateY(90deg)', side, 0);
+      piece(body, 'p3-h p3-key', { left: 35, width: 9, top: -out - kw / 2, height: kw }, 'rotateX(90deg)', side, 270);
+      piece(body, 'p3-h p3-key', { left: 23, width: 9, top: -out - kw / 2, height: kw }, 'rotateX(90deg)', side, 270);
       bottom.append(Object.assign(document.createElement('b'), { className: 'p3-port' }));
-    } else {
-      // The top edge of the left half: volume up and down.
-      piece(body, 'p3-h p3-key', { left: 13, width: 7.5, top: -out - kw / 2, height: kw }, 'rotateX(90deg)', side, 270);
-      piece(body, 'p3-h p3-key', { left: 23, width: 7.5, top: -out - kw / 2, height: kw }, 'rotateX(90deg)', side, 270);
     }
   }
   half('l'); half('r');
-  // The hinge cover: HF facets round the spine, from the back (th = 0) to either front edge (±90°), and an end
-  // cap at each end. Open, its middle lies flush with the backs; closed, it wraps the spine.
-  const arcH = 180 / HF, chordH = 2 * HR * Math.sin((arcH / 2) * RAD) + 0.3, rh = HR * Math.cos((arcH / 2) * RAD);
+  // The hinge cover: HF facets on the half-ellipse x = HB sin t, z = -HA cos t (in the cover's own frame, open:
+  // x across the spine, z out of the back), from one edge (t = -90°) round to the other, and an end cap at each
+  // end. Each facet faces along the ellipse's normal; the lighting reads that normal through the cover's scale.
+  const ell = (t) => [HB * Math.sin(t * RAD), -HA * Math.cos(t * RAD)];
   for (let i = 0; i < HF; i++) {
-    const th = -90 + (i + 0.5) * arcH;
+    const t0 = -90 + (i * 180) / HF, t1 = -90 + ((i + 1) * 180) / HF, tm = (t0 + t1) / 2;
+    const [x0, z0] = ell(t0), [x1, z1] = ell(t1);
+    const w = Math.hypot(x1 - x0, z1 - z0) + 0.35, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    let nx = HA * Math.sin(tm * RAD), nz = -HB * Math.cos(tm * RAD);
+    const l = Math.hypot(nx, nz); nx /= l; nz /= l;
     const el = document.createElement('i');
     el.className = 'p3-hf';
-    el.style.left = mm(-chordH / 2); el.style.width = mm(chordH);
-    el.style.transform = `translate3d(${mm(rh * Math.sin(th * RAD))}, 0, ${mm(-rh * Math.cos(th * RAD))}) rotateY(${(180 - th).toFixed(2)}deg)`;
+    el.style.left = mm(-w / 2); el.style.width = mm(w);
+    el.style.transform = `translate3d(${mm(cx)}, 0, ${mm(cz)}) rotateY(${(Math.atan2(nx, nz) / RAD).toFixed(2)}deg)`;
     hinge.append(el);
-    pieces.push({ el, side: 'h', th: th * RAD, dk: -1, gl: -1 });
+    pieces.push({ el, side: 'h', nx, nz, dk: -1, gl: -1 });
   }
-  for (const y of [0.6, H - 0.6]) {
+  for (const y of [0.3, H - 0.3]) {
     const cap = document.createElement('i');
     cap.className = 'p3-hcap';
-    cap.style.top = mm(y - HR / 2);
-    cap.style.transform = `translate3d(0, 0, ${mm(-HR / 2)}) rotateX(90deg)`;
+    Object.assign(cap.style, { left: mm(-HB), width: mm(2 * HB), top: mm(y - HA / 2), height: mm(HA) });
+    cap.style.transform = `translate3d(0, 0, ${mm(-HA / 2)}) rotateX(90deg)`;
     hinge.append(cap);
   }
 
@@ -147,7 +153,7 @@ function phone3d(scene) {
     const small = compact.matches;
     restY = small ? -10 : -24; restX = small ? 4 : 7;
     limY = small ? 34 : 40; limX = small ? 15 : 22; idleScale = small ? 0.6 : 1;
-    rz = small ? 90 : 0; // held in portrait on a narrow stage (home.css turns it)
+    rz = small ? 90 : 0; // open, held in portrait on a narrow stage; it eases upright as it closes (render)
   };
   pose();
   let ry = 0, rx = 0, vy = 0, vx = 0;       // the body's own angle and speed (deg, deg/s)
@@ -245,18 +251,22 @@ function phone3d(scene) {
     const Y = ry + hovY + a * 3.4 * Math.sin(s * 0.55);
     const X = rx + hovX + a * 1.8 * Math.sin(s * 0.8 + 1.3);
     const lift = liftAmp * idleScale * 7 * (0.5 + 0.5 * Math.sin(s * 1.05));
-    const key = `${Y.toFixed(2)} ${X.toFixed(2)} ${lift.toFixed(2)} ${fold.toFixed(4)} ${rz}`;
+    // A narrow stage holds the open phone in portrait (halves stacked) and the closed one upright: it turns
+    // upright over the last part of closing (and back over the first part of opening), so half-open it stays a tent.
+    const up = Math.min(1, Math.max(0, (fold - 0.55) / 0.4)), rzNow = rz * (1 - up * up * (3 - 2 * up));
+    const key = `${Y.toFixed(2)} ${X.toFixed(2)} ${lift.toFixed(2)} ${fold.toFixed(4)} ${rzNow.toFixed(2)}`;
     if (key === drawn) return;
     drawn = key;
     rig.style.transform = `translate3d(0, ${(-lift).toFixed(2)}px, 0) rotateX(${X.toFixed(2)}deg) rotateY(${Y.toFixed(2)}deg)`;
     duo.style.setProperty('--fold', fold.toFixed(4));
+    duo.style.setProperty('--rz', `${rzNow.toFixed(2)}deg`);
     scene.style.setProperty('--props', (Math.max(0, 1 - fold * 3) ** 1.5).toFixed(3)); // the stickers shrink away as it folds
     scene.classList.toggle('p3-closed', fold > 0.5);
 
     // Normals: from the device's frame (open, flat) through the fold, the portrait turn (rz), then the rig's
     // turn (rotateY then rotateX, as the transform reads).
     const cy = Math.cos(Y * RAD), sy = Math.sin(Y * RAD), cx = Math.cos(X * RAD), sx = Math.sin(X * RAD);
-    const cz = Math.cos(rz * RAD), sz = Math.sin(rz * RAD);
+    const cz = Math.cos(rzNow * RAD), sz = Math.sin(rzNow * RAD);
     const A = fold * Math.PI, ca = Math.cos(A), sa = Math.sin(A);
     const world = (nx, ny, nz) => {
       const x = nx * cz - ny * sz, y = nx * sz + ny * cz;
@@ -267,15 +277,20 @@ function phone3d(scene) {
       let n;
       if (p.side === 'r') n = world(p.c, p.s, 0);
       else if (p.side === 'l') n = world(p.c * ca, p.s, -p.c * sa);
-      else { const th = p.th - A / 2; n = world(Math.sin(th), 0, -Math.cos(th)); }
+      else {
+        // The hinge cover: its facet's normal through the cover's scale (home.css), then its half-fold turn.
+        const sx = 0.34 + 0.66 * fold, sz2 = 0.5 + 0.5 * fold, h = A / 2;
+        let hx = p.nx / sx, hz = p.nz / sz2; const hl = Math.hypot(hx, hz); hx /= hl; hz /= hl;
+        n = world(hx * Math.cos(h) + hz * Math.sin(h), 0, -hx * Math.sin(h) + hz * Math.cos(h));
+      }
       const [nx, ny, nz] = n;
       if (nz < -0.05) continue; // facing away: hidden by backface-visibility
       const d1 = Math.max(0, dot(L1, nx, ny, nz)), d2 = Math.max(0, dot(L2, nx, ny, nz));
       const h1 = Math.max(0, dot(H1, nx, ny, nz)), h2 = Math.max(0, dot(H2, nx, ny, nz));
       let dk, gl;
-      if (p.side === 'h') { // satin: soft, broad light, no mirror highlight
-        const lum = 0.3 + 0.6 * d1 + 0.3 * d2;
-        dk = Math.min(0.55, Math.max(0, 0.7 - lum)); gl = Math.min(0.4, 0.34 * h1 ** 6 + 0.16 * h2 ** 5);
+      if (p.side === 'h') { // polished, a touch softer than the rails: broad highlights, darker reflections
+        const lum = 0.24 + 0.66 * d1 + 0.4 * d2;
+        dk = Math.min(0.6, Math.max(0, 0.74 - lum)); gl = Math.min(0.85, 0.8 * h1 ** 14 + 0.5 * h2 ** 10);
       } else { // mirror-polished: hard highlights, deep darks where it reflects the room
         const lum = 0.2 + 0.7 * d1 + 0.42 * d2;
         dk = Math.min(0.62, Math.max(0, 0.78 - lum)); gl = Math.min(0.95, 0.95 * h1 ** 28 + 0.55 * h2 ** 18);
@@ -287,7 +302,9 @@ function phone3d(scene) {
     for (const b of backs) {
       const [nx, ny, nz] = b.side === 'r' ? world(0, 0, -1) : world(-sa, 0, -ca);
       if (nz < -0.05) continue;
-      const dk = Math.max(0, 0.5 - 0.6 * Math.max(0, dot(L1, nx, ny, nz)));
+      // Frosted white stays white: turned from the key light it greys only a little (the outer display, dark
+      // glass, a little more).
+      const dk = b.side === 'r' ? Math.max(0, 0.06 - 0.08 * Math.max(0, dot(L1, nx, ny, nz))) : Math.max(0, 0.4 - 0.5 * Math.max(0, dot(L1, nx, ny, nz)));
       if (Math.abs(dk - b.dk) > 0.004) { b.el.style.setProperty('--dk', dk.toFixed(3)); b.dk = dk; }
       if (b.side === 'r') sheen.style.transform = `translate3d(${(wrap(Y - 180, 0) * 0.9).toFixed(1)}%, 0, 0)`;
     }
@@ -302,7 +319,8 @@ function phone3d(scene) {
       g.el.style.opacity = (nz > 0 ? 0.8 * tilt * nz : 0).toFixed(3);
     }
     // The crease shows at an angle, and only while the inner display is open.
-    duo.style.setProperty('--crease', (Math.min(1, Math.abs(sy) * 1.7) * Math.max(0, 1 - fold * 4)).toFixed(3));
+    // The crease: faint head-on, clearer as the phone turns or begins to fold; gone once the halves close on it.
+    duo.style.setProperty('--crease', ((0.3 + 0.7 * Math.min(1, Math.abs(sy) * 1.7 + fold * 3)) * Math.max(0, 1 - Math.max(0, fold - 0.6) * 2.5)).toFixed(3));
     // Shadows stay flat: they narrow as the phone turns edge-on, soften as it lifts, and shrink as it closes.
     const w = (Math.abs(cy) + 0.08 * Math.abs(sy)) * (1 - 0.45 * fold);
     floor.style.transform = `translate3d(${(-wrap(Y, 0) * 0.5).toFixed(1)}px, ${(X * 0.4).toFixed(1)}px, 0) scale(${(0.3 + 0.7 * w).toFixed(3)}, ${(1 - lift * 0.02).toFixed(3)})`;
@@ -472,7 +490,7 @@ function phone3d(scene) {
   }
 
   // ---- The story ("Play it again", and the first time the stage shows): the phone is closed, the creator's
-  //      cover screen lights up with our mention, and at 1.7 s it opens onto the thread (home.css times the
+  //      outer display lights up with our mention, and at 1.7 s it opens onto the thread (home.css times the
   //      rest). Fold / Open is the person's own control: pressing it ends the story's timer. ----
   let storyT = 0, played = false;
   const endStory = () => { clearTimeout(storyT); storyT = 0; };

@@ -49,7 +49,7 @@
   <!-- ============ HERO: the film ============ -->
   <section class="hero" aria-labelledby="hero-title">
     <!-- Decorative: a phone on a plum surface, warm bubbles rising. The words say everything it shows. -->
-    <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="/media/hero-loop-poster.webp" width="1280" height="724" aria-hidden="true" tabindex="-1" disablepictureinpicture data-loop>
+    <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="/media/hero-loop-poster.webp" width="1280" height="716" aria-hidden="true" tabindex="-1" disablepictureinpicture data-loop>
       <source src="/media/hero-loop-480.mp4" type="video/mp4" media="(max-width: 760px)">
       <source src="/media/hero-loop.mp4" type="video/mp4">
     </video>
@@ -80,9 +80,9 @@
       </div>
 
       <!-- The stage: a post, a fan's comment and our reply, played in sequence. An illustration.
-           The phone is an iPhone Duo drawn in CSS 3D (home.js builds its rails and hinge cover): two halves on a
-           hinge that fold and open, the thread on the inner display in two panes, a notification on the cover
-           screen. Drag it, flick it, or turn it with the arrow keys; Fold / Open closes and opens it. -->
+           The phone is a book-style foldable drawn in CSS 3D (home.js builds its rails and hinge cover): two halves
+           on a hinge that fold and open, the thread on the inner display in two panes, a notification on the outer
+           display. Drag it, flick it, or turn it with the arrow keys; Fold / Open closes and opens it. -->
       <div class="hero-stage" data-stage data-motion>
         <p id="p3-how" hidden>Drag it or use the arrow keys to turn it. Home turns it back. The Fold button closes and opens it.</p>
         <div class="p3" data-p3 tabindex="0" role="group" aria-label="3D preview of a post on a folding phone" aria-describedby="p3-how">
@@ -109,21 +109,26 @@
               </div>
             </div>
 
-            <div class="phone duo" role="img" aria-label="Illustration: a folding phone. Closed, its cover screen shows a notification: instapaid.official mentioned you in a post. It opens: on the left, a bakery post by baker.example, captioned 4 a.m. and the first loaf is out, and a fan's comment: @instapaid.official make a token for this creator: the baker who never sleeps. On the right, instapaid.official replies: Done! First Loaf ($LOAF) is now live on pump.fun, made for @baker.example. Address 7xKq…c9fQ, trade it at pump.fun/coin/7xKq…c9fQ, named after this post and wearing its photo, lore: the baker who never sleeps. @baker.example, the creator fees from every trade are yours; only you can claim them at instapaid.fun/u/baker.example. Fan-made, not by @baker.example. Not financial advice. The coin, First Loaf, wears the post's photo, and instapaid.official posts it on its feed, mentioning @baker.example so they can claim.">
+            <div class="phone duo" role="img" aria-label="Illustration: a folding phone. Closed, its outer display shows a notification: instapaid.official mentioned you in a post, under an earlier one: fan.example commented on your post. It opens: on the left, a bakery post by baker.example, captioned 4 a.m. and the first loaf is out, and a fan's comment: @instapaid.official make a token for this creator: the baker who never sleeps. On the right, instapaid.official replies: Done! First Loaf ($LOAF) is now live on pump.fun, made for @baker.example. Address 7xKq…c9fQ, trade it at pump.fun/coin/7xKq…c9fQ, named after this post and wearing its photo, lore: the baker who never sleeps. @baker.example, the creator fees from every trade are yours; only you can claim them at instapaid.fun/u/baker.example. Fan-made, not by @baker.example. Not financial advice. The coin, First Loaf, wears the post's photo, and instapaid.official posts it on its feed, mentioning @baker.example so they can claim.">
               <!-- The left half swings on the hinge. Its front is the left pane of the inner display; its back is the
-                   cover screen, which faces you when the phone is closed. -->
+                   outer display, which faces you when the phone is closed. -->
               <div class="duo-half duo-l" aria-hidden="true">
                 <div class="p3-body" data-p3-body="l">
                   <div class="p3-back p3-cover">
                     <div class="osd">
                       <div class="osd-in">
-                        <i class="osd-cam"></i>
-                        <div class="osd-time"><b>9:41</b><small>Friday 23 October</small></div>
+                        <p class="osd-time"><small>Friday 23 October</small><b>9:41</b></p>
                         <div class="osd-note n1">
                           <img class="osd-ava" src="/mark.svg" alt="" width="34" height="34">
                           <span class="osd-txt"><small>Instagram · now</small><b>instapaid.official mentioned you in a post</b><span>First Loaf ($LOAF) is live. The creator fees are yours to claim.</span></span>
                         </div>
+                        <div class="osd-note osd-old">
+                          <span class="ava ava-teal osd-ava">FE</span>
+                          <span class="osd-txt"><small>Instagram · 2m</small><b>fan.example commented on your post</b><span>@instapaid.official make a token for this creator</span></span>
+                        </div>
+                        <i class="osd-bar"></i>
                       </div>
+                      <i class="osd-cam"></i>
                     </div>
                     <div class="p3-glass"><i data-p3-glare="o"></i></div>
                   </div>
@@ -167,7 +172,7 @@
                 </div>
               </div>
 
-              <!-- The hinge cover along the spine: satin, built by home.js. -->
+              <!-- The hinge cover along the spine: polished titanium, built by home.js. -->
               <div class="duo-hinge" data-p3-hinge aria-hidden="true"></div>
 
               <!-- The right half holds still. Its front is the right pane; its back carries the cameras. -->
@@ -175,7 +180,13 @@
                 <div class="p3-body" data-p3-body="r">
                   <div class="p3-back">
                     <div class="p3-skin"><i class="p3-sheen" data-p3-sheen></i></div>
-                    <div class="p3-plateau"><b class="p3-lens"></b><b class="p3-lens"></b><s class="p3-flash"></s></div>
+                    <!-- The camera plateau across the top: two big lenses in polished rings, the mic and the flash. -->
+                    <div class="p3-plateau">
+                      <i class="pl-wall"></i><i class="pl-wall pl-w2"></i><i class="pl-top"></i>
+                      <b class="p3-lens l1"><i class="ln-wall"></i><i class="ln-ring"></i><i class="ln-glass"></i></b>
+                      <b class="p3-lens l2"><i class="ln-wall"></i><i class="ln-ring"></i><i class="ln-glass"></i></b>
+                      <s class="p3-mic"></s><s class="p3-flash"></s>
+                    </div>
                   </div>
                 </div>
                 <div class="p3-face">
@@ -207,6 +218,7 @@
                     </div>
                   </div>
                   <i class="duo-crease"></i>
+                  <i class="scr-cam"></i>
                   <div class="p3-glass"><i data-p3-glare="r"></i></div>
                 </div>
               </div>
