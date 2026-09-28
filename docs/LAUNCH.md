@@ -22,15 +22,17 @@ everything with your own accounts before the review is done.
    post and checks fans' lore. Without it coins are still made, named from the caption, with no lore.
    That is `ANTHROPIC_API_KEY`.
 5. [ ] **The Instagram account @instapaid.official**, set to **Professional** (Instagram app →
-   Settings → Account type and tools → Switch to professional account → **Business**). Keep it
+   Settings → Account type and tools → Switch to professional account → **Creator** or **Business**;
+   @instapaid.official is a Creator account, and Instagram Login works with either). Keep it
    **public**. Give it a profile picture and a bio that says what it is ("Fan-made coins for
    creators. Creators: claim your fees at instapaid.fun").
-6. [ ] **A Facebook Page** for InstaPaid, owned by you, and **linked to @instapaid.official**
-   (Facebook → the Page → Settings → Linked accounts → Instagram → Connect). Comment launches and
-   the auto-poster work through this Page.
-7. [ ] **A Meta developer account** (developers.facebook.com, log in with the Facebook account that
-   owns the Page). Ideally also a **Meta Business portfolio** (business.facebook.com) that owns the
-   Page and the Instagram account: it lets you make a token that never expires (step 12b).
+6. [ ] **No Facebook Page is needed.** Everything (claim codes by DM, comment launches, the
+   auto-poster) runs on *Instagram Login*, straight on the Instagram account. (An older setup used a
+   Facebook Page and *Facebook Login*; Meta lets one app use only one of the two, and it is no longer
+   needed. Skip this step.)
+7. [ ] **A Meta developer account** (developers.facebook.com). Also a **Meta Business portfolio**
+   (business.facebook.com) for your company: Meta's **Business Verification** of it is needed before
+   comment launches can work for the public (step 14).
 
 ## Part 2 — The secrets
 
@@ -59,8 +61,9 @@ manager. **Never** put them in the code, in a chat or in an email.
       `render.yaml` and shows one web service, `instapaid`, with a 1 GB disk. Click **Apply**.
    b. Render asks for every value marked `sync: false`. Fill in what you have now: `RPC_URL`,
       `FEE_PAYER_SECRET`, `VAULT_MASTER_KEY`, `SESSION_SECRET`, `IG_WEBHOOK_VERIFY_TOKEN`,
-      `ANTHROPIC_API_KEY`. The Instagram ones (`IG_ACCESS_TOKEN`, `IG_APP_SECRET`, `IG_USER_ID`,
-      `IG_FB_ACCESS_TOKEN`, `META_APP_SECRET`) come in Part 4; the server will not start until
+      `ANTHROPIC_API_KEY`. The Instagram ones (`IG_ACCESS_TOKEN`, `IG_APP_SECRET`, `META_APP_SECRET`)
+      come in Part 4. Leave `IG_USER_ID` and `IG_FB_ACCESS_TOKEN` **empty**: they are only for the
+      old Facebook Login route, and the server reads the bot's id from `IG_ACCESS_TOKEN`. The server will not start until
       `IG_ACCESS_TOKEN`, `IG_APP_SECRET` and `IG_WEBHOOK_VERIFY_TOKEN` are set, so put a placeholder
       like `pending` in the first two for now, and replace them in step 11.
    c. Leave `AUTO_POST` at `0` for now (step 15 turns it on).
@@ -82,9 +85,12 @@ manager. **Never** put them in the code, in a chat or in an email.
 
 ## Part 4 — The Meta app (Instagram)
 
-The server talks to Instagram two ways, both in **one Meta app**: *Instagram Login* (people DM their
-claim code to @instapaid.official) and *Facebook Login* (reading the comments that mention the bot,
-replying to them, and posting on the bot's feed).
+The server talks to Instagram one way: the **Instagram API with Instagram Login**, with one token for
+@instapaid.official. It carries the claim codes people DM to the bot, the comments that mention the
+bot (read, launched, replied to), and the posts on the bot's own feed. Meta's App Review page says an
+app "can either use Facebook Login or Instagram Login but not both", so there is no Facebook Login and
+no Facebook Page. (The server still has the old Facebook Login route, used only when `IG_USER_ID` and
+`IG_FB_ACCESS_TOKEN` are both set. Leave them empty.)
 
 11. [ ] **Create the app and connect Instagram Login (claim codes by DM).**
     a. developers.facebook.com → **My Apps** → **Create app** → type/use case **Business** (or
@@ -103,29 +109,32 @@ replying to them, and posting on the bot's feed).
        step 10 and that the service is running). Subscribe the field **`messages`**.
        Turn on the account's webhook subscription with the toggle next to @instapaid.official.
 
-12. [ ] **Connect Facebook Login (comment launches and the auto-poster).**
-    a. In the same app, add the product **Facebook Login for Business** (if Meta asks) and
-       **Webhooks**. In **Webhooks**, pick the object **Instagram**, same callback URL and verify token,
-       **Verify and save**, then subscribe the field **`mentions`**.
-    b. Make the token. Best: a **system user token** (it does not expire). business.facebook.com →
-       Settings → **Users → System users** → **Add** (role Admin) → **Assign assets**: the Facebook
-       Page (full control), the Instagram account, and the InstaPaid app → **Generate new token** for
-       the app with these permissions:
-       `instagram_basic`, `instagram_manage_comments`, `instagram_content_publish`,
-       `pages_read_engagement`, `pages_show_list`, `pages_manage_metadata`
-       (and `business_management` if Meta offers it).
-       Copy it into Render as **`IG_FB_ACCESS_TOKEN`**.
-       (Without a Business portfolio: Graph API Explorer → your app → "Get User Access Token" with the
-       same permissions → exchange it for a long-lived one → `GET /me/accounts` gives the Page's token,
-       which does not expire.)
-    c. Find the bot's Instagram id: Graph API Explorer → paste the token →
-       `GET /me/accounts?fields=name,instagram_business_account{id,username}` → the
-       `instagram_business_account.id` next to `instapaid.official` (a long number starting with
-       `1784…`). Copy it into Render as **`IG_USER_ID`**. It is not the Page id.
-    d. Install the app on the Page: in Graph API Explorer with the **Page** token, run
-       `POST /<page-id>/subscribed_apps?subscribed_fields=feed` (Meta sends Instagram mentions only to
-       apps subscribed to the linked Page, on any Page field; `feed` will do). The answer is
-       `{"success":true}`.
+12. [ ] **Comment launches and the auto-poster, on Instagram Login.**
+    a. App → **Use cases** → the Instagram use case ("Manage messaging & content on Instagram") →
+       **Customize** → **Permissions and features**: add **`instagram_business_manage_comments`**
+       (reading the comments that mention the bot, replying under them) and
+       **`instagram_business_content_publish`** (posting on the bot's feed). `instagram_business_basic`
+       and `instagram_business_manage_messages` are there from step 11.
+    b. **Generate a new token.** Instagram → **API setup with Instagram login** → **Generate access
+       tokens** → @instapaid.official → **Generate token**, and approve all four permissions in the
+       window that opens (a token made before step a does not carry the new two). Copy it into Render
+       as **`IG_ACCESS_TOKEN`**, replacing the one from step 11b. The 60-day reminder from step 11b now
+       counts from today.
+    c. **Subscribe `comments`.** Same page → **Configure webhooks** → the webhook fields → subscribe
+       **`comments`** next to `messages`. (With Instagram Login there is no separate `mentions` field:
+       an @mention of the bot in a comment under someone else's post arrives as a `comments` event.)
+    d. **Check the start-up lines.** After Render redeploys, Logs → the lines at start:
+       ```
+       instagram: @instapaid.official id 1784…
+       comment launches on, via Instagram Login
+       instagram: webhook subscribed (messages,comments): {"success":true}
+       ```
+       The server reads the bot's id from the token and subscribes the account to `messages` and
+       `comments` itself, at every start. `could not read the bot account` = the token is wrong or
+       expired (step b again). `webhook not subscribed … (#…)` = the line says what Meta refused: most
+       often a token without `instagram_business_manage_comments`.
+    e. Leave **`IG_USER_ID`** and **`IG_FB_ACCESS_TOKEN`** empty, and **`COMMENT_LAUNCHES`** at `1`
+       (`0` switches comment launches off without touching the token; DMs and the poster go on).
 
 13. [ ] **Testers (before App Review).** While the app is in Development mode, Instagram only works for
     people with a role on the app. App → **App roles** → **Roles** → add the people who will test
@@ -134,19 +143,23 @@ replying to them, and posting on the bot's feed).
     Use **your own test accounts** as "creators" for testing — never a real person's account.
 
 14. [ ] **App Review (to open it to everyone).** App → **App Review** → **Permissions and features**:
-    request **Advanced Access** for `instagram_business_manage_messages`, `instagram_manage_comments`,
-    `instagram_content_publish`, `instagram_basic`, `pages_read_engagement`, `pages_show_list`,
-    `pages_manage_metadata`. For each one Meta wants a sentence on how it is used and a screen
-    recording. Say plainly:
+    request **Advanced Access** for `instagram_business_basic`, `instagram_business_manage_messages`,
+    `instagram_business_manage_comments` and `instagram_business_content_publish`. For each one Meta
+    wants a sentence on how it is used and a screen recording. Say plainly:
     - messages: "Creators DM a one-time code to @instapaid.official to prove they own their account
       before claiming their coin's fees."
     - comments: "When someone comments '@instapaid.official make a token' under a public post, we read
-      that comment and reply to it with the coin's link."
+      that comment and the post it is on, and reply to it with the coin's link."
     - content publish: "@instapaid.official posts an announcement of new coins on its own feed and
       @mentions the creator in the caption so they can claim."
-    Record the flows from Part 5 (steps 16–21) with a tester. Business verification of your portfolio may be asked
-    for (company documents). When approved, switch the app to **Live** (top of the app dashboard).
-    Webhooks for the public arrive only in Live mode.
+    Record the flows from Part 5 (steps 16–21) with a tester.
+
+    **Plainly: until Advanced Access for `instagram_business_manage_comments` is granted, comment
+    launches only work for accounts with a role on the app** (step 13). A comment from anyone else
+    sends no webhook, so nothing happens and nothing is logged. Advanced Access needs **App Review
+    and Business Verification** of your Business portfolio (company documents; business.facebook.com →
+    Settings → Security Center → Start verification). When both are approved, switch the app to
+    **Live** (top of the app dashboard): webhooks for the public arrive only in Live mode.
 
 ## Part 5 — The first real test
 
@@ -157,7 +170,7 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     the service → **Shell** (`cd server` if needed) → `npm run sample-card`. Open the three addresses it
     prints: a Japanese, an Arabic and a Latin name, each drawn in real letters (never rows of little
     boxes). Then Render → Environment → `AUTO_POST` = `1` → Save. After the redeploy, the Logs say
-    `auto-poster on: at most 25 a day, 20 min apart`. Make sure `ANTHROPIC_API_KEY` is set: without it,
+    `auto-poster on: at most 25 a day, 20 min apart, via Instagram Login (graph.instagram.com)`. Make sure `ANTHROPIC_API_KEY` is set: without it,
     coins launched on the website are not posted (comment launches still are).
 16. [ ] **One comment.** From the fan account, under the creator's photo, comment:
     `@instapaid.official make a token for this creator: first light over the pines`
@@ -170,9 +183,21 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     @yourcreator can claim the creator fees: instapaid.fun/u/yourcreator
     Fan-made, not by @yourcreator.
     ```
-    No reply? Render → Logs. `mentioned_comment 403/400` = a missing permission (step 12b);
-    `post owner unknown` = Meta did not send the post's username (tell the developer: this is the
-    first thing to check with a real comment); nothing at all = webhooks (steps 11d, 12a, 12d, 13).
+    No reply? Render → Logs. Every webhook logs its shape first (`webhook: entry 1/1 entry={…}
+    field=comments value={from,id,media,text} …`: keys and lengths only, never the words). Then the
+    server reads the post, trying three ways, one line each:
+    ```
+    mention: read post via mentioned_comment → 400 (#10) Application does not have permission …
+    mention: read post via mentioned_media → 400 (#100) …
+    mention: read post via media → 200, owner @yourcreator
+    ```
+    The first `→ 200, owner @…` wins; failures before it are fine. If all three fail, the last line is
+    `mention: could not read the post — see the lines above`: nothing is launched and nothing is
+    replied. Send the developer those lines (they hold Meta's error codes, never the token).
+    `mention: reply via Instagram Login → 400 …` = the coin launched but the reply was refused
+    (usually `instagram_business_manage_comments` missing from the token: step 12b).
+    `ignored: not a launch request` = the comment did not name the bot and the command; nothing at
+    all = webhooks (steps 11d, 12c, 13, and step 14 for anyone without a role on the app).
 18. [ ] **Check the coin** at the pump.fun link: the name and ticker fit the post, the picture is the
     post's photo, the website is the Instagram post, the description is "first light over the pines".
     `https://instapaid.fun/u/yourcreator` lists it.
@@ -180,7 +205,7 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     photo, the ticker, the name, "for @yourcreator" and the claim link, all readable. Within a few
     minutes @instapaid.official's feed has it, with the caption @mentioning @yourcreator, and the creator
     account gets a notification that it was mentioned. If not: Logs lines starting `poster:`
-    (`publishing limit … 400` or `POST media … 403` = `instagram_content_publish` missing from the
+    (`publishing limit … 400` or `POST media … 403` = `instagram_business_content_publish` missing from the
     token).
 20. [ ] **One claim.** Trade a little of the coin on pump.fun (buy about 0.1 SOL and sell it back) so a
     few fees build up. Then, logged in as the creator: `https://instapaid.fun/claim` → it shows a code

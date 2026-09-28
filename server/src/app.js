@@ -8,9 +8,10 @@ import { PublicKey } from '@solana/web3.js';
 import { normalizeHandle } from './handles.js';
 import { metaSignatureOk, newCode, readToken, signToken, safeEqual } from './crypto.js';
 import { claimableAccounts, bindAccount } from './identity.js';
-import { codeMessages, textMessages } from './instagram.js';
+import { codeMessages, textMessages, describeEntry } from './instagram.js';
 import {
   mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink, welcomeDm,
+  commentLaunchesOff, skipMention,
 } from './comments.js';
 import { loadImage, tokenDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
@@ -88,7 +89,12 @@ export function createApp(deps) {
     const entries = Array.isArray(body?.entry) ? body.entry : [];
     const messaging = entries.reduce((n, e) => n + (e.messaging?.length ?? 0), 0);
     const fields = [...new Set(entries.flatMap((e) => (e.changes ?? []).map((c) => c.field)))];
-    console.log(`webhook: object=${body?.object} entries=${entries.length} messaging=${messaging} changes=[${fields.join(',')}] codes=${codes.length}`);
+    const entryFields = [...new Set(entries.map((e) => e?.field).filter(Boolean))];
+    console.log(`webhook: object=${body?.object} entries=${entries.length} messaging=${messaging} changes=[${fields.join(',')}]`
+      + `${entryFields.length ? ` fields=[${entryFields.join(',')}]` : ''} codes=${codes.length}`);
+    // The raw shape of each entry (keys, field names, text lengths; never a text or a token), so the
+    // first live test shows exactly what Meta sends.
+    entries.slice(0, 20).forEach((e, i) => console.log(`webhook: entry ${i + 1}/${entries.length} ${describeEntry(e)}`));
     for (const { igsid, code } of codes) {
       try { await verifyCode(igsid, code); } catch (e) { console.error('verify failed', e.message); }
     }
@@ -96,8 +102,16 @@ export function createApp(deps) {
     for (const { igsid } of textMessages(body).filter((m) => !m.code)) {
       try { await welcome(igsid); } catch (e) { console.error('welcome failed', e.message); }
     }
-    if (cfg.igUserId) {
-      for (const ev of mentionEvents(body)) enqueue(() => handleMention(ev));
+    const events = mentionEvents(body);
+    const off = events.length ? commentLaunchesOff(cfg) : null;
+    if (off) console.log(`mention: ${events.length} comment event${events.length === 1 ? '' : 's'} not handled: comment launches are off (${off})`);
+    else {
+      for (const ev of events) {
+        // The bot's own comments (its replies come back), Stories, and comments that do not ask.
+        const why = skipMention(ev, cfg.ig.botUsername, [cfg.ig.userId, cfg.igUserId]);
+        if (why) { console.log(`mention: comment ${ev.commentId} (${ev.field}) ignored: ${why}`); continue; }
+        enqueue(() => handleMention(ev));
+      }
     }
   });
 
@@ -110,7 +124,8 @@ export function createApp(deps) {
   };
   app.locals.drain = () => queue;
 
-  async function handleMention({ commentId, mediaId }) {
+  async function handleMention(ev) {
+    const { commentId, mediaId } = ev;
     const fresh = db.prepare(
       `insert into comment_request (comment_id, media_id, status, created_at) values (?, ?, 'working', ?)
        on conflict(comment_id) do nothing`
@@ -121,8 +136,12 @@ export function createApp(deps) {
     ).run(status, extra.username ?? null, extra.mint ?? null, extra.note ?? null, commentId);
     const reply = (message) => deps.comments.replyToMention(cfg, { commentId, mediaId }, message, deps.fetchImpl);
 
+    // A comment on one of our own posts (the poster's) is not a request; nothing to read.
+    if (db.prepare('select 1 from post_job where media_id = ?').get(mediaId)) return done('skipped', { note: 'our own post' });
+
     let mention;
-    try { mention = await deps.comments.readMention(cfg, { commentId }, deps.fetchImpl); }
+    // No launch and no reply when the post cannot be read: readMention logs each attempt.
+    try { mention = await deps.comments.readMention(cfg, ev, deps.fetchImpl); }
     catch (e) { return done('failed', { note: e.message }); }
     if (!isLaunchRequest(mention.text, cfg.ig.botUsername)) return done('skipped', { note: 'not a launch request' });
 

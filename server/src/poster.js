@@ -8,8 +8,10 @@
 // them. A picture that fails is swapped for the default coin; a name or ticker that fails, or no
 // Claude at all, means no post. Comment launches are named by Claude from the creator's own post.
 //
-// Instagram Content Publishing API, through the same Facebook-Login token as comment launches
-// (needs instagram_content_publish):
+// Instagram Content Publishing API. By default with Instagram Login: the Instagram token
+// (IG_ACCESS_TOKEN, needs instagram_business_content_publish) on graph.instagram.com, the bot's
+// IG_ID read from GET /me?fields=user_id,username. Only when IG_USER_ID and IG_FB_ACCESS_TOKEN are
+// both set, with that Facebook-Login token on graph.facebook.com instead (instagram_content_publish).
 //   POST /{ig-user-id}/media {image_url, caption}  → a container
 //   GET  /{container-id}?fields=status_code         → until FINISHED
 //   POST /{ig-user-id}/media_publish {creation_id}  → the post (media id)
@@ -26,7 +28,8 @@ import sharp from 'sharp';
 import { coinCard } from './card.js';
 import { isBlocked } from './blocks.js';
 import { reviewCoin, visibleOnly } from './lore.js';
-import { graphBase } from './comments.js';
+import { graphBase, fbLogin } from './comments.js';
+import { graph as igGraph, igAccount, describeError } from './instagram.js';
 import { sniffImage } from './metadata.js';
 
 export const MINT_FILE_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}\.jpg$/;
@@ -41,13 +44,15 @@ const SOURCE_TTL = 48 * 60 * 60_000; // pictures of web launches that were never
 const SOURCE_SIDE = 1080; // kept pictures are shrunk to this, so a flood of prepares cannot fill the disk
 const READ = { failOn: 'error', limitInputPixels: 40_000_000 };
 
+// Instagram's documents say 100 API posts in 24 hours in one place and 50 in another: plan on 50.
+export const IG_POSTS_PER_DAY = 50;
 export const HASHTAGS = '#memecoin #solana #pumpfun';
 export const CAPTION_MAX = 2200;
 
 /** Why the poster is off, or null when it is on. */
 export function posterOff(cfg) {
   if (!cfg.autoPost) return 'AUTO_POST is not 1';
-  if (!cfg.igUserId || !cfg.fbAccessToken) return 'IG_USER_ID and IG_FB_ACCESS_TOKEN are required';
+  if (!fbLogin(cfg) && !cfg.ig?.accessToken) return 'IG_ACCESS_TOKEN is required (or IG_USER_ID and IG_FB_ACCESS_TOKEN for Facebook Login)';
   if (!/^https:\/\//.test(cfg.publicUrl || '')) return 'PUBLIC_URL must be https (Instagram fetches the card from it)';
   if (!cfg.postsDir) return 'POSTS_DIR is not set';
   return null;
@@ -83,11 +88,17 @@ export class GraphError extends Error {
 }
 class Skip extends Error {}
 
-/** Graph API calls with the Facebook-Login token. The token goes in the query (GET) or the form body (POST), never in errors. */
+/**
+ * Graph API calls: with the Instagram token on graph.instagram.com, or (both Facebook Login settings
+ * set) the Facebook-Login token on graph.facebook.com. The token goes in the query (GET) or the form
+ * body (POST), never in errors. `call.igId()` is the bot's account id for the paths.
+ */
 function graphClient(cfg, fetchImpl) {
-  const base = `${graphBase(cfg)}/${cfg.fbGraphVersion || 'v23.0'}/`;
-  return async function call(method, path, params = {}) {
-    const q = new URLSearchParams({ ...params, access_token: cfg.fbAccessToken });
+  const viaFb = fbLogin(cfg);
+  const base = viaFb ? `${graphBase(cfg)}/${cfg.fbGraphVersion || 'v23.0'}/` : igGraph(cfg.ig ?? {}, '');
+  const token = viaFb ? cfg.fbAccessToken : cfg.ig?.accessToken;
+  async function call(method, path, params = {}) {
+    const q = new URLSearchParams({ ...params, access_token: token });
     const what = `${method} ${path.replace(/^\d{6,}\//, '')}`;
     let r;
     try {
@@ -101,9 +112,15 @@ function graphClient(cfg, fetchImpl) {
       throw new GraphError(`${what}: ${e.message}`);
     }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || j?.error) throw new GraphError(`${what}: ${r.status} ${j?.error?.message ?? ''}`.trim());
+    if (!r.ok || j?.error) throw new GraphError(`${what}: ${r.status} ${j?.error ? describeError(j) : ''}`.trim());
     return j;
+  }
+  call.via = viaFb ? 'Facebook Login (graph.facebook.com)' : 'Instagram Login (graph.instagram.com)';
+  call.igId = async () => {
+    if (viaFb) return String(cfg.igUserId);
+    try { return (await igAccount(cfg.ig, fetchImpl)).userId; } catch (e) { throw new GraphError(`the bot's IG_ID is unknown: ${e.message}`); }
   };
+  return call;
 }
 
 /**
@@ -116,6 +133,7 @@ export function createPoster({
   log = console, pollMs = 3000, maxPolls = 20, render = coinCard, review = reviewCoin,
 }) {
   const call = graphClient(cfg, fetchImpl);
+  const dailyCap = () => Math.min(cfg.postMaxPerDay, IG_POSTS_PER_DAY);
   const off = () => posterOff(cfg);
   const enabled = () => !off();
   const cardPath = (mint) => join(cfg.postsDir, `${mint}.jpg`);
@@ -255,7 +273,7 @@ export function createPoster({
   }
 
   async function quota() {
-    const j = await call('GET', `${cfg.igUserId}/content_publishing_limit`, { fields: 'quota_usage,config' });
+    const j = await call('GET', `${await call.igId()}/content_publishing_limit`, { fields: 'quota_usage,config' });
     const d = Array.isArray(j.data) ? (j.data[0] ?? {}) : j;
     const total = d.config?.quota_total;
     return { usage: Number(d.quota_usage ?? 0), total: total == null ? null : Number(total) };
@@ -286,7 +304,7 @@ export function createPoster({
 
   /** The container was published before (the answer was lost, or we restarted): find the post, never publish again. */
   async function recover(mint) {
-    const j = await call('GET', `${cfg.igUserId}/media`, { fields: 'id,caption,permalink', limit: '25' }).catch(() => ({}));
+    const j = await call('GET', `${await call.igId()}/media`, { fields: 'id,caption,permalink', limit: '25' }).catch(() => ({}));
     const hit = (j.data ?? []).find((m) => String(m.caption ?? '').includes(`pump.fun/coin/${mint}`));
     markPosted(mint, hit?.id ? String(hit.id) : null, hit?.permalink ?? null, hit ? null : 'published earlier; not found on the feed');
     log.log(`poster: ${mint} was already published; recorded, not posted again`);
@@ -311,7 +329,7 @@ export function createPoster({
         await writeCard(token, src);
         if (src) rm(src.path);
       }
-      const c = await call('POST', `${cfg.igUserId}/media`, {
+      const c = await call('POST', `${await call.igId()}/media`, {
         image_url: `${cfg.publicUrl}/posts/${token.mint}.jpg`,
         caption: postCaption(token, cfg.publicUrl),
       });
@@ -320,7 +338,7 @@ export function createPoster({
       db.prepare('update post_job set container_id = ? where mint = ?').run(containerId, j.mint);
     }
     if (await waitReady(containerId) === 'PUBLISHED') return recover(j.mint);
-    const p = await call('POST', `${cfg.igUserId}/media_publish`, { creation_id: containerId });
+    const p = await call('POST', `${await call.igId()}/media_publish`, { creation_id: containerId });
     const mediaId = p.id ? String(p.id) : null;
     markPosted(j.mint, mediaId, null); // first, before anything else can fail
     if (mediaId) {
@@ -377,7 +395,7 @@ export function createPoster({
     let j = db.prepare(`select * from post_job where status = 'posting' order by created_at, rowid limit 1`).get();
     if (!j) {
       const day = db.prepare(`select count(*) n from post_job where status = 'posted' and posted_at > ?`).get(t - DAY).n;
-      if (day >= cfg.postMaxPerDay) return 'daily-cap';
+      if (day >= dailyCap()) return 'daily-cap';
       const last = db.prepare(`select max(posted_at) last from post_job where status = 'posted'`).get().last;
       if (last != null && t - last < cfg.postMinGapMin * 60_000) return 'gap';
       // Comment launches first: a burst of website launches must not push them back.
@@ -438,7 +456,7 @@ export function createPoster({
   function start() {
     if (timer) return;
     const why = off();
-    log.log(why ? `auto-poster off: ${why}` : `auto-poster on: at most ${cfg.postMaxPerDay} a day, ${cfg.postMinGapMin} min apart`);
+    log.log(why ? `auto-poster off: ${why}` : `auto-poster on: at most ${dailyCap()} a day, ${cfg.postMinGapMin} min apart, via ${call.via}`);
     timer = setInterval(tick, TICK_MS);
     timer.unref?.();
     kick(5000);

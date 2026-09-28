@@ -40,10 +40,13 @@ export const DEFAULT_COIN = readFileSync(new URL('../public/coin-default.png', i
  * launches ({nameOk, pictureOk}, or null for "Claude unavailable").
  * launchFails: true (the RPC refuses before anything is sent), or 'lost' (sent, the confirmation
  * never comes) with chain.outcome ('live' | 'failed' | 'pending') for what launchStatus finds.
+ * comments: the real src/comments.js (or another stand-in) instead of the fake readMention/replyToMention;
+ * fetchImpl: the app's fetch (a stand-in Graph and CDN) instead of one that serves POST_PNG.
  */
 export async function start({
   usernames = {}, mentions = {}, feePayerLamports = 10n ** 9n, launchFails = false,
   config = {}, graph, naming = {}, review = { nameOk: true, pictureOk: true }, now,
+  comments: commentsImpl, fetchImpl: fetchOverride,
 } = {}) {
   const db = openDb(':memory:');
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
@@ -77,8 +80,8 @@ export async function start({
     async usernameOf(c, igsid) { return usernames[igsid]; },
     async reply(c, igsid, text) { calls.replies.push({ igsid, text }); },
   };
-  const fetchImpl = async () => new Response(POST_PNG, { headers: { 'content-type': 'image/png' } });
-  const comments = {
+  const fetchImpl = fetchOverride ?? (async () => new Response(POST_PNG, { headers: { 'content-type': 'image/png' } }));
+  const comments = commentsImpl ?? {
     async readMention(c, { commentId }) {
       if (!mentions[commentId]) throw new Error('not found');
       return mentions[commentId];
@@ -125,6 +128,13 @@ export const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 
 export function mentionHook(t, commentId, mediaId = 'm1', secret = cfg.ig.appSecret) {
   const body = JSON.stringify({ object: 'instagram', entry: [{ id: cfg.igUserId, time: 1, changes: [{ field: 'mentions', value: { comment_id: commentId, media_id: mediaId } }] }] });
+  const sig = 'sha256=' + createHmac('sha256', secret).update(body).digest('hex');
+  return fetch(t.base + '/webhooks/instagram', { method: 'POST', headers: { 'content-type': 'application/json', 'x-hub-signature-256': sig }, body });
+}
+
+/** Any webhook body, signed as Meta signs it. */
+export function signedHook(t, payload, secret = cfg.ig.appSecret) {
+  const body = JSON.stringify(payload);
   const sig = 'sha256=' + createHmac('sha256', secret).update(body).digest('hex');
   return fetch(t.base + '/webhooks/instagram', { method: 'POST', headers: { 'content-type': 'application/json', 'x-hub-signature-256': sig }, body });
 }

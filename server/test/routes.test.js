@@ -154,15 +154,16 @@ test('uploads must be the image they say they are: an SVG or other bytes sent as
   } finally { t.close(); }
 });
 
-test('GRAPH_BASE_URL: comment reads and replies go to the stand-in Graph API', async () => {
+test('GRAPH_BASE_URL: comment reads and replies go to the stand-in Graph API (the Facebook Login path)', async () => {
   const seen = [];
   const fetchImpl = async (url, init) => {
     seen.push(`${init?.method ?? 'GET'} ${new URL(url).origin}${new URL(url).pathname}`);
-    return new Response(JSON.stringify({ mentioned_comment: { text: 'hi', media: { id: 'm' } } }), { headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ mentioned_comment: { text: 'hi', media: { id: 'm', username: 'alice' } } }), { headers: { 'content-type': 'application/json' } });
   };
   const cfg = { graphBaseUrl: 'http://127.0.0.1:9999', fbGraphVersion: 'v23.0', igUserId: '42', fbAccessToken: 'fb' };
-  await readMention(cfg, { commentId: 'c1' }, fetchImpl);
-  await replyToMention(cfg, { commentId: 'c1', mediaId: 'm1' }, 'hello', fetchImpl);
-  await readMention({ ...cfg, graphBaseUrl: undefined }, { commentId: 'c1' }, fetchImpl);
+  const quiet = { log() {}, warn() {}, error() {} };
+  await readMention(cfg, { commentId: 'c1' }, fetchImpl, quiet);
+  await replyToMention(cfg, { commentId: 'c1', mediaId: 'm1' }, 'hello', fetchImpl, quiet);
+  await readMention({ ...cfg, graphBaseUrl: undefined }, { commentId: 'c1' }, fetchImpl, quiet);
   assert.deepEqual(seen, ['GET http://127.0.0.1:9999/v23.0/42', 'POST http://127.0.0.1:9999/v23.0/42/mentions', 'GET https://graph.facebook.com/v23.0/42']);
 });
