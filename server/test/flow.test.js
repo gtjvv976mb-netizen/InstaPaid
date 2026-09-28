@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { start, webhook, launcher, tick, cfg } from './helpers.js';
@@ -59,6 +60,10 @@ test('claim: the account that DMs the code gets its own fees, and binds the vaul
     assert.equal(s.username, 'alice');
     assert.deepEqual(s.accounts.map((a) => a.username), ['alice']);
     assert.ok(t.calls.replies.some((r) => r.igsid === '111' && /Verified as @alice/.test(r.text)));
+    // The DM names the claim page's button by its own words.
+    const button = readFileSync(new URL('../public/claim.html', import.meta.url), 'utf8').match(/id="claim"[^>]*>(?:<svg.*?<\/svg>)?([^<]+)<\/button>/)[1];
+    assert.equal(button, 'Send my fees');
+    assert.ok(t.calls.replies.some((r) => r.igsid === '111' && r.text.includes(`tap ${button}`)));
 
     const dest = launcher();
     assert.equal((await t.post('/api/claim', { claimToken: s.claimToken, destination: 'bad' })).status, 400);

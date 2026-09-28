@@ -90,14 +90,15 @@ export async function replyToMention(cfg, { commentId, mediaId }, message, fetch
 
 const host = (publicUrl) => publicUrl.replace(/^https?:\/\//, '');
 
-/** The reply under the fan's comment. No lore: the coin and the claim link only. */
 /**
  * The reply under the comment once the coin is live. Lively but honest: no price talk, no "moon",
  * no rocket, and it always says the coin is fan-made. It names the coin, its ticker, its address,
- * the pump.fun page, where the creator claims, and (when the poster is on) that we posted it.
+ * the pump.fun page, where the creator claims, whether the coin wears the post's photo (`photo`: only
+ * when it does, not when the default coin image stood in), and (`posted`: only when a post was queued)
+ * that we will post it.
  * Instagram caps a comment at 2200 characters and makes no link clickable, so links are plain.
  */
-export function launchedReply({ username, name, symbol, mint, lore, postPermalink, posted, publicUrl }) {
+export function launchedReply({ username, name, symbol, mint, lore, postPermalink, photo, posted, publicUrl }) {
   const site = host(publicUrl);
   const lines = [
     `🎉 Done! ${name ? `${name} ($${symbol})` : `$${symbol}`} is now live on pump.fun, made for @${username}.`,
@@ -106,7 +107,7 @@ export function launchedReply({ username, name, symbol, mint, lore, postPermalin
     `🔤 Ticker: $${symbol}`,
     `📍 Address: ${mint}`,
     `🔗 Trade it: pump.fun/coin/${mint}`,
-    `📸 Named after this post, and it wears the post's photo.`,
+    photo ? `📸 Named after this post, and it wears the post's photo.` : `📸 Named after this post.`,
   ];
   if (lore) lines.push(`📝 Lore: “${lore}”`);
   lines.push(
@@ -115,7 +116,7 @@ export function launchedReply({ username, name, symbol, mint, lore, postPermalin
     `👉 ${site}/u/${username}`,
     `Prove it's you with one DM to @instapaid.official, pick any Solana wallet, and the fees are sent. No password, no seed phrase, ever.`,
   );
-  if (posted) lines.push('', `📣 We also posted it on our feed and tagged @${username}.`);
+  if (posted) lines.push('', `📣 We'll post it on our feed and tag @${username}.`);
   lines.push(
     '',
     `ℹ️ Fan-made by the person who commented, not by @${username}. Meme coins are speculative and can go to zero. Not financial advice.`,

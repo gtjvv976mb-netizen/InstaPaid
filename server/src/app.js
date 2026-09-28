@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -56,6 +56,12 @@ export function createApp(deps) {
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'no-referrer');
+    // Never framed (clickjacking on the claim and launch pages), no camera, microphone or location.
+    res.set('X-Frame-Options', 'DENY');
+    res.set('Content-Security-Policy', "frame-ancestors 'none'");
+    res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    // Only over HTTPS (behind the host's proxy that needs TRUST_PROXY=1): a plain-HTTP answer must not pin it.
+    if (req.secure) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   });
 
@@ -163,7 +169,7 @@ export function createApp(deps) {
       return done('failed', { username, note: today >= cfg.maxServerLaunchesPerDay ? 'daily budget' : 'fee payer low' });
     }
 
-    let launched, sent = null, image;
+    let launched, sent = null, image, photo = false;
     const permalink = instagramPermalink(mention.media.permalink);
     try {
       // Everything about the coin comes from the post: its picture, its caption (for the name and
@@ -173,6 +179,7 @@ export function createApp(deps) {
       // A carousel or a post Meta sends no picture for gets the default coin image.
       const postImage = imageUrl ? await loadImage({ imageUrl }, deps.fetchImpl).catch(() => null) : null;
       image = postImage ?? DEFAULT_IMAGE();
+      photo = !!postImage; // the reply says the coin wears the post's photo only when it does
       const coin = await deps.nameCoin({
         username, caption: m.caption, image: postImage ?? undefined, lore: commentLore(mention.text, cfg.ig.botUsername),
       });
@@ -214,15 +221,16 @@ export function createApp(deps) {
         return done('failed', { username, note: String(e.message).slice(0, 300) });
       }
     }
-    // The coin is live: tell the fan under their comment, then @instapaid.official posts about it
-    // (when the poster is on) and mentions the creator.
+    // The coin is live: queue @instapaid.official's post about it (when the poster is on and the
+    // creator may be posted about), then tell the fan under their comment; the reply promises the
+    // post only when one was queued.
+    done('launched', { username, mint: launched.mint });
+    const queued = await poster.enqueue(launched.mint, launched.image).catch((e) => { console.error('post enqueue failed', e); return false; });
     await reply(launchedReply({
       username, name: launched.name, symbol: launched.symbol, mint: launched.mint, lore: launched.lore,
-      postPermalink: permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+      postPermalink: permalink, photo, posted: queued === true, publicUrl: cfg.publicUrl,
     }))
       .catch((e) => console.error('reply failed', e));
-    done('launched', { username, mint: launched.mint });
-    await poster.enqueue(launched.mint, launched.image).catch((e) => console.error('post enqueue failed', e));
   }
 
   const UNCONFIRMED = 'sent, not confirmed yet';
@@ -254,16 +262,18 @@ export function createApp(deps) {
     if (r.changes && announce) {
       // The fan who asked was told it was on its way; now tell them it is live.
       const asked = db.prepare(`select comment_id, media_id from comment_request where mint = ? and note = ?`).get(t.mint, UNCONFIRMED);
+      // Queued first, so the reply promises a post only when there will be one. Which picture the
+      // coin wears is not recorded, so this reply does not claim the post's photo.
+      const queued = await poster.enqueue(t.mint).catch((e) => { console.error('post enqueue failed', e); return false; });
       if (asked) {
         db.prepare(`update comment_request set note = null where comment_id = ?`).run(asked.comment_id);
         await deps.comments.replyToMention(cfg, { commentId: asked.comment_id, mediaId: asked.media_id },
           launchedReply({
             username: t.username, name: t.name, symbol: t.symbol, mint: t.mint, lore: t.lore,
-            postPermalink: t.post_permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+            postPermalink: t.post_permalink, posted: queued === true, publicUrl: cfg.publicUrl,
           }), deps.fetchImpl)
           .catch((e) => console.error('reply failed', e));
       }
-      await poster.enqueue(t.mint).catch((e) => console.error('post enqueue failed', e));
     }
     return 'live';
   }
@@ -309,7 +319,7 @@ export function createApp(deps) {
     ).run(igsid, username, v.id);
     if (r.changes) {
       console.log(`verify: verified @${username}`);
-      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and hit Claim. We never ask for a password or seed phrase.`);
+      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and tap Send my fees. We never ask for a password or seed phrase.`);
     }
   }
 
@@ -485,15 +495,39 @@ export function createApp(deps) {
   });
 
   // Pages
+  const pub = join(here, '..', 'public');
+  const noCacheHtml = (res, file) => { if (file.endsWith('.html')) res.set('Cache-Control', 'no-cache'); };
+  const notFound = (req, res) => {
+    if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found.' });
+    res.status(404).set('Cache-Control', 'no-cache').sendFile(join(pub, '404.html'));
+  };
+  // A real page with a trailing slash (/launch/, /u/name/) → the page (301). Only known pages, so
+  // "//other.site/" can never become a redirect to another host.
+  const pages = new Set(readdirSync(pub).filter((f) => f.endsWith('.html') && f !== '404.html' && f !== 'index.html' && f !== 'account.html')
+    .map((f) => '/' + f.slice(0, -5)));
+  app.use((req, res, next) => {
+    if ((req.method !== 'GET' && req.method !== 'HEAD') || req.path === '/' || !req.path.endsWith('/')) return next();
+    const bare = req.path.replace(/\/+$/, '');
+    if (!pages.has(bare) && !/^\/u\/[^/]+$/.test(bare)) return next();
+    const q = req.originalUrl.indexOf('?');
+    res.redirect(301, bare + (q >= 0 ? req.originalUrl.slice(q) : ''));
+  });
+  app.get(['/404', '/404.html'], notFound);
+
   const web3Iife = require.resolve('@solana/web3.js/lib/index.iife.min.js');
-  app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife));
-  app.use(express.static(join(here, '..', 'public'), { extensions: ['html'] }));
-  app.get('/u/:username', (req, res) => res.sendFile(join(here, '..', 'public', 'account.html')));
+  app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife, { maxAge: '1d' }));
+  // Media and vendor files keep their names when they change: a day for media; the 3D engine is
+  // asked for with ?v=<its hash> (mascot.js), so it can be kept for 30 days. HTML is always revalidated.
+  app.use('/media', express.static(join(pub, 'media'), { maxAge: '1d', fallthrough: true }));
+  app.use('/vendor', express.static(join(pub, 'vendor'), { maxAge: '30d', fallthrough: true }));
+  app.use(express.static(pub, { extensions: ['html'], setHeaders: noCacheHtml }));
+  app.get('/u/:username', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(join(pub, 'account.html')));
   // The "See a creator's page" form without JavaScript: /u?u=name → /u/name.
   app.get('/u', (req, res) => {
     const u = normalizeHandle(String(req.query.u ?? ''));
     res.redirect(302, u ? `/u/${encodeURIComponent(u)}` : '/#creators');
   });
+  app.use(notFound);
 
   return app;
 }

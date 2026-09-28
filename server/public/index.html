@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>instapaid — one comment, a coin for the creator</title>
-<meta name="description" content="Comment &quot;@instapaid.official make a token&quot; under any public Instagram post. A fan-made pump.fun coin launches for the post's owner, named from the post and wearing its photo. We post it on our feed and mention the creator, and only they can claim its fees.">
+<title>InstaPaid: one comment, a coin for the creator</title>
+<meta name="description" content="Comment &quot;@instapaid.official make a token for this creator&quot; under any public Instagram post. A fan-made pump.fun coin launches for the post's owner, named from the post and wearing its photo. We post it on our feed and mention the creator, and only they can claim its fees.">
 <meta name="theme-color" content="#1a1114">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="InstaPaid">
@@ -17,6 +17,8 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="The InstaPaid @ coin beside the words: One comment. A coin for the creator.">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://instapaid.fun/">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
@@ -313,7 +315,7 @@
           </div>
         </li>
       </ol>
-      <p class="note-line" data-reveal><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>Public posts only: private accounts and Stories don't reach us. A creator who already has a coin doesn't get another by comment; asking again gets a reply pointing to it.</span></p>
+      <p class="note-line" data-reveal><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>Public posts only: private accounts and Stories don't reach us.</span></p>
     </div>
   </section>
 
@@ -335,7 +337,7 @@
           <p class="lookup-err" id="lookup-top-err" hidden></p>
         </form>
       </div>
-      <p class="recent-sub" id="recent-sub">Every coin, who it's for, the post it came from and whether they've claimed. Tap one to see the creator's page.</p>
+      <p class="recent-sub" id="recent-sub">Every coin, who it's for, the post it came from and whether they've claimed.<span id="recent-tap" hidden> Tap one to see the creator's page.</span></p>
       <div class="recent-empty" id="recent-empty" hidden>
         <p><b>Nothing launched yet.</b> Be the first: leave the comment under a public post you love, or launch one from the website. The cards below are examples of what you'll see here.</p>
       </div>
@@ -514,35 +516,35 @@
 
       <div class="faq">
         <details open>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Where do the name and picture come from?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Where do the name and picture come from?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>From the post you comment under. We look at its photo and caption and name the coin after them, with a ticker of 2 to 10 letters. The coin's picture is the post's photo (for a video or Reel, its cover), and its link on pump.fun opens that post.</p>
             <p>If we can't read the post, the name comes from the caption's first words or the creator's username. A post that shares no picture with us gets the InstaPaid coin.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Can I add lore?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Can I add lore?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>Yes. Write it after the command: <b><span data-bot>@instapaid.official</span> make a token for this creator: the king of sunsets</b>. It becomes the coin's description on pump.fun.</p>
             <p>Links are taken out and it's kept under 400 characters. We leave it out if it's hateful, sexual, harassing or defamatory, pretends to be someone, or promises price, profit or returns, and if we can't check it. Without lore the description stays empty: we never write lore for you.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Where do you post new coins?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Where do you post new coins?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>On our own Instagram feed, <span data-bot>@instapaid.official</span>. We post new coins there and mention the creator, so they know a coin exists and can claim its fees. We post a limited number a day and at most one post per creator a month, and a coin launched on the website only once its name and picture pass our check, so not every coin gets a post.</p>
             <p>For a comment launch we also reply under the comment that asked, with the coin's link and the creator's claim page.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Who gets the fees?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Who gets the fees?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>The creator the coin was made for. pump.fun's creator fees from every coin made for a handle build up in one vault for that handle. The fan who launched it never gets them.</p>
             <p>Until the creator claims, that vault is kept by InstaPaid. If InstaPaid ever takes a share, the claim page shows it before anything is sent.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">How does a creator claim?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">How does a creator claim?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>Open <b>instapaid.fun/claim</b> and get a one-time code (it lasts 15 minutes). DM it to <span data-bot>@instapaid.official</span> from your account, then enter any Solana wallet and the fees are sent.</p>
             <p>The first claim ties the vault to your account for good, even if you change your username later. We never ask for your password, seed phrase or private key, and never ask you to pay to claim.</p>
@@ -550,44 +552,45 @@
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">What does it cost?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">What does it cost?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>Commenting is free: we pay the launch. On the website you pay pump.fun's launch cost and network fees, plus any first buy you choose, from your own wallet. We pay the network fee when a creator claims.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Does it work on any post?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Does it work on any post?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>Public posts only. The comment has to @mention <span data-bot>@instapaid.official</span>; the word alone sends us nothing. Private accounts and Stories don't reach us.</p>
             <p>A creator who already has a coin doesn't get another by comment; asking again gets a reply pointing to it. If launches are paused for the day, the reply says so.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Is this official?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Is this official?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>No. InstaPaid is independent and isn't affiliated with or endorsed by Instagram or Meta. Coins are made by fans, and a creator hasn't endorsed one unless they say so themselves.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">I'm a creator and don't want coins</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">I'm a creator and don't want coins</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>DM <span data-bot>@instapaid.official</span> from your account and tell us. We stop new coins in your name, by comment and on the website, and stop posting about you; anyone who asks after that gets a reply saying you'd rather not.</p>
             <p>A coin already on pump.fun can't be deleted by anyone, but its fees stay yours: you can claim them or leave them.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">What if a username changes hands?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">What if a username changes hands?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>Before the first claim, whoever holds the handle when they verify can claim it. After that the vault stays with the account that claimed, through renames and recycled handles. Each creator's page shows whether their vault has been claimed.</p>
             <p>Very small balances (below about 0.001 SOL) can't be sent yet. If that happens, come back when more has built up.</p>
           </div></div>
         </details>
         <details>
-          <summary><span class="ava ava-sky sm" aria-hidden="true">?</span><span class="q">Is it financial advice?</span></summary>
+          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Is it financial advice?</span></summary>
           <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
             <p>No. Meme coins are speculative and can lose all their value. Nothing here is financial advice, and nothing here says any coin will go up. Only use money you can afford to lose.</p>
           </div></div>
         </details>
+      </div>
     </div>
   </section>
 

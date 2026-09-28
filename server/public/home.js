@@ -663,6 +663,7 @@ api('/api/recent').then(({ tokens }) => {
   list.replaceChildren(...tokens.map(card));
   delete list.dataset.examples;
   $('#recent-tag').hidden = true;
+  $('#recent-tap').hidden = false; // only real coins lead to a creator's page; the examples are not links
   if (tokens.length > 6) {
     more.hidden = false;
     more.textContent = `Show ${tokens.length - 6} more`;

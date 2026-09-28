@@ -431,6 +431,8 @@ test('in the app: a comment launch and a website launch each queue one post with
     await tick(); await t.drain();
     const comment = t.db.prepare(`select * from token where source = 'comment'`).get();
     assert.equal(t.db.prepare('select status from post_job where mint = ?').get(comment.mint).status, 'queued');
+    // the post was queued, so the reply promises it (in the future tense: it has not gone out yet)
+    assert.ok(t.calls.mentionReplies[0].message.includes("📣 We'll post it on our feed and tag @nat.geo."));
     const card = await sharp(join(t.postsDir, `${comment.mint}.jpg`)).metadata();
     assert.deepEqual([card.format, card.width, card.height], ['jpeg', 1080, 1350]);
 

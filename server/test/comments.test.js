@@ -61,13 +61,14 @@ test('a comment launches a coin for the post owner: named from the post, website
     assert.equal(r.commentId, 'c1');
     assert.equal(r.message, launchedReply({
       username: 'nat.geo', name: row.name, symbol: 'GEO', mint: row.mint, lore: null,
-      postPermalink: PERMALINK, posted: false, publicUrl: 'https://instapaid.test',
+      postPermalink: PERMALINK, photo: true, posted: false, publicUrl: 'https://instapaid.test',
     }));
+    assert.ok(r.message.includes("📸 Named after this post, and it wears the post's photo."), 'the post\'s photo was used, so the reply says so');
     for (const must of ['Geo Coin ($GEO)', `📍 Address: ${row.mint}`, `pump.fun/coin/${row.mint}`, '@nat.geo, the creator fees',
       'instapaid.test/u/nat.geo', 'Fan-made by the person who commented, not by @nat.geo', 'Not financial advice']) {
       assert.ok(r.message.includes(must), must);
     }
-    assert.doesNotMatch(r.message, /Lore:|posted it on our feed/);
+    assert.doesNotMatch(r.message, /Lore:|on our feed/, 'the poster is off: no post is promised');
 
     const acct = await (await t.get('/api/accounts/nat.geo')).json();
     assert.equal(acct.tokens[0].source, 'comment');
@@ -212,6 +213,9 @@ test('a failed launch replies once and records why; carousel posts use the defau
     assert.equal(c.calls.serverLaunches.length, 1);
     assert.equal(c.calls.lore[0].image, undefined, 'the default picture is not the post: Claude names from the caption');
     assert.equal(c.calls.uploads[0].image.buf.compare(DEFAULT_COIN), 0);
+    // the coin wears the default image, so the reply does not say it wears the post's photo
+    assert.ok(c.calls.mentionReplies[0].message.includes('📸 Named after this post.\n'));
+    assert.doesNotMatch(c.calls.mentionReplies[0].message, /wears the post's photo/);
   } finally { c.close(); }
 });
 
@@ -221,7 +225,7 @@ test('reply fits in an Instagram comment', () => {
   assert.ok(m.length < 2200, `${m.length} chars`); // Instagram's comment limit, at the longest name, lore and handle
   assert.ok(m.includes('instapaid.fun/u/' + 'a'.repeat(30)));
   assert.ok(m.includes('📝 Lore: “' + 'l'.repeat(400) + '”'));
-  assert.ok(m.includes('posted it on our feed'));
+  assert.ok(m.includes("📣 We'll post it on our feed and tag @" + 'a'.repeat(30) + '.'));
 });
 
 // A launch whose confirmation is lost may still land: it is recorded before it is sent, counts as
@@ -329,5 +333,23 @@ test('/api/launch/confirm only confirms website launches', async () => {
     const r = await t.post('/api/launch/confirm', { mint, signature: 'forged' });
     assert.equal(r.status, 404);
     assert.equal(t.db.prepare('select signature, status from token').get().signature, 'sig1');
+  } finally { t.close(); }
+});
+
+// The reply promises @instapaid.official's post only when one was queued: with the poster on, a
+// creator who already has another coin waiting to be posted gets no second post, so no promise.
+test('the reply promises a post only when one was queued', async () => {
+  const { getOrCreateAccount } = await import('../src/pump.js');
+  const t = await start({ config: { autoPost: true }, mentions: { a: ask('nat.geo') } });
+  try {
+    getOrCreateAccount(t.db, 'nat.geo', t.cfg.vaultMasterKey);
+    t.db.prepare(`insert into token (mint, username, name, symbol, launcher, status, created_at) values ('W1', 'nat.geo', 'Web', 'WEB', 'L', 'prepared', 1)`).run();
+    t.db.prepare(`insert into post_job (mint, status, created_at, next_attempt_at) values ('W1', 'queued', ?, ?)`).run(Date.now(), Date.now() + 3600_000);
+    await hook(t, 'a');
+    const row = t.db.prepare(`select * from token where source = 'comment'`).get();
+    assert.equal(row.status, 'live');
+    assert.equal(t.db.prepare('select status from post_job where mint = ?').get(row.mint).status, 'skipped');
+    assert.match(t.calls.mentionReplies[0].message, /^🎉 Done!/);
+    assert.doesNotMatch(t.calls.mentionReplies[0].message, /on our feed/);
   } finally { t.close(); }
 });
