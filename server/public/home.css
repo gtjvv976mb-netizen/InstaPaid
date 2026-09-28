@@ -79,7 +79,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .ticks svg { width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: var(--tint); color: var(--accent); }
 
 /* The mascot's box: bottom-left of the hero, under the words. No background of its own. */
-.hero .mascot-slot { grid-column: 1; justify-self: start; width: 240px; height: 240px; margin: -24px 0 -12px; }
+.hero .mascot-slot { grid-column: 1; justify-self: start; width: 300px; height: 300px; margin: -32px 0 -16px; }
 
 /* ---------- the stage: a phone, a comment, our reply ---------- */
 .hero-stage { position: relative; container-type: inline-size; padding-top: 30px; min-width: 0; justify-self: end; width: 100%; max-width: 540px; }

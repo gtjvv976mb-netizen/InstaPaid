@@ -76,7 +76,7 @@ button { font: inherit; }
 .wrap-narrow { max-width: 820px; }
 
 /* The mascot's places: a box with no background of its own (mascot.js fills it). */
-.mascot-slot, [data-mascot] { background: none; pointer-events: none; }
+.mascot-slot, [data-mascot] { background: none; }
 
 /* ---------- buttons ---------- */
 .btn {

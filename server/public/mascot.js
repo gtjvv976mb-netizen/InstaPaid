@@ -35,7 +35,12 @@
 .pip .pip-spark{opacity:0;transform-box:fill-box;transform-origin:center}
 .pip.is-jump .pip-spark{animation:pip-spark .7s ease-out 1}
 .pip.is-jump .pip-spark:nth-child(2){animation-delay:.06s}.pip.is-jump .pip-spark:nth-child(3){animation-delay:.12s}.pip.is-jump .pip-spark:nth-child(4){animation-delay:.03s}.pip.is-jump .pip-spark:nth-child(5){animation-delay:.1s}
-.pip-say{position:absolute;left:50%;bottom:calc(100% - 4%);transform:translate(-50%,8px) scale(.9);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:9px 13px;border-radius:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);white-space:nowrap;max-width:min(260px,80vw);white-space:normal;text-align:center;width:max-content;transition:transform .25s cubic-bezier(.2,.9,.3,1.3),opacity .2s}
+.pip-3d{position:absolute;z-index:1;inset:-12% -18% -6%;width:auto;height:auto;opacity:0;transition:opacity .6s;pointer-events:none;--poster-color:transparent;background:transparent}
+.pip.has-3d .pip-3d{opacity:1;pointer-events:auto}
+.pip.has-3d>svg{opacity:0;transition:opacity .4s}
+.pip.has-3d .pip-3d{animation:pip-bob 3.6s ease-in-out infinite;transform-origin:50% 95%}
+.pip.has-3d.is-jump .pip-3d{animation:pip-jump .62s cubic-bezier(.3,1.4,.4,1) 1}
+.pip-say{position:absolute;z-index:3;left:50%;bottom:calc(100% - 4%);transform:translate(-50%,8px) scale(.9);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:9px 13px;border-radius:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);white-space:nowrap;max-width:min(260px,80vw);white-space:normal;text-align:center;width:max-content;transition:transform .25s cubic-bezier(.2,.9,.3,1.3),opacity .2s}
 .pip-say::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
 .pip.is-say .pip-say{opacity:1;transform:translate(-50%,-6px) scale(1)}
 [data-size="sm"] .pip-say{font-size:12px;padding:7px 10px}
@@ -191,6 +196,63 @@
     };
     el.addEventListener('click', jump);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jump(); } });
+
+    // The HD figure: a textured 3D model of Pip (media/pip.glb, made from the same drawing) shown
+    // through <model-viewer> once it has loaded, in the big slot only. The SVG Pip stands in until
+    // then and stays if WebGL, the library or the file is missing, so the page never waits on it.
+    if (slot.dataset.size === 'lg' && !slot.hasAttribute('data-flat') && hasWebGL()) mount3d(el, () => ({ cx, cy, near, vel }));
+  }
+
+  const easeOut = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+
+  function hasWebGL() {
+    try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+  }
+
+  function mount3d(el, state) {
+    const src = document.currentScript?.dataset.model || '/media/pip.glb';
+    import('/vendor/model-viewer.min.js').then(() => {
+      const mv = document.createElement('model-viewer');
+      mv.className = 'pip-3d';
+      mv.setAttribute('src', src);
+      mv.setAttribute('alt', '');
+      mv.setAttribute('loading', 'eager');
+      mv.setAttribute('autoplay', '');
+      mv.setAttribute('disable-zoom', '');
+      mv.setAttribute('disable-pan', '');
+      mv.setAttribute('disable-tap', '');
+      mv.setAttribute('interaction-prompt', 'none');
+      mv.setAttribute('shadow-intensity', '1.2');
+      mv.setAttribute('shadow-softness', '0.9');
+      mv.setAttribute('exposure', '1.05');
+      mv.setAttribute('camera-orbit', '0deg 82deg 105%');
+      mv.setAttribute('camera-target', 'auto auto auto');
+      mv.setAttribute('field-of-view', '28deg');
+      mv.setAttribute('interpolation-decay', '120');
+      mv.setAttribute('touch-action', 'pan-y');
+      mv.setAttribute('aria-hidden', 'true');
+      mv.innerHTML = '<div slot="progress-bar"></div>';
+      let ok = false, spinUntil = 0, spinFrom = 0;
+      el.addEventListener('click', () => { spinFrom = performance.now(); spinUntil = spinFrom + 720; });
+      mv.addEventListener('load', () => {
+        ok = true;
+        el.classList.add('has-3d');
+        // Turn toward the pointer: yaw up to ±32°, pitch a little, and lean in when near.
+        const turn = () => {
+          if (!el.isConnected) return;
+          const { cx, cy, near } = state();
+          const now = performance.now();
+          // A tap spins him round once, then he turns back to the pointer.
+          const spin = now < spinUntil ? 360 * easeOut((now - spinFrom) / 720) : 0;
+          const theta = (cx * 32 + spin).toFixed(1), phi = (82 - cy * 10).toFixed(1), r = near ? 98 : 105;
+          mv.cameraOrbit = `${theta}deg ${phi}deg ${r}%`;
+          requestAnimationFrame(turn);
+        };
+        requestAnimationFrame(turn);
+      });
+      mv.addEventListener('error', () => { if (!ok) mv.remove(); });
+      el.insertBefore(mv, el.firstChild);
+    }).catch(() => { /* the SVG Pip stays */ });
   }
 
   const style = document.createElement('style');
