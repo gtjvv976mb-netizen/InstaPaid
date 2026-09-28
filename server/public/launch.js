@@ -1,4 +1,4 @@
-import { $, api, note, sol, wallet } from '/common.js';
+import { $, api, note, sol, wallet, isHandle, NOT_PROFILES } from '/common.js';
 
 const q = new URLSearchParams(location.search);
 const msg = $('#msg');
@@ -39,8 +39,38 @@ const readFile = (file) => new Promise((ok, bad) => {
   const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file);
 });
 
+/**
+ * What is wrong with the form, as { field, text }, or null. Checked before the wallet is asked to
+ * connect, with the same rules the server applies, so nobody approves a connection for a launch
+ * that cannot go through.
+ */
+function problem() {
+  const u = $('#username').value.replace(/^@/, '').trim().toLowerCase();
+  if (u !== $('#username').value || $('#at').textContent !== (u ? '@' + u : '@…')) setUser(u);
+  if (!u) return { field: 'username', text: 'Enter the Instagram username of the account the coin is for.' };
+  if (NOT_PROFILES.has(u)) return { field: 'username', text: `instagram.com/${u} is a page of Instagram's own, not an account. Enter the creator's username.` };
+  if (!isHandle(u)) return { field: 'username', text: `@${u} can't be an Instagram username: use up to 30 letters, numbers, dots and underscores, with no dot at the start or end and no two dots in a row.` };
+  const name = $('#name').value.trim();
+  if (!name) return { field: 'name', text: 'Give the coin a name.' };
+  if (name.length > 32) return { field: 'name', text: 'The coin name is at most 32 characters.' };
+  if (!/^[A-Z0-9]{1,10}$/.test($('#symbol').value.trim().toUpperCase())) return { field: 'symbol', text: 'The ticker is 1 to 10 letters or digits, like LOAF.' };
+  if (!$('#image').files[0] && !picUrl) return { field: 'image', text: 'Choose an image for the coin.' };
+  const buy = Number($('#buy').value || 0);
+  if (!(buy >= 0 && buy <= 50)) return { field: 'buy', text: 'Your first buy is between 0 and 50 SOL.' };
+  return null;
+}
+for (const id of ['username', 'name', 'symbol', 'image', 'buy']) $('#' + id).addEventListener('input', (e) => e.target.setCustomValidity(''));
+
 $('#f').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const bad = problem();
+  if (bad) {
+    const field = $('#' + bad.field);
+    field.setCustomValidity(bad.text);
+    $('#f').reportValidity();
+    field.focus();
+    return note(msg, 'err', bad.text);
+  }
   const w = wallet();
   if (!w) return note(msg, 'err', 'Install a Solana wallet such as Phantom or Solflare, then reload this page.');
   const go = $('#go');
@@ -49,7 +79,6 @@ $('#f').addEventListener('submit', async (e) => {
     note(msg, 'warn', 'Connecting your wallet…');
     const { publicKey } = await w.connect();
     const file = $('#image').files[0];
-    if (!file && !picUrl) throw new Error('Choose an image for the coin.');
 
     note(msg, 'warn', 'Preparing the coin…');
     const prep = await api('/api/launch/prepare', {
