@@ -31,3 +31,11 @@ test('the site loads nothing from another host', () => {
     }
   }
 });
+
+test('the home page draws the folding phone without naming a phone brand', () => {
+  for (const f of ['index.html', 'home.css', 'home.js']) {
+    const s = readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8')
+      .replace(/apple-touch-icon/g, '').replace(/-apple-system/g, '');
+    assert.doesNotMatch(s, /iphone|apple/i, `${f} names the device's maker`);
+  }
+});

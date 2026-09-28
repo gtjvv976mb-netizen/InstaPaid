@@ -29,9 +29,9 @@
 .hero::before {
   content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(26, 17, 20, .92) 0%, rgba(26, 17, 20, .84) 38%, rgba(26, 17, 20, .5) 62%, rgba(26, 17, 20, .34) 100%),
+    linear-gradient(90deg, rgba(26, 17, 20, .93) 0%, rgba(26, 17, 20, .86) 38%, rgba(26, 17, 20, .58) 62%, rgba(26, 17, 20, .44) 100%),
     linear-gradient(180deg, rgba(26, 17, 20, .55) 0%, rgba(26, 17, 20, 0) 26%),
-    linear-gradient(0deg, var(--bg) 0%, rgba(26, 17, 20, .35) 18%, rgba(26, 17, 20, 0) 40%);
+    linear-gradient(0deg, var(--bg) 0%, rgba(26, 17, 20, .5) 20%, rgba(26, 17, 20, 0) 42%);
 }
 .hero::after { /* a soft coral bloom behind the words */
   content: ""; position: absolute; z-index: -1; left: -10%; top: 10%; width: 60%; height: 80%; pointer-events: none;
@@ -81,73 +81,367 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 /* The mascot's box: bottom-left of the hero, under the words. No background of its own. */
 .hero .mascot-slot { grid-column: 1; justify-self: start; width: 300px; height: 300px; margin: -32px 0 -16px; }
 
-/* ---------- the stage: a phone, a comment, our reply ---------- */
-.hero-stage { position: relative; container-type: inline-size; padding-top: 30px; min-width: 0; justify-self: end; width: 100%; max-width: 540px; }
-/* The phone's face: bezel, camera pill and screen. Its body (rim, keys, back) is in "the phone in 3D" below;
-   its shadow is .p3-glow, which stays flat behind it while it turns. */
-.phone {
-  position: relative; z-index: 1; width: 330px; max-width: 100%; padding: 11px; border-radius: 46px;
-  background: linear-gradient(160deg, #3a2430, #140a10 60%);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 214, 196, .2), inset 0 0 0 3.5px #0c0608;
-  transform-style: preserve-3d;
+/* ---------- the stage: a folding phone, a comment, our reply ---------- */
+.hero-stage { position: relative; container-type: inline-size; padding-top: 150px; min-width: 0; justify-self: end; width: 100%; max-width: 540px; }
+
+/* ---------- the phone: a book-style foldable in CSS 3D ----------
+   The device is drawn to its published measurements, in millimetres: 1em = 1mm on .duo (its font-size is --u, the
+   scale, set from the stage's width). Open it is 164.6 × 117.8 × 5.2 mm, landscape; closed 84.1 × 117.8 × 11.3 mm,
+   a passport. Two halves (.duo-half, 82.3 mm each) stand on a hinge at the centre: the right half holds still and
+   carries the camera plateau on its back; the left half swings on the hinge (rotateY of --fold × 180°, written by
+   home.js) and carries the outer display on its back, so closed it faces you, 0.9 mm clear of the right half.
+   The hinge cover (.duo-hinge, polished titanium) turns at half the angle: open it is a narrow band down the back,
+   closed the spine column along the left edge. The rails (mirror-polished titanium, .p3-rim) and the hinge's
+   facets are built and lit by home.js as the phone turns. Each screen's words are live HTML on a pane (.scr).
+   Without JS it is the open phone, flat. Below 980px the open phone is held in portrait (--rz: 90deg, which
+   home.js eases back to 0 as it closes, so the closed phone stands upright): the halves stack, and each inner
+   screen's content is counter-rotated (.scr-in) so it reads upright. */
+.p3 {
+  --u: min(3.16px, calc((100cqw - 8px) / 164.6)); /* px per mm */
+  --ph: 117.8; --rz: 0deg;
+  position: relative; width: 100%; height: calc(var(--u) * var(--ph)); margin: 0;
+  perspective: 1300px; perspective-origin: 50% 45%;
+  border-radius: 30px;
 }
-.phone::before { /* camera pill, with a lens in it */
-  content: ""; position: absolute; top: 18px; left: 50%; width: 70px; height: 18px; margin-left: -35px;
-  border-radius: 999px; z-index: 2;
-  background: radial-gradient(circle at calc(100% - 10px) 50%, #6a4a5a 0 1.6px, #2a1a22 2.6px 4.4px, #08050a 5.4px);
+.p3:focus-visible { outline: 3px solid var(--peach); outline-offset: 14px; border-radius: 32px; }
+.p3-live { cursor: grab; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.p3-live img { -webkit-user-drag: none; }
+.p3-live.p3-grab { cursor: grabbing; }
+.p3-rig { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: 50% 50% 0; }
+
+/* Flat, behind the rig: a warm glow and a contact shadow on the floor. */
+.p3-glow, .p3-floor { position: absolute; pointer-events: none; will-change: transform; }
+.p3-glow {
+  inset: -30% -14% -36%; opacity: 1;
+  background:
+    radial-gradient(closest-side at 50% 58%, rgba(255, 122, 89, .4), rgba(255, 122, 89, .34) 20%, rgba(255, 122, 89, .25) 40%, rgba(255, 122, 89, .15) 57%, rgba(255, 122, 89, .07) 73%, rgba(255, 122, 89, .025) 87%, rgba(255, 122, 89, 0)),
+    radial-gradient(closest-side at 50% 88%, rgba(255, 92, 138, .38), rgba(255, 92, 138, .26) 35%, rgba(255, 92, 138, .1) 65%, rgba(255, 92, 138, .03) 86%, rgba(255, 92, 138, 0));
+}
+.p3-floor {
+  left: 8%; right: 8%; top: calc(100% + 6px); height: 40px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .7), rgba(0, 0, 0, .3) 55%, rgba(0, 0, 0, 0));
+}
+
+/* The device: centred in the scene, on its own middle in depth too; it slides so the closed passport (spine
+   included) is centred as well. */
+.phone.duo {
+  position: absolute; left: 50%; top: 50%; width: 164.6em; height: 117.8em; margin: -58.9em 0 0 -82.3em;
+  font-size: var(--u); transform-style: preserve-3d;
+  transform: rotateZ(var(--rz)) translate3d(calc(var(--fold, 0) * -40.2em), 0, calc(2.6em - var(--fold, 0) * 3.05em));
+}
+.duo-half { position: absolute; top: 0; width: 82.3em; height: 117.8em; transform-style: preserve-3d; }
+.duo-l { left: 0; transform-origin: 100% 50% 0; transform: translateZ(calc(var(--fold, 0) * .9em)) rotateY(calc(var(--fold, 0) * 180deg)); }
+.duo-r { left: 82.3em; }
+/* Closed, the 0.9 mm between the halves is dark (a seam), so no lit screen shows through it edge-on: a dark frame
+   round the three open edges, mid-way between the halves. */
+.duo-gap { position: absolute; inset: 0; border-radius: 0 12.5em 12.5em 0; border: 9em solid #060507; border-left: 0; pointer-events: none; /* a frame: only the edges are ever seen into */ transform: translateZ(.45em); opacity: clamp(0, calc((var(--fold, 0) - .92) * 12.5), 1); }
+
+/* The front of a half: a thin, even black bezel round the pane; the outer corners follow the body. */
+.p3-face {
+  position: absolute; inset: 0; background: #0b0a0c; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  box-shadow: inset 0 0 0 .8em #050406;
+}
+.duo-l .p3-face { border-radius: 12.5em 0 0 12.5em; }
+.duo-r .p3-face { border-radius: 0 12.5em 12.5em 0; }
+/* The frame's polished lip, seen round every face and back where the glass meets the titanium (never along the
+   hinge, where the halves meet): a bright edge with a darker line inside it. */
+.p3-face::before, .p3-cover::before, .p3-face::after, .p3-cover::after { content: ""; position: absolute; z-index: 2; pointer-events: none; }
+.p3-face::before, .p3-cover::before { inset: 0; border-radius: inherit; border: .3em solid #eef0f2; }
+.p3-face::after, .p3-cover::after { inset: .3em; border: .16em solid #7c7e84; }
+.duo-l .p3-face::before, .duo-l .p3-face::after { border-right: 0; }
+.duo-l .p3-face::after { right: 0; border-radius: 12.2em 0 0 12.2em; }
+.duo-r .p3-face::before, .duo-r .p3-face::after, .p3-cover::before, .p3-cover::after { border-left: 0; }
+.duo-r .p3-face::after, .p3-cover::after { left: 0; border-radius: 0 12.2em 12.2em 0; }
+.p3-skin::before {
+  content: ""; position: absolute; inset: 0 -2em 0 0; z-index: 2; border-radius: 12.5em 0 0 12.5em; pointer-events: none;
+  /* The back's edge against the frame: one dark joint and one bright bevel (not a stack of fine lines). */
+  box-shadow: inset 0 0 0 .2em #86888d, inset 0 0 0 .55em #f1f2f3, inset 0 0 1.4em .55em rgba(120, 112, 110, .12);
 }
 /* A lit screen at night: a warm cream Instagram post, with its own darker words. */
 .phone-screen {
-  --s-ink: #2a1215; --s-ink-2: #5c3a40; --s-line: #f0dcd2; --s-tint: #ffe9de; --s-accent: #b4432a;
-  background: #fff6ef; border-radius: 36px; overflow: hidden; color: var(--s-ink);
-  font-size: 13px; line-height: 1.4; padding-top: 30px; padding-bottom: 70px; /* room for our post, under the thread */
+  --s-ink: #2a1215; --s-ink-2: #5c3a40; --s-line: #f0dcd2; --s-tint: #ffe9de; --s-accent: #a83e27; /* 4.9:1 on the cream even under the coin's shadow */
+  position: absolute; top: 2.2em; bottom: 2.2em; overflow: hidden; background: #fff6ef; color: var(--s-ink);
 }
+.scr-l { left: 2.2em; right: 0; border-radius: 10.3em 0 0 10.3em; }
+.scr-r { left: 0; right: 2.2em; border-radius: 0 10.3em 10.3em 0; }
+.scr-in { position: absolute; left: 0; top: 0; width: 100%; height: 100%; font-size: 11.5px; line-height: 1.36; }
+.scr-r .scr-in { font-size: 11px; line-height: 1.34; } /* the reply is the long pane */
+/* A narrower stage (a 1024 desk) draws the phone smaller: the words step down one size so the thread still fits. */
+@container (max-width: 500px) and (min-width: 400px) { .scr-in, .scr-r .scr-in { font-size: 10px; line-height: 1.3; } .cmt .ava, .reply .ava { width: 20px; height: 20px; } .reply-wrap { margin-left: 4px; margin-top: 6px; } .app-bar { height: 22px; } .thread { padding: 5px 10px 4px; } .cmt-body p + p { margin-top: 3px; } .links span + span { margin-top: 1px; } .caption, .post-head, .post-acts, .post-time { padding-inline: 10px; } }
 .phone-screen .mention { color: var(--s-accent); }
 .phone-screen .tick { background: #ffe0d3; color: #8a2a3a; }
 .phone-screen .lore-in { background: #ffe4d4; color: #7a3410; }
-.app-bar { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-bottom: 1px solid var(--s-line); }
-.ab-title { font-weight: 800; font-size: 14px; }
-.ab-tag { padding: 2px 8px; border-radius: 999px; background: #ffe4d4; color: #7a3410; font-size: 11.5px; font-weight: 800; }
-.post-head { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; }
+.app-bar { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 12px; border-bottom: 1px solid var(--s-line); }
+.scr-l .app-bar { padding-left: 20px; } /* clear of the display's round outer corner */
+.ab-title { font-weight: 800; font-size: 12px; }
+.ab-tag { padding: 1px 7px; border-radius: 999px; background: #ffe4d4; color: #7a3410; font-size: 10.5px; font-weight: 800; }
+.post-head { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; }
+.post-head .ava { width: 24px; height: 24px; font-size: 10px; }
 .pm-who { display: flex; flex-direction: column; line-height: 1.2; }
-.pm-who b { font-size: 13.5px; }
-.pm-who small { font-size: 12px; color: var(--s-ink-2); }
-.post-media svg { width: 100%; height: auto; aspect-ratio: 320 / 132; }
+.pm-who b { font-size: 12px; }
+.pm-who small { font-size: 10.5px; color: var(--s-ink-2); }
+.post-media svg { display: block; width: 100%; height: auto; aspect-ratio: 320 / 176; }
+.post-acts { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; }
+.post-acts svg { width: 17px; height: 17px; fill: none; stroke: var(--s-ink); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.post-acts svg:first-child { fill: var(--s-accent); stroke: var(--s-accent); }
+.post-likes { margin-left: auto; font-size: 11px; font-weight: 750; }
+.post-time { padding: 4px 12px 0; font-size: 10.5px; color: var(--s-ink-2); }
+.post-time b { font-weight: 700; }
 .steam path { animation: steam 3s ease-in-out infinite; }
 .steam path:nth-child(2) { animation-delay: .6s; }
 .steam path:nth-child(3) { animation-delay: 1.2s; }
 @keyframes steam { 0%, 100% { transform: translateY(0); opacity: .85; } 50% { transform: translateY(-6px); opacity: .35; } }
-.caption { padding: 9px 14px 0; }
-.thread { margin-top: 10px; padding: 12px 14px 16px; border-top: 1px solid var(--s-line); }
-.cmt { display: flex; gap: 10px; align-items: flex-start; }
+.caption { padding: 8px 12px 0; }
+.thread { padding: 8px 12px 10px; }
+.cmt { display: flex; gap: 8px; align-items: flex-start; }
+.cmt .ava { width: 22px; height: 22px; font-size: 9.5px; }
 .cmt-body { min-width: 0; }
-.cmt-body p + p { margin-top: 6px; }
-.reply-wrap { position: relative; margin-top: 10px; margin-left: 16px; min-height: 40px; }
-.reply .ava { width: 26px; height: 26px; }
+.cmt-body p + p { margin-top: 5px; }
+.reply-wrap { position: relative; margin-top: 8px; margin-left: 4px; min-height: 36px; }
+.reply .ava { width: 22px; height: 22px; }
 .links span { display: block; color: var(--s-ink-2); overflow-wrap: break-word; }
 .links span + span { margin-top: 2px; }
 .fanmade { color: var(--s-ink-2); font-weight: 650; }
 
 .typing {
-  position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: 7px;
-  padding: 7px 12px 7px 7px; border-radius: 999px; background: var(--s-tint);
-  font-size: 12.5px; font-weight: 650; color: var(--s-ink-2); opacity: 0; white-space: nowrap;
+  position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px 5px 6px; border-radius: 999px; background: var(--s-tint);
+  font-size: 11px; font-weight: 650; color: var(--s-ink-2); opacity: 0; white-space: nowrap;
 }
-.typing img { width: 20px; height: 20px; }
+.typing img { width: 18px; height: 18px; }
 .typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--s-accent); animation: dot 1s ease-in-out infinite; }
 .typing i:nth-of-type(2) { animation-delay: .15s; }
 .typing i:nth-of-type(3) { animation-delay: .3s; }
 @keyframes dot { 0%, 100% { transform: translateY(0); opacity: .45; } 50% { transform: translateY(-3px); opacity: 1; } }
 
-/* The sequence. Without JS everything simply shows; home.js arms it and plays it in view. */
-.armed:not(.play) :is(.s1, .s3, .s4, .s5, .sticker) { opacity: 0; }
-.play .s1 { animation: rise .55s .4s cubic-bezier(.2, .9, .3, 1.2) backwards; }
-.play .s2 { animation: typing 1.7s 1.1s ease backwards; }
-.play .s3 { animation: rise .55s 2.8s cubic-bezier(.2, .9, .3, 1.2) backwards; }
-.play .s4 { animation: rise .5s 3.4s ease backwards; }
-.play .s5 { animation: rise .5s 4s ease backwards; }
-.play .sticker-coin { animation: pop .6s 3.1s cubic-bezier(.2, 1.4, .4, 1) both, bob 4s 3.7s ease-in-out infinite; }
-.play .sticker-post { animation: pop .6s 4.7s cubic-bezier(.2, 1.4, .4, 1) both, bob 4.6s 5.3s ease-in-out infinite; }
+/* The crease down the middle of the inner display: a soft shadow with a highlight on its lip, faint head-on and
+   clearer as the phone turns or folds (home.js sets --crease). */
+.duo-crease { position: absolute; top: 2.2em; bottom: 2.2em; width: 4.2em; opacity: var(--crease, .3); pointer-events: none; }
+.duo-l .duo-crease { right: 0; background: linear-gradient(90deg, rgba(60, 36, 44, 0), rgba(60, 36, 44, .1) 60%, rgba(60, 36, 44, .2) 88%, rgba(255, 255, 255, .5) 97%, rgba(255, 255, 255, .15)); }
+.duo-r .duo-crease { left: 0; background: linear-gradient(270deg, rgba(60, 36, 44, 0), rgba(60, 36, 44, .1) 60%, rgba(60, 36, 44, .2) 88%, rgba(255, 255, 255, .35) 97%, rgba(255, 255, 255, .1)); }
+/* The inner display is one sheet of glass: as it folds, the left half's edge lifts off the right half's (the halves
+   close 0.9 mm apart), so a strip of the same screen (and bezel, top and bottom) runs on past the hinge line under
+   it and no line of the page shows down the fold; flat, it is not drawn. */
+.duo-seam {
+  position: absolute; top: 0; bottom: 0; right: -1.4em; width: 1.6em; pointer-events: none;
+  background: linear-gradient(180deg, #0b0a0c 2.2em, #f3e7e0 2.2em, #f3e7e0 calc(100% - 2.2em), #0b0a0c calc(100% - 2.2em));
+  opacity: clamp(0, calc(var(--fold, 0) * 40), 1);
+}
+/* The inner display's front camera: a hole-punch at the top right of the right half. */
+.scr-cam, .osd-cam {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 38% 34%, #5a5f78 0 7%, #1a1824 20%, #050408 46%, #0e0c14 70%, #1f1c26 100%);
+  box-shadow: 0 0 0 .3em #030205, 0 0 0 .45em rgba(255, 255, 255, .06);
+}
+.scr-cam { top: 6.4em; right: 6.4em; width: 4.4em; height: 4.4em; } /* inset like the outer display's: screen all round it */
+
+/* The glass over each screen: a glare that slides as the phone turns (home.js). */
+.p3-glass { position: absolute; inset: 2.2em; overflow: hidden; pointer-events: none; }
+.duo-l .p3-face .p3-glass { right: 0; border-radius: 10.3em 0 0 10.3em; }
+.duo-r .p3-face .p3-glass { left: 0; border-radius: 0 10.3em 10.3em 0; }
+.p3-cover .p3-glass { border-radius: 1.2em 10.3em 10.3em 1.2em; }
+.p3-glass::before { content: ""; position: absolute; inset: 0; background: linear-gradient(152deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 22%); }
+.p3-glass i {
+  position: absolute; top: -30%; bottom: -30%; left: 10%; width: 80%; opacity: 0;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, .42) 47%, rgba(255, 255, 255, .12) 56%, rgba(255, 255, 255, 0) 74%);
+}
+
+/* The body of a half: the rails (built by home.js) stand half the thickness (5.2 mm) behind the face; the back
+   is a thickness behind it, turned round. */
+.p3-body { position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(-2.6em); }
+.p3-rim {
+  /* Mirror-polished titanium, each rail one rounded bar: across its thickness (from the face side, --rd, set by
+     home.js so every piece of a rail, straight or round a corner, runs the same way and the bands flow round the
+     arc) a broad bright softbox highlight, then one dark lobe where it reflects the room, and a little of the
+     page's coral caught in the dark. */
+  --rim: #77787d 0%, #dcdde0 5%, #ffffff 13%, #f6f7f8 32%, #d5d7da 44%, #85868b 54%, #34333a 61%, #3a3a40 67%, #8c8d92 76%, #dcdde0 88%, #9a9ba0 100%;
+  position: absolute; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: linear-gradient(var(--rd, 180deg), rgba(255, 150, 120, 0) 44%, rgba(255, 150, 120, .3) 60%, rgba(255, 190, 160, .16) 74%, rgba(255, 150, 120, 0) 86%), linear-gradient(var(--rd, 180deg), var(--rim));
+}
+.p3-rim::before, .p3-rim::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+/* Turned from the light, the rail darkens with the room, except its softbox highlight: a rounded bar always has
+   some part that faces the softbox, so one bright band stays on every rail at every angle (> 220 edge-on). */
+.p3-rim::before { background: linear-gradient(var(--rd, 180deg), #0a0709 0, rgba(10, 7, 9, .45) 8%, rgba(10, 7, 9, .1) 15%, rgba(10, 7, 9, .1) 32%, rgba(10, 7, 9, .8) 44%, #0a0709 55%, #0a0709 70%, rgba(10, 7, 9, .55) 82%, rgba(10, 7, 9, .4) 90%, #0a0709 100%); opacity: var(--dk, .3); }
+.p3-rim::after { background: linear-gradient(var(--rd, 180deg), rgba(255, 240, 232, 0) 3%, #fff 18%, rgba(255, 244, 238, .7) 28%, rgba(255, 240, 232, 0) 42%); opacity: var(--gl, 0); }
+.p3-rim.p3-key { border-radius: .8em; box-shadow: inset 0 0 0 .18em rgba(20, 18, 22, .35); }
+.p3-port { /* USB-C, centred in the bottom rail */
+  position: absolute; left: 50%; top: 50%; width: 8.9em; height: 2.9em; margin: -1.45em 0 0 -4.45em; border-radius: 1.5em;
+  background: #141216; box-shadow: inset 0 0 0 .4em #3a393f;
+}
+
+.p3-back {
+  position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: translateZ(-2.6em) rotateY(180deg);
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.duo-r .p3-back { border-radius: 12.5em 0 0 12.5em; } /* turned round: its outer corners are on its own left */
+.duo-l .p3-back { border-radius: 0 12.5em 12.5em 0; }
+/* Star White: frosted (matte) glass, so the light spreads softly across it instead of mirroring; a fine grain,
+   a bright lip where it meets the frame, and a whisper of the room's coral low down. */
+.p3-skin {
+  position: absolute; inset: 0; overflow: hidden; border-radius: inherit;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .48 0 0 0 0 .47 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(90% 60% at 30% 20%, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(70% 45% at 70% 104%, rgba(255, 176, 150, .22), rgba(255, 176, 150, 0) 72%),
+    linear-gradient(170deg, #fcfcfb 0%, #f3f2f0 46%, #eae8e6 100%);
+  box-shadow: inset 0 0 6em rgba(110, 90, 88, .08);
+}
+.p3-skin::after, .p3-plateau::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #140c10; opacity: var(--dk, 0); pointer-events: none; }
+.p3-sheen { position: absolute; inset: -30% -110%; background: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, .28) 48%, rgba(255, 255, 255, 0) 66%); }
+/* The camera plateau: a raised band of the same frosted white across the top of the back (turned round,
+   the outer edge is its own left), 23.5 mm tall (a fifth of the back). At its outer end two big lenses, Fusion Main and Fusion Ultra
+   Wide, each in a thick mirror-polished ring; beside them the mic above the flash. Its thickness is drawn by two
+   walls a little behind it; the lens rings stand proud of it the same way. */
+.p3-plateau {
+  /* 57 mm long (69% of the back, as the reference photo from the back measures): its rounded end comes a little past
+     the mic and flash, not across the whole back. */
+  position: absolute; left: 3.4em; width: 57em; top: 3.4em; height: 23.5em; border-radius: 11.75em; transform-style: preserve-3d;
+  transform: translateZ(1.2em);
+  background:
+    radial-gradient(60% 90% at 18% 10%, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(176deg, #fcfcfb 0%, #f5f4f2 55%, #efeeeb 100%);
+  /* No outline and no hard shadow: the same white as the back, its edge a soft falloff. */
+  box-shadow: inset 0 .35em .6em rgba(255, 255, 255, .75), inset 0 -.5em 1.1em rgba(120, 100, 96, .06), 0 1.4em 2.8em -1em rgba(60, 40, 40, .12);
+}
+.pl-wall, .pl-top { position: absolute; inset: 0; border-radius: inherit; }
+/* Its side: three layers down to the back, each a shade darker, so turned it reads as a step, not a print. */
+.pl-wall { transform: translateZ(-.35em); background: #e7e5e2; }
+.pl-w2 { transform: translateZ(-.7em); background: #dedcd8; }
+.pl-w3 { transform: translateZ(-1.05em); background: #d6d3cf; }
+.pl-top { transform: translateZ(0); }
+.p3-lens {
+  position: absolute; top: 3.55em; width: 16.4em; height: 16.4em; border-radius: 50%; transform-style: preserve-3d;
+  transform: translateZ(1.5em);
+}
+.p3-lens.l1 { left: 3.2em; }
+.p3-lens.l2 { left: 20.5em; }
+.p3-lens > i { position: absolute; inset: 0; border-radius: 50%; }
+/* The ring stands 1.5 mm proud of the plateau: its side is a short barrel of the same polished metal, drawn by three
+   discs behind it (they show only as the phone turns), and it casts one soft shadow down and away from the key
+   light onto the plateau. No halo round it: its outer edge is hard. */
+.ln-shadow { transform: translate3d(.5em, .9em, -1.45em); background: rgba(70, 44, 42, .26); filter: blur(.7em); }
+.ln-wall { background: conic-gradient(from 200deg, #d9dadd, #8b8c91 18%, #4a4a50 30%, #b9bbbf 46%, #eeeff1 56%, #7c7d82 72%, #c3c4c8 88%, #d9dadd); }
+.ln-wall.w1 { transform: translateZ(-.38em); }
+.ln-wall.w2 { transform: translateZ(-.8em); }
+.ln-wall.w3 { transform: translateZ(-1.22em); filter: brightness(.8); }
+/* The ring: a thick mirror-polished band, 7.5% of the lens across on each side, that reflects the studio in hard
+   bright and near-black arcs (and a little of the page's coral); a rounded profile (darker at both edges), a hard
+   dark outer edge against the plateau, and a thin dark step down to the glass inside it. */
+.ln-ring {
+  background:
+    radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 0 81.4%, #0b0a0e 82%, #0b0a0e 83.6%, rgba(0, 0, 0, .3) 84.2%, rgba(0, 0, 0, 0) 86%, rgba(255, 255, 255, 0) 90%, rgba(255, 255, 255, .2) 92%, rgba(0, 0, 0, 0) 94.5%, rgba(0, 0, 0, 0) 97%, rgba(0, 0, 0, .35) 98.7%, #2b2a2f 99.3%, #2b2a2f 100%),
+    conic-gradient(from 20deg, rgba(255, 150, 120, 0) 0 22%, rgba(255, 150, 120, .3) 30%, rgba(255, 150, 120, 0) 38% 70%, rgba(255, 176, 150, .22) 76%, rgba(255, 150, 120, 0) 82%),
+    conic-gradient(from 200deg, #ffffff 0, #f1f2f3 6%, #a4a6ab 12%, #2d2c32 18%, #18171c 22%, #66676d 28%, #e6e7e9 36%, #ffffff 44%, #d0d2d5 52%, #8b8d92 58%, #333238 65%, #1b1a1f 70%, #77787d 76%, #efeff1 86%, #ffffff 94%, #ffffff);
+}
+/* The glass: 82% of the ring (as in the reference close-up), dark and deep, and the lens seen inside it: a coloured element about 28% of the glass
+   (violet in the main camera, amber in the ultra wide), the barrel's faint concentric rings round it, a coloured
+   glint on the element and one soft white one on the cover glass. */
+.ln-glass {
+  inset: 1.48em !important; transform: translateZ(.02em);
+  background:
+    radial-gradient(15% 10% at 33% 29%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(7% 4.5% at 45% 43%, var(--glint), rgba(0, 0, 0, 0) 80%),
+    radial-gradient(62% 46% at 38% 27%, rgba(255, 246, 240, .1), rgba(255, 246, 240, 0) 72%),
+    radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 0 38.5%, rgba(150, 146, 170, .24) 40%, rgba(0, 0, 0, 0) 41.8%, rgba(0, 0, 0, 0) 57%, rgba(150, 146, 170, .17) 58.6%, rgba(0, 0, 0, 0) 60.2%, rgba(0, 0, 0, 0) 75%, rgba(170, 166, 185, .2) 76.6%, rgba(0, 0, 0, 0) 78.2%),
+    radial-gradient(34% 34% at 44% 42%, var(--eye2), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(circle closest-side, #040406 0 9%, var(--eye) 16%, var(--eye) 22%, #0a0a0f 28.5%, #121118 33%, #0a090d 48%, #141319 68%, #1b1a20 88%, #242329 100%);
+  box-shadow: inset 0 0 0 .18em #09080c, inset 0 .5em 1.1em rgba(0, 0, 0, .55);
+}
+.l1 .ln-glass { --eye: #2c2552; --eye2: rgba(112, 96, 196, .42); --glint: rgba(186, 170, 255, .8); }
+.l2 .ln-glass { --eye: #3f2714; --eye2: rgba(186, 122, 60, .42); --glint: rgba(255, 190, 120, .8); }
+.p3-mic { position: absolute; left: 41.9em; top: 6em; width: 2.6em; height: 1.2em; border-radius: 1em; transform: translateZ(.02em); background: #2a262b; box-shadow: inset 0 .12em .2em rgba(0, 0, 0, .6), 0 0 0 .12em rgba(255, 255, 255, .7); }
+.p3-flash { position: absolute; left: 41.1em; top: 11.8em; width: 4.2em; height: 4.2em; border-radius: 50%; transform: translateZ(.1em); background: radial-gradient(circle at 50% 45%, #fffdf8 0 22%, #f3e6d6 44%, #d9c6b2 70%, #bfae9e); box-shadow: 0 0 0 .3em #e7e5e3, 0 0 0 .45em rgba(120, 110, 108, .35), inset 0 0 .5em rgba(110, 90, 70, .3); }
+
+/* The outer display, on the back of the left half: portrait, with generous rounded corners away from the hinge,
+   a thin even black bezel, and a hole-punch camera at its top right. The creator's lock screen: the time, our
+   notification, and the fan's comment under it. */
+.p3-cover { background: #0b0a0c; box-shadow: inset 0 0 0 .8em #050406; }
+.osd {
+  position: absolute; inset: 2.2em; overflow: hidden; border-radius: 1.2em 10.3em 10.3em 1.2em; color: var(--ink);
+  background:
+    radial-gradient(70% 36% at 70% 12%, rgba(255, 122, 89, .42), rgba(255, 122, 89, 0) 70%),
+    radial-gradient(70% 45% at 18% 96%, rgba(163, 52, 95, .5), rgba(163, 52, 95, 0) 70%),
+    linear-gradient(180deg, #2a1420 0%, #1a1114 55%, #24121a 100%);
+}
+.osd-in { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; gap: 2.8em; padding: 8.5em 3em 0; }
+.osd-cam { right: 3.8em; top: 4.2em; width: 5.2em; height: 5.2em; }
+/* The lock screen is drawn in millimetres too (1em = 1 mm here), so it fits the display at every size. */
+.osd-time { margin: 0 0 3.6em; text-align: center; line-height: 1.1; }
+.osd-time small { display: block; font-size: max(10px, 3.8em); font-weight: 650; color: #fff1ea; }
+.osd-time b { display: block; margin-top: .6em; font-family: var(--display); font-size: 13.9em; font-weight: 750; letter-spacing: -.045em; line-height: 1; color: #fff3ea; }
+.osd-note {
+  display: flex; gap: 2.5em; align-items: flex-start;
+  padding: 2.85em 3.2em; border-radius: 3.8em; background: rgba(255, 246, 239, .96); color: #2a1215;
+  box-shadow: 0 2.5em 6em -3em rgba(0, 0, 0, .6);
+}
+.osd-old { background: rgba(255, 240, 232, .9); }
+.osd-ava { flex: none; width: 9.5em; height: 9.5em; }
+.osd-old .osd-ava { font-size: max(9px, 3.5em); width: 2.7em; height: 2.7em; }
+.osd-txt { display: flex; flex-direction: column; gap: .1em; min-width: 0; font-size: max(9.5px, 3.64em); line-height: 1.3; }
+.osd-txt small { font-size: .92em; font-weight: 700; color: #5c3a40; }
+.osd-txt b { font-size: 1em; }
+.osd-txt > span { color: #5c3a40; }
+.osd-old .osd-txt > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.osd-bar { position: absolute; bottom: 2em; left: 50%; width: 30em; height: 1.3em; translate: -50% 0; border-radius: 999px; background: rgba(255, 243, 234, .7); }
+
+/* The hinge cover: polished titanium along the spine. home.js builds its facets on a flattened half-round (2 mm
+   proud) and two end caps; the whole cover turns at half the fold, and widens from a 3.8 mm band down the open
+   back to the full 11.3 mm of the closed spine (--fold scales it). */
+.duo-hinge {
+  position: absolute; left: 82.3em; top: 0; width: 0; height: 117.8em; transform-style: preserve-3d;
+  transform: translate3d(0, 0, calc(-5.2em + var(--fold, 0) * 5.65em)) rotateY(calc(var(--fold, 0) * 90deg)) scale3d(calc(.34 + var(--fold, 0) * .66), 1, calc(.5 + var(--fold, 0) * .5));
+}
+.p3-hf {
+  /* Polished titanium, lit like the rails (home.js: deep reflections of the room between bright highlights); its
+     rounded ends catch a dark line and a bright one. */
+  position: absolute; top: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: linear-gradient(180deg, #1e1d22 0, #f5f4f2 .7%, #71706e 1.8%, #c3c2bf 3.4%, #b9b7b4 30%, #c8c6c3 55%, #b5b3b0 80%, #c3c2bf 96.6%, #71706e 98.2%, #f5f4f2 99.3%, #1e1d22 100%); /* neutral titanium, not blue */
+}
+.p3-hf::before, .p3-hf::after { content: ""; position: absolute; inset: 0; }
+.p3-hf::before { background: #0c0a0d; opacity: var(--dk, .2); }
+.p3-hf::after { background: #fff3ea; opacity: var(--gl, 0); } /* the softbox, with a breath of the page's coral */
+/* The seams where the cover meets each half: a thin dark line down each edge. */
+.p3-hf > b { position: absolute; top: 0; bottom: 0; z-index: 1; width: 42%; background: linear-gradient(90deg, #121115, #2a292e); }
+.p3-hf > b.sr { right: 0; } .p3-hf > b.sl { left: 0; }
+.p3-hcap { position: absolute; background: linear-gradient(90deg, #2c2c31, #9fa1a6 20%, #eef0f2 45%, #6b6c72 72%, #26252a); backface-visibility: visible; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+
+/* Around the phone: the coin and, in .p3-props, the sparkles and stickers, which shrink away as it folds. */
+.p3 .sticker, .p3-coin, .p3-spark { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.p3-props { position: absolute; inset: 0; transform-style: preserve-3d; transform: scale(var(--props, 1)); pointer-events: none; }
+.p3-closed .p3-props { visibility: hidden; }
+/* The coin, floating above the phone at its own depth (a gentle bob; hidden on narrow stages). */
+.p3-coin { position: absolute; z-index: 3; top: -168px; right: -14px; width: clamp(160px, 40cqw, 210px); translate: 0 0 84px; animation: coin-bob 7s ease-in-out infinite; }
+.p3-coin .coin-img { width: 100%; height: auto; filter: drop-shadow(0 16px 22px rgba(0, 0, 0, .45)); }
+@keyframes coin-bob { 0%, 100% { translate: 0 0 84px; rotate: -4deg; } 50% { translate: 0 -12px 84px; rotate: 3deg; } }
+.p3-spark {
+  position: absolute; width: var(--s); height: var(--s); transform: translateZ(var(--z)); pointer-events: none;
+  background: radial-gradient(circle, #fff3ea 0 16%, #ffc29b 42%, #ff7a59 72%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation: twinkle 3.4s ease-in-out infinite;
+}
+.sp1 { --s: 24px; --z: 64px; right: -34px; top: -6px; }
+.sp2 { --s: 15px; --z: -90px; right: -70px; top: 58%; animation-delay: -1.2s; }
+.sp3 { --s: 11px; --z: 40px; left: -46px; top: 74%; animation-delay: -2.1s; }
+.sp4 { --s: 14px; --z: 56px; right: 22%; bottom: -76px; animation-delay: -.6s; }
+@keyframes twinkle { 0%, 100% { scale: .7; } 50% { scale: 1.1; } }
+
+/* The sequence. Without JS everything simply shows; home.js arms it, closes the phone, and plays it in view:
+   the notification on the cover, the phone opens (home.js, at 1.7 s), then the thread. */
+/* The story starts closed, so with scripts the phone is closed from the first paint, before home.js has run
+   (html.p3-js: set in the head, only where modules run, so a browser that never runs home.js keeps the open
+   fallback), and nothing of the story shows until it plays. */
+.p3-js .p3:not(.p3-live) .duo { --fold: 1; --rz: 0deg; }
+.p3-js .p3:not(.p3-live) .p3-props { visibility: hidden; }
+.armed:not(.play) :is(.n1, .s1, .s3, .s4, .s5, .sticker), .p3-js [data-stage]:not(.play) :is(.n1, .s1, .s3, .s4, .s5, .sticker) { opacity: 0; }
+.play .n1 { animation: rise .55s .45s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.play .s1 { animation: rise .55s 2.7s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.play .s2 { animation: typing 1.7s 3.2s ease backwards; }
+.play .s3 { animation: rise .55s 4.9s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.play .s4 { animation: rise .5s 5.4s ease backwards; }
+.play .s5 { animation: rise .5s 5.9s ease backwards; }
+.play .sticker-coin { animation: pop .6s 5.2s cubic-bezier(.2, 1.4, .4, 1) both, bob 4s 5.8s ease-in-out infinite; }
+.play .sticker-post { animation: pop .6s 6.5s cubic-bezier(.2, 1.4, .4, 1) both, bob 4.6s 7.1s ease-in-out infinite; }
 @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes typing { 0% { opacity: 0; transform: translateY(6px); } 14%, 84% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
@@ -168,120 +462,30 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .st-ava { flex: none; width: 38px; height: 38px; }
 /* The coin wears the post's photo: the same drawing, cropped round in a copper rim. */
 .post-coin { flex: none; width: 46px; height: 46px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .45)); }
-.sticker-coin { --z: 64px; top: 158px; left: calc(-24px - clamp(0px, 4cqw, 22px)); }
-.sticker-post { --z: 44px; bottom: 14px; left: 0; right: 0; width: max-content; max-width: calc(100% - 12px); margin-inline: auto; }
-.sticker-post .st-more { display: none; }
-@container (min-width: 540px) {
-  .phone-screen { padding-bottom: 76px; }
-  .sticker-post { top: auto; right: auto; bottom: 22px; left: 118px; }
-  .sticker-post .st-txt { white-space: nowrap; }
-  .sticker-post .st-more { display: inline; }
-}
+.sticker-coin { --z: 64px; top: 27%; left: -26px; }
+.sticker-post { --z: 44px; right: -6px; bottom: -50px; width: max-content; max-width: 62%; }
+.sticker-post .st-txt { white-space: nowrap; }
+/* Under the full stage width (a 981-1159 desk, and every narrow stage) the line stops at the handle, so the words
+   stay inside the pill. */
+@container (max-width: 539px) { .sticker-post .st-more { display: none; } }
+@container (max-width: 300px) { .sticker-post .st-txt { white-space: normal; } } /* a 320 phone: the name wraps */
 
-.stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 64px; width: 330px; max-width: 100%; margin-left: clamp(0px, 4cqw, 22px); }
+.stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 88px; width: 100%; }
 .replay {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px;
-  border-radius: 999px; border: 1px solid var(--line-2); background: rgba(42, 28, 34, .7); color: var(--ink);
+  border-radius: 999px; border: 1px solid var(--line-2); background: rgba(42, 28, 34, .86); color: var(--ink);
   font-weight: 750; font-size: 15px; cursor: pointer; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   transition: border-color .2s ease, transform .18s ease;
 }
 .replay svg { width: 18px; height: 18px; }
 .replay:hover { border-color: var(--peach); transform: translateY(-1px); }
+.fold-btn .f-open, .fold-btn[data-state="closed"] .f-fold { display: none; }
+.fold-btn[data-state="closed"] .f-open { display: inline; }
 .illus { font-size: 13.5px; font-weight: 650; color: var(--ink-2); }
-
-/* ---------- the phone in 3D ----------
-   CSS 3D, so the screen stays the live, readable thread. .p3 is the scene (the perspective, the focus ring,
-   the pointer and keys); .p3-rig turns (home.js writes its transform); inside it sit the sparkles and the
-   stickers at their own depths, and the phone: its face at z = 0, its body behind it in .p3-body — the rim
-   (built by home.js and lit by it as they turn), the side keys and the back. Without JS it is the flat phone. */
-.p3 {
-  --d: 28px; --r: 46px; /* thickness and corner radius */
-  position: relative; width: 330px; max-width: 100%; margin-left: clamp(0px, 4cqw, 22px);
-  perspective: 1300px; perspective-origin: 50% 42%;
-  border-radius: 50px;
-}
-.p3:focus-visible { outline: 3px solid var(--peach); outline-offset: 12px; border-radius: 52px; }
-.p3-live { cursor: grab; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.p3-live img { -webkit-user-drag: none; }
-.p3-live.p3-grab { cursor: grabbing; }
-.p3-rig { position: relative; transform-style: preserve-3d; transform-origin: 50% 50% calc(var(--d) / -2); }
-
-/* Flat, behind the rig: a warm glow and a contact shadow on the floor. */
-.p3-glow, .p3-floor { position: absolute; pointer-events: none; will-change: transform; }
-.p3-glow {
-  inset: -6% -22% -12%; opacity: 1;
-  background:
-    radial-gradient(closest-side at 50% 58%, rgba(255, 122, 89, .4), rgba(255, 122, 89, .34) 20%, rgba(255, 122, 89, .25) 40%, rgba(255, 122, 89, .15) 57%, rgba(255, 122, 89, .07) 73%, rgba(255, 122, 89, .025) 87%, rgba(255, 122, 89, 0)),
-    radial-gradient(closest-side at 50% 88%, rgba(255, 92, 138, .38), rgba(255, 92, 138, .26) 35%, rgba(255, 92, 138, .1) 65%, rgba(255, 92, 138, .03) 86%, rgba(255, 92, 138, 0));
-}
-.p3-floor {
-  left: 4%; right: 4%; top: calc(100% + 4px); height: 44px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, .7), rgba(0, 0, 0, .3) 55%, rgba(0, 0, 0, 0));
-}
-
-/* The body, half the thickness behind the face. */
-.p3-body { position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--d) / -2)); }
-.p3-rim {
-  --rim: #1a0c12 0%, #4a2536 13%, #9a4a5e 36%, #d98a80 50%, #9a4a5e 64%, #4a2536 87%, #1a0c12 100%; /* copper-plum anodised */
-  position: absolute; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background: linear-gradient(180deg, var(--rim));
-}
-.p3-rim.p3-v { background: linear-gradient(90deg, var(--rim)); }
-.p3-rim::before, .p3-rim::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
-.p3-rim::before { background: #0a0508; opacity: var(--dk, .4); }
-.p3-rim::after { background: linear-gradient(180deg, rgba(255, 235, 220, 0) 18%, #fff 50%, rgba(255, 235, 220, 0) 82%); opacity: var(--gl, 0); }
-.p3-rim.p3-v::after { background: linear-gradient(90deg, rgba(255, 235, 220, 0) 18%, #fff 50%, rgba(255, 235, 220, 0) 82%); }
-.p3-rim.p3-key { border-radius: 4px; }
-
-.p3-back {
-  position: absolute; inset: 0; overflow: hidden; border-radius: var(--r);
-  transform: translateZ(calc(var(--d) / -2)) rotateY(180deg);
-  backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background:
-    radial-gradient(80% 50% at 22% 6%, rgba(255, 235, 220, .3), rgba(255, 235, 220, 0) 70%),
-    linear-gradient(158deg, #7a2e57 0%, #a3345f 30%, #ff5c8a 62%, #ff7a59 100%);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 235, 220, .34), inset 0 0 50px rgba(60, 10, 40, .3);
-}
-.p3-back::after { content: ""; position: absolute; inset: 0; background: #14080e; opacity: var(--dk, 0); }
-.p3-at { position: absolute; left: 50%; top: 52%; width: 46%; translate: -50% -50%; filter: drop-shadow(0 6px 14px rgba(60, 0, 30, .35)); }
-.p3-cam { /* a round camera island in a copper ring, like the coin's rim */
-  position: absolute; top: 22px; left: 22px; width: 104px; height: 104px; border-radius: 50%;
-  background: radial-gradient(circle at 34% 28%, #4a3340, #1a1016 68%);
-  box-shadow: 0 0 0 3px #e0876a, 0 0 0 5px #7a3a30, 0 8px 18px rgba(40, 0, 20, .45);
-}
-.p3-cam b { position: absolute; width: 36px; height: 36px; border-radius: 50%; background: radial-gradient(circle at 38% 34%, #b87a8a 0 8%, #40202c 20%, #0a0608 46%, #2a1a22 58%, #0d080b 70%); box-shadow: 0 0 0 2px #382430; }
-.p3-cam b:first-child { top: 14px; left: 34px; }
-.p3-cam b:nth-child(2) { top: 54px; left: 14px; }
-.p3-cam s { position: absolute; top: 62px; left: 64px; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle, #fff3ea 0 30%, #ffc29b 60%, #c26a4a); }
-.p3-sheen { position: absolute; inset: -20% -90%; background: linear-gradient(105deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, .42) 49%, rgba(255, 255, 255, 0) 58%); }
-
-.p3-glass { position: absolute; inset: 11px; z-index: 1; overflow: hidden; border-radius: 36px; pointer-events: none; }
-.p3-glass::before { content: ""; position: absolute; inset: 0; background: linear-gradient(152deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 22%); }
-.p3-glass i {
-  position: absolute; top: -30%; bottom: -30%; left: 10%; width: 80%; opacity: 0;
-  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, .42) 47%, rgba(255, 255, 255, .12) 56%, rgba(255, 255, 255, 0) 74%);
-}
-
-.p3 .sticker, .p3-coin, .p3-spark { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-/* The coin, floating beside the phone at its own depth (a gentle bob; hidden on narrow stages). */
-.p3-coin { position: absolute; z-index: 3; top: -36px; right: calc(clamp(0px, 4cqw, 22px) + 100% - 100cqw); width: clamp(180px, 48cqw, 270px); translate: 0 0 84px; animation: coin-bob 7s ease-in-out infinite; }
-.p3-coin .coin-img { width: 100%; height: auto; filter: drop-shadow(0 24px 30px rgba(0, 0, 0, .55)); }
-@keyframes coin-bob { 0%, 100% { translate: 0 0 84px; rotate: -4deg; } 50% { translate: 0 -12px 84px; rotate: 3deg; } }
-.p3-spark {
-  position: absolute; width: var(--s); height: var(--s); transform: translateZ(var(--z)); pointer-events: none;
-  background: radial-gradient(circle, #fff3ea 0 16%, #ffc29b 42%, #ff7a59 72%);
-  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
-  animation: twinkle 3.4s ease-in-out infinite;
-}
-.sp1 { --s: 24px; --z: 64px; right: -92px; top: 300px; }
-.sp2 { --s: 15px; --z: -90px; right: -128px; top: 410px; animation-delay: -1.2s; }
-.sp3 { --s: 11px; --z: 40px; right: -150px; top: 250px; animation-delay: -2.1s; }
-.sp4 { --s: 14px; --z: 56px; right: -58px; bottom: 120px; animation-delay: -.6s; }
-@keyframes twinkle { 0%, 100% { scale: .7; } 50% { scale: 1.1; } }
 
 /* "Drag to turn": on the floor under the phone until it has been turned once; for keys, when focused. */
 .p3-hint {
-  display: none; position: absolute; left: 50%; top: calc(100% + 14px); translate: -50% 0; align-items: center; gap: 6px;
+  display: none; position: absolute; left: 22%; top: calc(100% + 26px); translate: -50% 0; align-items: center; gap: 6px;
   padding: 4px 11px 4px 8px; border-radius: 999px; background: rgba(42, 28, 34, .85); border: 1px solid var(--line-2);
   font-size: 13px; font-weight: 750; color: var(--ink-2); white-space: nowrap; pointer-events: none;
   transition: opacity .5s ease, transform .5s ease;
@@ -590,6 +794,9 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .coin-card { width: auto; }
   .shelf-row:not(.show-all) > li:nth-child(n+7) { display: none; }
 }
+@media (max-width: 1159px) and (min-width: 981px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); } /* the open phone needs the room more than the words do */
+}
 @media (max-width: 1180px) {
   .how-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
   .step:nth-child(2)::after { display: none; }
@@ -614,13 +821,27 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .hero-stage { width: 100%; max-width: 380px; justify-self: center; padding-top: 0; }
   .p3-coin { display: none; }
   .hero .mascot-slot { grid-column: 1; width: 140px; height: 140px; margin: -20px 0 0; justify-self: start; }
-  .p3 { margin: 0 auto; }
-  .sticker-coin { top: 150px; left: calc((100% - 100cqw) / 2 + 15px); }
-  .stage-foot { margin: 60px auto 0; }
-  .sp1 { right: -12px; top: 236px; --z: 24px; }
-  .sp2 { --z: 0px; right: calc((100% - 100cqw) / 2 + 12px); top: 452px; }
-  .sp3 { right: auto; left: calc((100% - 100cqw) / 2 + 2px); top: 340px; }
-  .sp4 { right: 10px; bottom: -24px; --z: 40px; }
+  /* Held in portrait: the halves stack (the post above, the comments below) and each screen reads upright. */
+  .p3 { --rz: 90deg; --ph: 164.6; --u: min(3.2px, calc(100cqw / 117.8)); }
+  .scr-in { width: calc(113.4 * var(--u)); height: calc(80.1 * var(--u)); transform-origin: 0 0; transform: translate(0, calc(113.4 * var(--u))) rotate(-90deg); }
+  /* Open and held in portrait, the outer display (on the back) is on its side as well: its lock screen turns with
+     it (the other way, as it faces the other way), and shows the newest notification only. Closed, it stands
+     upright again (home.js), and so does the lock screen. */
+  .p3-live:not(.p3-closed) .osd-in { width: calc(113.4 * var(--u)); height: calc(77.9 * var(--u)); padding-top: 5em; transform-origin: 0 0; transform: translate(calc(77.9 * var(--u)), 0) rotate(90deg); }
+  .p3-live:not(.p3-closed) .osd-old { display: none; }
+  .post-media svg { max-height: calc(34 * var(--u)); }
+  .scr-in { line-height: 1.34; }
+  .app-bar { height: 22px; }
+  .thread { padding: 6px 12px 8px; }
+  .reply-wrap { margin-top: 7px; }
+  .sticker-coin { top: 17%; left: 8px; } /* its depth enlarges it: its left edge stays on the screen at 360 */
+  .sticker-post { right: 0; left: 0; bottom: -58px; margin-inline: auto; max-width: calc(100% - 12px); }
+  .stage-foot { margin: 112px auto 0; }
+  .p3-hint { left: 50%; top: calc(100% + 72px); }
+  .sp1 { right: -8px; top: 10px; --z: 24px; }
+  .sp2 { --z: 0px; right: 6px; top: 62%; }
+  .sp3 { left: -10px; top: 46%; }
+  .sp4 { right: 14px; bottom: -30px; --z: 40px; }
   .recent-scatter { width: 520px; right: -200px; top: 0; opacity: .4; }
   .band-grid { grid-template-columns: 1fr; gap: 28px; }
   .band-side { padding-top: 110px; }
