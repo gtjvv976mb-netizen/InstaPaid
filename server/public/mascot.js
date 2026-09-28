@@ -226,10 +226,16 @@
     // The HD figure: a textured 3D model of Pip (media/pip.glb, made from the same drawing) shown
     // through <model-viewer> once it has loaded, in the big slot only. The SVG Pip stands in until
     // then and stays if WebGL, the library or the file is missing, so the page never waits on it.
-    if (slot.dataset.size === 'lg' && !slot.hasAttribute('data-flat') && hasWebGL()) mount3d(el, () => ({ cx, cy, near, vel }));
+    // Not on a data saver or a slow line: the engine and the model are 2.4 MB, and the SVG Pip is the same Pip.
+    if (slot.dataset.size === 'lg' && !slot.hasAttribute('data-flat') && !lightLine() && hasWebGL()) mount3d(el, () => ({ cx, cy, near, vel }));
   }
 
   const easeOut = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+
+  function lightLine() {
+    const c = navigator.connection;
+    return !!c && (c.saveData === true || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''));
+  }
 
   function hasWebGL() {
     try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
@@ -257,11 +263,15 @@
       mv.setAttribute('interpolation-decay', '120');
       mv.setAttribute('touch-action', 'pan-y');
       mv.setAttribute('aria-hidden', 'true');
+      // Pip's own element takes the focus and the Enter key; the viewer is decoration, never a tab stop.
+      mv.tabIndex = -1;
+      const unfocus = () => mv.shadowRoot?.querySelectorAll('[tabindex]').forEach((n) => n.setAttribute('tabindex', '-1'));
       mv.innerHTML = '<div slot="progress-bar"></div>';
       let ok = false, spinUntil = 0, spinFrom = 0;
       el.addEventListener('click', () => { spinFrom = performance.now(); spinUntil = spinFrom + 720; });
       mv.addEventListener('load', () => {
         ok = true;
+        unfocus();
         el.classList.add('has-3d');
         // Turn toward the pointer: yaw up to ±32°, pitch a little, and lean in when near.
         const turn = () => {
@@ -278,6 +288,8 @@
       });
       mv.addEventListener('error', () => { if (!ok) mv.remove(); });
       el.insertBefore(mv, el.firstChild);
+      unfocus();
+      Promise.resolve(mv.updateComplete).then(unfocus, () => {});
     }).catch(() => { /* the SVG Pip stays */ });
   }
 
