@@ -132,6 +132,9 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .duo-half { position: absolute; top: 0; width: 82.3em; height: 117.8em; transform-style: preserve-3d; }
 .duo-l { left: 0; transform-origin: 100% 50% 0; transform: translateZ(calc(var(--fold, 0) * .9em)) rotateY(calc(var(--fold, 0) * 180deg)); }
 .duo-r { left: 82.3em; }
+/* Closed, the 0.9 mm between the halves is dark (a seam), so no lit screen shows through it edge-on: a dark frame
+   round the three open edges, mid-way between the halves. */
+.duo-gap { position: absolute; inset: 0; border-radius: 0 12.5em 12.5em 0; border: 9em solid #060507; border-left: 0; pointer-events: none; /* a frame: only the edges are ever seen into */ transform: translateZ(.45em); opacity: clamp(0, calc((var(--fold, 0) - .92) * 12.5), 1); }
 
 /* The front of a half: a thin, even black bezel round the pane; the outer corners follow the body. */
 .p3-face {
@@ -151,7 +154,8 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .duo-r .p3-face::after, .p3-cover::after { left: 0; border-radius: 0 12.2em 12.2em 0; }
 .p3-skin::before {
   content: ""; position: absolute; inset: 0 -2em 0 0; z-index: 2; border-radius: 12.5em 0 0 12.5em; pointer-events: none;
-  box-shadow: inset 0 0 0 .24em #fbfcfd, inset 0 0 0 .4em #74767c, inset 0 0 0 .62em #d3d5d9, inset 0 0 1.4em .62em rgba(120, 112, 110, .12);
+  /* The back's edge against the frame: one dark joint and one bright bevel (not a stack of fine lines). */
+  box-shadow: inset 0 0 0 .2em #86888d, inset 0 0 0 .55em #f1f2f3, inset 0 0 1.4em .55em rgba(120, 112, 110, .12);
 }
 /* A lit screen at night: a warm cream Instagram post, with its own darker words. */
 .phone-screen {
@@ -215,13 +219,21 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .duo-crease { position: absolute; top: 2.2em; bottom: 2.2em; width: 4.2em; opacity: var(--crease, .3); pointer-events: none; }
 .duo-l .duo-crease { right: 0; background: linear-gradient(90deg, rgba(60, 36, 44, 0), rgba(60, 36, 44, .1) 60%, rgba(60, 36, 44, .2) 88%, rgba(255, 255, 255, .5) 97%, rgba(255, 255, 255, .15)); }
 .duo-r .duo-crease { left: 0; background: linear-gradient(270deg, rgba(60, 36, 44, 0), rgba(60, 36, 44, .1) 60%, rgba(60, 36, 44, .2) 88%, rgba(255, 255, 255, .35) 97%, rgba(255, 255, 255, .1)); }
+/* The inner display is one sheet of glass: as it folds, the left half's edge lifts off the right half's (the halves
+   close 0.9 mm apart), so a strip of the same screen (and bezel, top and bottom) runs on past the hinge line under
+   it and no line of the page shows down the fold; flat, it is not drawn. */
+.duo-seam {
+  position: absolute; top: 0; bottom: 0; right: -1.4em; width: 1.6em; pointer-events: none;
+  background: linear-gradient(180deg, #0b0a0c 2.2em, #f3e7e0 2.2em, #f3e7e0 calc(100% - 2.2em), #0b0a0c calc(100% - 2.2em));
+  opacity: clamp(0, calc(var(--fold, 0) * 40), 1);
+}
 /* The inner display's front camera: a hole-punch at the top right of the right half. */
 .scr-cam, .osd-cam {
   position: absolute; border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle at 38% 34%, #5a5f78 0 7%, #1a1824 20%, #050408 46%, #0e0c14 70%, #1f1c26 100%);
   box-shadow: 0 0 0 .3em #030205, 0 0 0 .45em rgba(255, 255, 255, .06);
 }
-.scr-cam { top: 4em; right: 4em; width: 4.4em; height: 4.4em; }
+.scr-cam { top: 6.4em; right: 6.4em; width: 4.4em; height: 4.4em; } /* inset like the outer display's: screen all round it */
 
 /* The glass over each screen: a glare that slides as the phone turns (home.js). */
 .p3-glass { position: absolute; inset: 2.2em; overflow: hidden; pointer-events: none; }
@@ -238,17 +250,19 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
    is a thickness behind it, turned round. */
 .p3-body { position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(-2.6em); }
 .p3-rim {
-  /* Mirror-polished titanium: a cool, bright chrome with hard bands across the thickness (a white sky above, the
-     dark room at the waist), and the page's coral and peach caught in it. */
-  --rim: #5a5b60 0%, #ffffff 9%, #eceef0 19%, #a2a3a8 31%, #34333a 42%, #19181d 50%, #3d3c43 57%, #b4b5ba 66%, #ffffff 76%, #d9dadd 86%, #505055 100%;
+  /* Mirror-polished titanium, each rail one rounded bar: across its thickness (from the face side, --rd, set by
+     home.js so every piece of a rail, straight or round a corner, runs the same way and the bands flow round the
+     arc) a broad bright softbox highlight, then one dark lobe where it reflects the room, and a little of the
+     page's coral caught in the dark. */
+  --rim: #77787d 0%, #dcdde0 5%, #ffffff 13%, #f6f7f8 32%, #d5d7da 44%, #85868b 54%, #34333a 61%, #3a3a40 67%, #8c8d92 76%, #dcdde0 88%, #9a9ba0 100%;
   position: absolute; display: block; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background: linear-gradient(180deg, rgba(255, 150, 120, 0) 30%, rgba(255, 150, 120, .3) 46%, rgba(255, 190, 160, .18) 60%, rgba(255, 150, 120, 0) 72%), linear-gradient(180deg, var(--rim));
+  background: linear-gradient(var(--rd, 180deg), rgba(255, 150, 120, 0) 44%, rgba(255, 150, 120, .3) 60%, rgba(255, 190, 160, .16) 74%, rgba(255, 150, 120, 0) 86%), linear-gradient(var(--rd, 180deg), var(--rim));
 }
-.p3-rim.p3-v { background: linear-gradient(90deg, rgba(255, 150, 120, 0) 30%, rgba(255, 150, 120, .3) 46%, rgba(255, 190, 160, .18) 60%, rgba(255, 150, 120, 0) 72%), linear-gradient(90deg, var(--rim)); }
 .p3-rim::before, .p3-rim::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
-.p3-rim::before { background: #0a0709; opacity: var(--dk, .3); }
-.p3-rim::after { background: linear-gradient(180deg, rgba(255, 240, 232, 0) 4%, #fff 18%, rgba(255, 240, 232, 0) 34%, rgba(255, 240, 232, 0) 64%, rgba(255, 244, 238, .85) 78%, rgba(255, 240, 232, 0) 94%); opacity: var(--gl, 0); }
-.p3-rim.p3-v::after { background: linear-gradient(90deg, rgba(255, 240, 232, 0) 4%, #fff 18%, rgba(255, 240, 232, 0) 34%, rgba(255, 240, 232, 0) 64%, rgba(255, 244, 238, .85) 78%, rgba(255, 240, 232, 0) 94%); }
+/* Turned from the light, the rail darkens with the room, except its softbox highlight: a rounded bar always has
+   some part that faces the softbox, so one bright band stays on every rail at every angle (> 220 edge-on). */
+.p3-rim::before { background: linear-gradient(var(--rd, 180deg), #0a0709 0, rgba(10, 7, 9, .45) 8%, rgba(10, 7, 9, .1) 15%, rgba(10, 7, 9, .1) 32%, rgba(10, 7, 9, .8) 44%, #0a0709 55%, #0a0709 70%, rgba(10, 7, 9, .55) 82%, rgba(10, 7, 9, .4) 90%, #0a0709 100%); opacity: var(--dk, .3); }
+.p3-rim::after { background: linear-gradient(var(--rd, 180deg), rgba(255, 240, 232, 0) 3%, #fff 18%, rgba(255, 244, 238, .7) 28%, rgba(255, 240, 232, 0) 42%); opacity: var(--gl, 0); }
 .p3-rim.p3-key { border-radius: .8em; box-shadow: inset 0 0 0 .18em rgba(20, 18, 22, .35); }
 .p3-port { /* USB-C, centred in the bottom rail */
   position: absolute; left: 50%; top: 50%; width: 8.9em; height: 2.9em; margin: -1.45em 0 0 -4.45em; border-radius: 1.5em;
@@ -275,12 +289,14 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 }
 .p3-skin::after, .p3-plateau::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #140c10; opacity: var(--dk, 0); pointer-events: none; }
 .p3-sheen { position: absolute; inset: -30% -110%; background: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, .28) 48%, rgba(255, 255, 255, 0) 66%); }
-/* The camera plateau: a raised band of the same frosted white right across the top of the back (turned round,
+/* The camera plateau: a raised band of the same frosted white across the top of the back (turned round,
    the outer edge is its own left), 23.5 mm tall (a fifth of the back). At its outer end two big lenses, Fusion Main and Fusion Ultra
    Wide, each in a thick mirror-polished ring; beside them the mic above the flash. Its thickness is drawn by two
    walls a little behind it; the lens rings stand proud of it the same way. */
 .p3-plateau {
-  position: absolute; left: 3.4em; right: 3.4em; top: 3.4em; height: 23.5em; border-radius: 11.75em; transform-style: preserve-3d;
+  /* 57 mm long (69% of the back, as the reference photo from the back measures): its rounded end comes a little past
+     the mic and flash, not across the whole back. */
+  position: absolute; left: 3.4em; width: 57em; top: 3.4em; height: 23.5em; border-radius: 11.75em; transform-style: preserve-3d;
   transform: translateZ(1.2em);
   background:
     radial-gradient(60% 90% at 18% 10%, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 70%),
@@ -289,42 +305,51 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   box-shadow: inset 0 .35em .6em rgba(255, 255, 255, .75), inset 0 -.5em 1.1em rgba(120, 100, 96, .06), 0 1.4em 2.8em -1em rgba(60, 40, 40, .12);
 }
 .pl-wall, .pl-top { position: absolute; inset: 0; border-radius: inherit; }
-.pl-wall { transform: translateZ(-.45em); background: #efeeeb; filter: blur(.3em); }
-.pl-w2 { transform: translateZ(-.9em); background: #e9e7e4; }
+/* Its side: three layers down to the back, each a shade darker, so turned it reads as a step, not a print. */
+.pl-wall { transform: translateZ(-.35em); background: #e7e5e2; }
+.pl-w2 { transform: translateZ(-.7em); background: #dedcd8; }
+.pl-w3 { transform: translateZ(-1.05em); background: #d6d3cf; }
 .pl-top { transform: translateZ(0); }
 .p3-lens {
   position: absolute; top: 3.55em; width: 16.4em; height: 16.4em; border-radius: 50%; transform-style: preserve-3d;
-  transform: translateZ(1.1em);
+  transform: translateZ(1.5em);
 }
 .p3-lens.l1 { left: 3.2em; }
 .p3-lens.l2 { left: 20.5em; }
 .p3-lens > i { position: absolute; inset: 0; border-radius: 50%; }
-.p3-lens > .ln-wall { inset: -1.4em; }
-/* Round each ring, the housing slopes down into the plateau: a soft grey bevel a little behind the ring, with no
-   outline; the ring's bright lip is thin. */
-.ln-wall {
-  transform: translateZ(-.7em);
-  background: radial-gradient(circle closest-side, #a4a5aa 0 86%, #c2c2c5 90%, #dcdbda 95%, rgba(236, 234, 231, 0) 100%);
-  box-shadow: 0 .6em 1.4em -.4em rgba(40, 24, 24, .16);
-}
-/* The ring: mirror-polished titanium, a thin bright lip round the glass that is bright where it faces the light and
-   dark where it faces the room, and a softer grey bevel outside it. */
+/* The ring stands 1.5 mm proud of the plateau: its side is a short barrel of the same polished metal, drawn by three
+   discs behind it (they show only as the phone turns), and it casts one soft shadow down and away from the key
+   light onto the plateau. No halo round it: its outer edge is hard. */
+.ln-shadow { transform: translate3d(.5em, .9em, -1.45em); background: rgba(70, 44, 42, .26); filter: blur(.7em); }
+.ln-wall { background: conic-gradient(from 200deg, #d9dadd, #8b8c91 18%, #4a4a50 30%, #b9bbbf 46%, #eeeff1 56%, #7c7d82 72%, #c3c4c8 88%, #d9dadd); }
+.ln-wall.w1 { transform: translateZ(-.38em); }
+.ln-wall.w2 { transform: translateZ(-.8em); }
+.ln-wall.w3 { transform: translateZ(-1.22em); filter: brightness(.8); }
+/* The ring: a thick mirror-polished band, 7.5% of the lens across on each side, that reflects the studio in hard
+   bright and near-black arcs (and a little of the page's coral); a rounded profile (darker at both edges), a hard
+   dark outer edge against the plateau, and a thin dark step down to the glass inside it. */
 .ln-ring {
   background:
-    radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 0 92.5%, rgba(120, 120, 126, .55) 94%, rgba(186, 186, 190, .6) 97%, rgba(214, 213, 213, .8) 100%),
-    radial-gradient(circle closest-side, #16151a 0 84%, #3a393f 85%, rgba(58, 57, 63, 0) 86.2%),
-    conic-gradient(from 210deg, #ffffff, #b9bbc0 9%, #f7f7f8 17%, #54555b 30%, #c9cbcf 40%, #ffffff 50%, #eceef0 58%, #6c6d73 70%, #d7d9dc 82%, #ffffff 92%, #ffffff);
+    radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 0 81.4%, #0b0a0e 82%, #0b0a0e 83.6%, rgba(0, 0, 0, .3) 84.2%, rgba(0, 0, 0, 0) 86%, rgba(255, 255, 255, 0) 90%, rgba(255, 255, 255, .2) 92%, rgba(0, 0, 0, 0) 94.5%, rgba(0, 0, 0, 0) 97%, rgba(0, 0, 0, .35) 98.7%, #2b2a2f 99.3%, #2b2a2f 100%),
+    conic-gradient(from 20deg, rgba(255, 150, 120, 0) 0 22%, rgba(255, 150, 120, .3) 30%, rgba(255, 150, 120, 0) 38% 70%, rgba(255, 176, 150, .22) 76%, rgba(255, 150, 120, 0) 82%),
+    conic-gradient(from 200deg, #ffffff 0, #f1f2f3 6%, #a4a6ab 12%, #2d2c32 18%, #18171c 22%, #66676d 28%, #e6e7e9 36%, #ffffff 44%, #d0d2d5 52%, #8b8d92 58%, #333238 65%, #1b1a1f 70%, #77787d 76%, #efeff1 86%, #ffffff 94%, #ffffff);
 }
-/* The glass: large (84% of the ring), dark and deep, with a faint element in the middle and a soft reflection. */
+/* The glass: 82% of the ring (as in the reference close-up), dark and deep, and the lens seen inside it: a coloured element about 28% of the glass
+   (violet in the main camera, amber in the ultra wide), the barrel's faint concentric rings round it, a coloured
+   glint on the element and one soft white one on the cover glass. */
 .ln-glass {
-  inset: 1.31em !important; transform: translateZ(.02em);
+  inset: 1.48em !important; transform: translateZ(.02em);
   background:
-    radial-gradient(55% 42% at 36% 28%, rgba(255, 250, 245, .09), rgba(255, 250, 245, 0) 72%),
-    radial-gradient(circle at 50% 50%, #08080b 0 6%, var(--eye) 10.5%, #0c0d12 15%, #16151c 26%, #0a090d 42%, #141319 64%, #1f1e24 84%, #2a2930 100%);
-  box-shadow: inset 0 0 0 .22em #0c0b0f, inset 0 .5em 1.1em rgba(0, 0, 0, .55);
+    radial-gradient(15% 10% at 33% 29%, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(7% 4.5% at 45% 43%, var(--glint), rgba(0, 0, 0, 0) 80%),
+    radial-gradient(62% 46% at 38% 27%, rgba(255, 246, 240, .1), rgba(255, 246, 240, 0) 72%),
+    radial-gradient(circle closest-side, rgba(0, 0, 0, 0) 0 38.5%, rgba(150, 146, 170, .24) 40%, rgba(0, 0, 0, 0) 41.8%, rgba(0, 0, 0, 0) 57%, rgba(150, 146, 170, .17) 58.6%, rgba(0, 0, 0, 0) 60.2%, rgba(0, 0, 0, 0) 75%, rgba(170, 166, 185, .2) 76.6%, rgba(0, 0, 0, 0) 78.2%),
+    radial-gradient(34% 34% at 44% 42%, var(--eye2), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(circle closest-side, #040406 0 9%, var(--eye) 16%, var(--eye) 22%, #0a0a0f 28.5%, #121118 33%, #0a090d 48%, #141319 68%, #1b1a20 88%, #242329 100%);
+  box-shadow: inset 0 0 0 .18em #09080c, inset 0 .5em 1.1em rgba(0, 0, 0, .55);
 }
-.l1 .ln-glass { --eye: #262f40; }
-.l2 .ln-glass { --eye: #3a3129; }
+.l1 .ln-glass { --eye: #2c2552; --eye2: rgba(112, 96, 196, .42); --glint: rgba(186, 170, 255, .8); }
+.l2 .ln-glass { --eye: #3f2714; --eye2: rgba(186, 122, 60, .42); --glint: rgba(255, 190, 120, .8); }
 .p3-mic { position: absolute; left: 41.9em; top: 6em; width: 2.6em; height: 1.2em; border-radius: 1em; transform: translateZ(.02em); background: #2a262b; box-shadow: inset 0 .12em .2em rgba(0, 0, 0, .6), 0 0 0 .12em rgba(255, 255, 255, .7); }
 .p3-flash { position: absolute; left: 41.1em; top: 11.8em; width: 4.2em; height: 4.2em; border-radius: 50%; transform: translateZ(.1em); background: radial-gradient(circle at 50% 45%, #fffdf8 0 22%, #f3e6d6 44%, #d9c6b2 70%, #bfae9e); box-shadow: 0 0 0 .3em #e7e5e3, 0 0 0 .45em rgba(120, 110, 108, .35), inset 0 0 .5em rgba(110, 90, 70, .3); }
 
@@ -371,11 +396,11 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   /* Polished titanium, lit like the rails (home.js: deep reflections of the room between bright highlights); its
      rounded ends catch a dark line and a bright one. */
   position: absolute; top: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background: linear-gradient(180deg, #1e1d22 0, #f2f3f5 .7%, #6d6e74 1.8%, #b4b6ba 3.4%, #a9abb0 30%, #b8babe 55%, #a6a8ad 80%, #b4b6ba 96.6%, #6d6e74 98.2%, #f2f3f5 99.3%, #1e1d22 100%);
+  background: linear-gradient(180deg, #1e1d22 0, #f5f4f2 .7%, #71706e 1.8%, #c3c2bf 3.4%, #b9b7b4 30%, #c8c6c3 55%, #b5b3b0 80%, #c3c2bf 96.6%, #71706e 98.2%, #f5f4f2 99.3%, #1e1d22 100%); /* neutral titanium, not blue */
 }
 .p3-hf::before, .p3-hf::after { content: ""; position: absolute; inset: 0; }
 .p3-hf::before { background: #0c0a0d; opacity: var(--dk, .2); }
-.p3-hf::after { background: #fff8f2; opacity: var(--gl, 0); }
+.p3-hf::after { background: #fff3ea; opacity: var(--gl, 0); } /* the softbox, with a breath of the page's coral */
 /* The seams where the cover meets each half: a thin dark line down each edge. */
 .p3-hf > b { position: absolute; top: 0; bottom: 0; z-index: 1; width: 42%; background: linear-gradient(90deg, #121115, #2a292e); }
 .p3-hf > b.sr { right: 0; } .p3-hf > b.sl { left: 0; }
@@ -440,6 +465,10 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .sticker-coin { --z: 64px; top: 27%; left: -26px; }
 .sticker-post { --z: 44px; right: -6px; bottom: -50px; width: max-content; max-width: 62%; }
 .sticker-post .st-txt { white-space: nowrap; }
+/* Under the full stage width (a 981-1159 desk, and every narrow stage) the line stops at the handle, so the words
+   stay inside the pill. */
+@container (max-width: 539px) { .sticker-post .st-more { display: none; } }
+@container (max-width: 300px) { .sticker-post .st-txt { white-space: normal; } } /* a 320 phone: the name wraps */
 
 .stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 88px; width: 100%; }
 .replay {
@@ -450,8 +479,8 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 }
 .replay svg { width: 18px; height: 18px; }
 .replay:hover { border-color: var(--peach); transform: translateY(-1px); }
-.fold-btn .f-open, .fold-btn[aria-pressed="true"] .f-fold { display: none; }
-.fold-btn[aria-pressed="true"] .f-open { display: inline; }
+.fold-btn .f-open, .fold-btn[data-state="closed"] .f-fold { display: none; }
+.fold-btn[data-state="closed"] .f-open { display: inline; }
 .illus { font-size: 13.5px; font-weight: 650; color: var(--ink-2); }
 
 /* "Drag to turn": on the floor under the phone until it has been turned once; for keys, when focused. */
@@ -805,7 +834,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .app-bar { height: 22px; }
   .thread { padding: 6px 12px 8px; }
   .reply-wrap { margin-top: 7px; }
-  .sticker-coin { top: 17%; left: -8px; }
+  .sticker-coin { top: 17%; left: 8px; } /* its depth enlarges it: its left edge stays on the screen at 360 */
   .sticker-post { right: 0; left: 0; bottom: -58px; margin-inline: auto; max-width: calc(100% - 12px); }
   .stage-foot { margin: 112px auto 0; }
   .p3-hint { left: 50%; top: calc(100% + 72px); }

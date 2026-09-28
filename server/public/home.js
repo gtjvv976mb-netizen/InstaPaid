@@ -71,6 +71,7 @@ function phone3d(scene) {
   const floor = scene.querySelector('.p3-floor');
   const glow = scene.querySelector('.p3-glow');
   const foldBtn = scene.parentElement.querySelector('[data-fold]');
+  if (foldBtn) foldBtn.dataset.state = 'closed'; // the story starts closed (below)
   const compact = matchMedia('(max-width: 980px)');
   const hover = matchMedia('(hover: hover) and (pointer: fine)');
   const RAD = Math.PI / 180;
@@ -80,7 +81,7 @@ function phone3d(scene) {
   //      hinge cover is a flattened half-round on the spine, HB each side of its middle and HA proud: home.css
   //      turns it at half the fold and narrows it open, so open it is a band down the back and closed it is the
   //      spine column, the full thickness, 2 mm beside the halves (84.1 mm in all). ----
-  const H = 117.8, T = 5.2, R = 12.5, HB = 5.65, HA = 2, FACETS = 10, HF = 12;
+  const H = 117.8, T = 5.2, R = 12.5, HB = 5.65, HA = 2, FACETS = 18, HF = 12;
   const mm = (v) => `${+v.toFixed(3)}em`;
   // Every rail piece stands on the half's outline with its outward normal at angle phi in the half's own frame
   // (0 = right, 90 = down); the left half's pieces are turned with it as it folds (side 'l'). Hinge facets
@@ -91,13 +92,17 @@ function phone3d(scene) {
     el.className = `p3-rim ${cls}`;
     for (const k in box) el.style[k] = typeof box[k] === 'number' ? mm(box[k]) : box[k];
     el.style.transform = transform;
+    // The gradient across the rail's thickness starts at the face side on every piece: turned by rotateX(90deg) or
+    // rotateY(-90deg), a piece's own start edge lands on the back side, so its gradient runs the other way.
+    const flip = /rotateX\(90deg\)|rotateY\(-90deg\)/.test(transform), vert = cls.includes('p3-v');
+    el.style.setProperty('--rd', vert ? (flip ? '270deg' : '90deg') : (flip ? '0deg' : '180deg'));
     parent.append(el);
     pieces.push({ el, side, c: Math.cos(phi * RAD), s: Math.sin(phi * RAD), dk: -1, gl: -1 });
     return el;
   };
   // Every piece overlaps its neighbours a little, so no seam of the background shows between them once they
   // are turned and antialiased.
-  const E = 0.4, kw = T * 0.55, out = 0.8;
+  const E = 0.15, kw = T * 0.55, out = 0.8; // E: just enough overlap to close the seams; more juts past the arc
   const arc = 90 / FACETS, chord = 2 * R * Math.sin((arc / 2) * RAD) + 0.5, rr = R * Math.cos((arc / 2) * RAD);
   function half(side) {
     const body = bodies[side], outer = side === 'l' ? 'left' : 'right', inner = side === 'l' ? 'right' : 'left';
@@ -170,10 +175,13 @@ function phone3d(scene) {
     const rx = 2 * nz * nx, ry = 2 * nz * ny, rz = 2 * nz * nz - 1;
     const phi = Math.atan2(rx, rz) / RAD;
     let e = 0.86;
-    e -= 0.9 * bump(phi, 16, 30) + 0.85 * bump(phi, -66, 22);
+    // (The card by the camera is a grey one: a rail seen square-on stays silver, not gunmetal.)
+    e -= 0.62 * bump(phi, 16, 30) + 0.85 * bump(phi, -66, 22);
     e *= (1 - 0.85 * smooth(0.25, 0.75, ry)) * (1 - 0.9 * smooth(100, 145, Math.abs(phi)));
     const hi = Math.min(1, bump(phi, -34, 13) * smooth(0.35, -0.2, ry) + 0.6 * bump(phi, 72, 11) * smooth(0.5, 0, ry));
-    return [Math.max(0, e), hi];
+    // The softbox as the hinge cover's broad polished faces see it (a wider catch, so at rest one face is bright).
+    const hiW = Math.min(1, bump(phi, -30, 30) * smooth(0.45, -0.2, ry) + 0.5 * bump(phi, 72, 16) * smooth(0.5, 0, ry));
+    return [Math.max(0, e), hi, hiW];
   };
 
   // ---- State. Angles in degrees: y turns about the vertical axis (+ = the face turns right), x about the
@@ -216,7 +224,8 @@ function phone3d(scene) {
     const turn = to !== foldTo;
     foldTo = to; foldK = brisk ? 110 : 40;
     if (snap) { fold = to; foldV = 0; }
-    foldBtn?.setAttribute('aria-pressed', String(to === 1));
+    // An action button: its name says what a press does (Fold it / Open it), so it carries no pressed state.
+    if (foldBtn) foldBtn.dataset.state = to === 1 ? 'closed' : 'open';
     if (turn) { pose(); settle(); } // to the other resting pose, the short way
     wake();
   };
@@ -323,10 +332,10 @@ function phone3d(scene) {
       if (nz < -0.05) continue; // facing away: hidden by backface-visibility
       const d1 = Math.max(0, dot(L1, nx, ny, nz)), d2 = Math.max(0, dot(L2, nx, ny, nz));
       const h1 = Math.max(0, dot(H1, nx, ny, nz)), h2 = Math.max(0, dot(H2, nx, ny, nz));
-      const [e, hi] = mirror(nx, ny, nz);
+      const [e, hi, hiW] = mirror(nx, ny, nz);
       let dk, gl;
       if (p.side === 'h') { // polished, like the rails: near-black where it reflects the dark, bright between
-        dk = Math.min(0.8, Math.max(0, 0.8 * (1 - e) - 0.1 * d1)); gl = Math.min(0.85, 0.75 * hi + 0.3 * h1 ** 14);
+        dk = Math.min(0.66, Math.max(0, 0.66 * (1 - e) - 0.1 * d1)); gl = Math.min(0.9, 0.9 * hiW + 0.3 * h1 ** 14);
       } else { // mirror-polished: hard highlights, deep darks where it reflects the room
         dk = Math.min(0.8, Math.max(0, 0.78 * (1 - e) - 0.12 * d1 - 0.08 * d2)); gl = Math.min(0.95, 0.7 * hi + 0.6 * h1 ** 28 + 0.4 * h2 ** 18);
       }

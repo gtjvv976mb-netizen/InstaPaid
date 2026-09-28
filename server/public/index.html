@@ -168,6 +168,7 @@
                     </div>
                   </div>
                   <i class="duo-crease"></i>
+                  <i class="duo-seam"></i>
                   <div class="p3-glass"><i data-p3-glare="l"></i></div>
                 </div>
               </div>
@@ -177,14 +178,15 @@
 
               <!-- The right half holds still. Its front is the right pane; its back carries the cameras. -->
               <div class="duo-half duo-r" aria-hidden="true">
+                <i class="duo-gap"></i>
                 <div class="p3-body" data-p3-body="r">
                   <div class="p3-back">
                     <div class="p3-skin"><i class="p3-sheen" data-p3-sheen></i></div>
                     <!-- The camera plateau across the top: two big lenses in polished rings, the mic and the flash. -->
                     <div class="p3-plateau">
-                      <i class="pl-wall"></i><i class="pl-wall pl-w2"></i><i class="pl-top"></i>
-                      <b class="p3-lens l1"><i class="ln-wall"></i><i class="ln-ring"></i><i class="ln-glass"></i></b>
-                      <b class="p3-lens l2"><i class="ln-wall"></i><i class="ln-ring"></i><i class="ln-glass"></i></b>
+                      <i class="pl-wall pl-w3"></i><i class="pl-wall pl-w2"></i><i class="pl-wall"></i><i class="pl-top"></i>
+                      <b class="p3-lens l1"><i class="ln-shadow"></i><i class="ln-wall w3"></i><i class="ln-wall w2"></i><i class="ln-wall w1"></i><i class="ln-ring"></i><i class="ln-glass"></i></b>
+                      <b class="p3-lens l2"><i class="ln-shadow"></i><i class="ln-wall w3"></i><i class="ln-wall w2"></i><i class="ln-wall w1"></i><i class="ln-ring"></i><i class="ln-glass"></i></b>
                       <s class="p3-mic"></s><s class="p3-flash"></s>
                     </div>
                   </div>
@@ -228,7 +230,7 @@
         </div>
         <div class="stage-foot">
           <button class="replay" type="button" data-replay><svg aria-hidden="true"><use href="/icons.svg#replay"/></svg>Play it again</button>
-          <button class="replay fold-btn" type="button" data-fold aria-pressed="false"><svg class="fold-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h7v12H4zM13 6h7v12h-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 5v14" stroke="currentColor" stroke-width="2"/></svg><span class="f-fold">Fold it</span><span class="f-open">Open it</span></button>
+          <button class="replay fold-btn" type="button" data-fold data-state="open"><svg class="fold-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h7v12H4zM13 6h7v12h-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 5v14" stroke="currentColor" stroke-width="2"/></svg><span class="f-fold">Fold it</span><span class="f-open">Open it</span></button>
           <span class="illus">Illustration · example accounts</span>
         </div>
       </div>
