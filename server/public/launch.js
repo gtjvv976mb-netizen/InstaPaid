@@ -59,15 +59,19 @@ function problem() {
   if (!(buy >= 0 && buy <= 50)) return { field: 'buy', text: 'Your first buy is between 0 and 50 SOL.' };
   return null;
 }
-for (const id of ['username', 'name', 'symbol', 'image', 'buy']) $('#' + id).addEventListener('input', (e) => e.target.setCustomValidity(''));
+const FIELDS = ['username', 'name', 'symbol', 'image', 'buy'];
+for (const id of FIELDS) $('#' + id).addEventListener('input', (e) => e.target.setCustomValidity(''));
 
 $('#f').addEventListener('submit', async (e) => {
   e.preventDefault();
+  // The page fills some fields itself (the name and ticker from the username), which fires no
+  // input event, so an old message could stay on a field that is now right: clear them all first.
+  for (const id of FIELDS) $('#' + id).setCustomValidity('');
   const bad = problem();
   if (bad) {
     const field = $('#' + bad.field);
     field.setCustomValidity(bad.text);
-    $('#f').reportValidity();
+    field.reportValidity();
     field.focus();
     return note(msg, 'err', bad.text);
   }
