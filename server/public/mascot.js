@@ -242,8 +242,8 @@
   }
 
   function mount3d(el, state) {
-    const src = document.currentScript?.dataset.model || '/media/pip.glb';
-    import('/vendor/model-viewer.min.js').then(() => {
+    const src = document.currentScript?.dataset.model || '/media/pip.glb?v=bf81e36f';
+    import('/vendor/model-viewer.min.js?v=283b0672').then(() => {
       const mv = document.createElement('model-viewer');
       mv.className = 'pip-3d';
       mv.setAttribute('src', src);
