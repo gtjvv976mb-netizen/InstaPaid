@@ -52,6 +52,7 @@ export async function reply(cfg, igsid, text, fetchImpl = fetch) {
     body: JSON.stringify({ recipient: { id: igsid }, message: { text } }),
   }).catch((e) => { console.warn('dm reply: request failed', e.message); return null; });
   if (r && !r.ok) console.warn(`dm reply: Instagram said ${r.status}: ${await metaError(r)}`);
+  return Boolean(r?.ok);
 }
 
 // Meta's error message only (no tokens are ever in it), for the logs.

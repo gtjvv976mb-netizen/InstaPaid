@@ -327,8 +327,9 @@ export function createApp(deps) {
         coins.push({ name: t.name, symbol: t.symbol, pendingLamports: coins.length ? 0n : pending });
       }
     }
+    const sent = await ig.reply(cfg.ig, igsid, welcomeDm({ username, coins, publicUrl: cfg.publicUrl }));
+    if (sent === false) { welcomed.delete(igsid); return; } // not sent: the next DM may try again
     console.log(`welcome: dm answered (${coins.length} coin${coins.length === 1 ? '' : 's'})`);
-    await ig.reply(cfg.ig, igsid, welcomeDm({ username, coins, publicUrl: cfg.publicUrl }));
   }
 
   async function verifyCode(igsid, code) {
