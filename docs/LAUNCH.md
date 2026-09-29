@@ -194,6 +194,10 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     The first `→ 200, owner @…` wins; failures before it are fine. If all three fail, the last line is
     `mention: could not read the post — see the lines above`: nothing is launched and nothing is
     replied. Send the developer those lines (they hold Meta's error codes, never the token).
+    (With the legacy Facebook Login settings a fourth line may follow: a Facebook `mentions` event
+    carries no comment text, so the post's owner alone does not end the search. If the post was
+    read but no answer gave the comment, the last line is `mention: read the post but not the
+    comment — see the lines above`, and again nothing is launched.)
     `mention: reply via Instagram Login → 400 …` = the coin launched but the reply was refused
     (usually `instagram_business_manage_comments` missing from the token: step 12b).
     `not launched: no reply could be sent (the bot's IG_ID is unknown …)` = the server could not read

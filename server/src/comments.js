@@ -148,9 +148,11 @@ function attemptLine(via, r, owner) {
  *   2. GET /<IG_ID>?fields=mentioned_media.media_id(<media>){…,username}
  *   3. GET /<media>?fields=…,username
  * then, only when IG_USER_ID and IG_FB_ACCESS_TOKEN are both set, (1) on graph.facebook.com.
- * The first answer with an owner username wins. One log line per attempt. Throws when none gives
- * one (and logs that it could not read the post).
- * → { text, media, via }  (text: the comment's, else the webhook's)
+ * The first answer with an owner username gives the post; the comment's text is the webhook's,
+ * or, when the webhook has none (a Facebook Login "mentions" event), the first answer that carries
+ * it: an owner without the text never ends the search. One log line per attempt. Throws when no
+ * answer gives an owner, or none gives the text (and logs which).
+ * → { text, media, via }  (media and via: the answer with the text when it names the owner, else the first with an owner)
  */
 export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl = fetch, log = console) {
   const attempts = [];
@@ -176,12 +178,22 @@ export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl =
         { params: { fields: `mentioned_comment.comment_id(${commentId}){id,text,timestamp,media{${MEDIA_FIELDS}}}` } }),
       (j) => ({ text: j?.mentioned_comment?.text, media: j?.mentioned_comment?.media })]);
   }
+  const known = (x) => (typeof x === 'string' && x !== '' ? x : null);
+  // A post read without the comment's text (mentioned_media, /<media>, on a "mentions" event that
+  // carries no text) is kept while the later attempts are asked for the text.
+  let post = null;
   for (const [via, run, pick] of attempts) {
     const r = await run();
     const got = r.ok ? pick(r.json) : {};
     const owner = got.media?.username ? String(got.media.username) : null;
     log.log(attemptLine(via, r, owner));
-    if (owner) return { text: String(got.text ?? text ?? ''), media: got.media, via };
+    const said = known(got.text) ?? known(text);
+    if (owner && !post) post = { media: got.media, via };
+    if (post && said) return { text: said, media: owner ? got.media : post.media, via: owner ? via : post.via };
+  }
+  if (post) {
+    log.warn('mention: read the post but not the comment — see the lines above');
+    throw new Error('could not read the comment');
   }
   log.warn('mention: could not read the post — see the lines above');
   throw new Error('could not read the post');
