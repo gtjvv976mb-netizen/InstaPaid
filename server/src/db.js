@@ -95,7 +95,7 @@ export function openDb(path) {
       env_hash      text not null,              -- HMAC of the IG_ACCESS_TOKEN this token descends from (a new paste wins)
       source        text not null check (source in ('env','renewed')),
       refreshed_at  integer not null,           -- when this token was pasted (first seen) or renewed
-      expires_at    integer not null            -- renewed: from Meta's expires_in; pasted: assumed 60 days from first seen
+      expires_at    integer not null            -- renewed: from Meta's expires_in; pasted: assumed 60 days from first seen; now when Meta refuses it (190)
     );
 
     create table if not exists claim (

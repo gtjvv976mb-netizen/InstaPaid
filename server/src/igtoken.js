@@ -1,6 +1,8 @@
 // Keeps the Instagram token alive. An Instagram Login token (IG_ACCESS_TOKEN) lasts 60 days; when it
 // runs out, DM claims, comment launches and the poster all stop. So the token in use is kept in the
-// database (sealed under VAULT_MASTER_KEY), and once it is 7 days old it is renewed:
+// database (sealed under VAULT_MASTER_KEY), and once it is 7 days old it is renewed (a pasted token,
+// whose real age nobody knows, is renewed once it has been here 24 hours, so Meta's expires_in gives
+// its true end early):
 //   GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=<token>
 //   → { access_token, token_type, expires_in }   (the token must be at least 24 hours old)
 // The new token is stored and put in cfg.ig.accessToken, which every caller (DMs, comment launches,
@@ -9,7 +11,10 @@
 // At start: the stored token is used when it descends from the IG_ACCESS_TOKEN set now (a renewal of
 // it); a different IG_ACCESS_TOKEN is a freshly pasted one, which is stored and wins.
 // Checked at start and every 24 hours. A failed renewal keeps the current token; within 10 days of
-// its end, every failed day logs a loud warning. No log line ever carries a token.
+// its end, every failed day logs a loud warning. When Meta refuses the token itself (OAuthException
+// 190: expired, revoked, invalid), the warning comes at once, whatever the assumed end date says, and
+// the stored end is set to now, so every daily check (and every start) warns again until a new token
+// is pasted. No log line ever carries a token.
 import { createHmac } from 'node:crypto';
 import { sealSecret, openSecret } from './crypto.js';
 import { igBase, graphCall } from './instagram.js';
@@ -23,6 +28,12 @@ export const PASTED_LIFE = 60 * DAY;
 const AAD = 'ig_token';
 
 const day = (t) => new Date(t).toISOString().slice(0, 10);
+const HOW = 'Generate a new token (Meta app → Instagram → API setup with Instagram login → Generate token) and '
+  + 'paste it into IG_ACCESS_TOKEN.';
+const STOPPED = 'DM claims, comment launches and the poster are stopped.';
+// Meta's answer when the token itself is no good (expired, revoked, password changed, invalid): code 190.
+// Any other refusal (busy, rate limited, a network error) says nothing about the token.
+const tokenRefused = (a) => !a.ok && Number(a.json?.error?.code) === 190;
 const daysLeft = (ms) => Math.max(0, Math.round(ms / DAY));
 
 /**
@@ -61,15 +72,20 @@ export function createTokenKeeper({ db, cfg, fetchImpl = fetch, now = Date.now, 
       if (r && !stored) log.error('instagram token: the stored token could not be opened (VAULT_MASTER_KEY changed?); using IG_ACCESS_TOKEN');
       if (stored && (!pasted || r.env_hash === envHash(pasted))) {
         ig.accessToken = stored;
+        if (r.expires_at <= now()) {
+          log.error(`instagram token: WARNING — THE TOKEN IN USE EXPIRED OR WAS REFUSED BY META ON ${day(r.expires_at)}. `
+            + `${STOPPED} ${HOW}`);
+          return;
+        }
         log.log(r.source === 'renewed'
           ? `instagram token: using the one renewed on ${day(r.refreshed_at)}, valid ~${daysLeft(r.expires_at - now())} days`
-          : `instagram token: IG_ACCESS_TOKEN, stored ${day(r.refreshed_at)}; renewed automatically from day 7`);
+          : `instagram token: IG_ACCESS_TOKEN, stored ${day(r.refreshed_at)}; renewed automatically after 24 hours`);
         return;
       }
       if (!pasted) return;
       const t = now();
       save(pasted, { envHashValue: envHash(pasted), source: 'env', refreshedAt: t, expiresAt: t + PASTED_LIFE });
-      log.log(`instagram token: ${r ? 'a new IG_ACCESS_TOKEN replaces the stored one' : 'IG_ACCESS_TOKEN stored'}; renewed automatically from day 7`);
+      log.log(`instagram token: ${r ? 'a new IG_ACCESS_TOKEN replaces the stored one' : 'IG_ACCESS_TOKEN stored'}; renewed automatically after 24 hours`);
     } catch (e) {
       log.error(`instagram token: could not read or store it (${clean(e?.message)}); using IG_ACCESS_TOKEN`);
     }
@@ -84,8 +100,9 @@ export function createTokenKeeper({ db, cfg, fetchImpl = fetch, now = Date.now, 
     const t = now();
     const age = t - r.refreshed_at;
     const left = r.expires_at - t;
-    // Due at 7 days; sooner only when the end is near (a short expires_in) and Meta allows it (24 h).
-    if (age < RENEW_AFTER && !(left <= WARN_WITHIN && age >= DAY)) return 'fresh';
+    // Due at 7 days. Sooner, once Meta allows it (24 h): a pasted token (its real age and end are
+    // unknown; the first renewal tells them), or when the end is near (a short expires_in, or dead).
+    if (age < RENEW_AFTER && !(age >= DAY && (r.source === 'env' || left <= WARN_WITHIN))) return 'fresh';
     const a = await graphCall(fetchImpl, `${igBase(ig)}/refresh_access_token`, token, { params: { grant_type: 'ig_refresh_token' } });
     const next = a.ok ? a.json?.access_token : null;
     const life = Number(a.json?.expires_in);
@@ -98,12 +115,18 @@ export function createTokenKeeper({ db, cfg, fetchImpl = fetch, now = Date.now, 
       return 'renewed';
     }
     const why = a.ok ? 'no access_token or expires_in in the answer' : `${a.status} ${a.error}`;
+    if (tokenRefused(a)) {
+      // The token is dead, whatever end date was assumed for it. Mark it so: every check from now on
+      // (daily, and at each start) warns until a new token is pasted.
+      if (r.expires_at > t) db.prepare('update ig_token set expires_at = ? where id = 1').run(t);
+      log.error(`instagram token: WARNING — META REFUSED THE TOKEN IN USE (${clean(why)}): it has expired or been revoked `
+        + `and cannot be renewed. ${STOPPED} ${HOW}`);
+      return 'failed';
+    }
     log.error(`instagram token: renewal failed → ${clean(why)}; the current token stays in use`);
     if (left <= WARN_WITHIN) {
       log.error(left <= 0
-        ? `instagram token: WARNING — IT EXPIRED ON ${day(r.expires_at)} and could not be renewed. DM claims, comment launches `
-          + 'and the poster are stopped. Generate a new token (Meta app → Instagram → API setup with Instagram login → '
-          + 'Generate token) and paste it into IG_ACCESS_TOKEN.'
+        ? `instagram token: WARNING — IT EXPIRED ON ${day(r.expires_at)} and could not be renewed. ${STOPPED} ${HOW}`
         : `instagram token: WARNING — IT EXPIRES IN ~${daysLeft(left)} DAYS (${day(r.expires_at)}) and could not be renewed. `
           + 'Generate a new token (Meta app → Instagram → API setup with Instagram login → Generate token) and paste it into '
           + 'IG_ACCESS_TOKEN, or DM claims, comment launches and the poster stop that day.');

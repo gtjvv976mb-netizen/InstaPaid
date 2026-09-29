@@ -1,6 +1,7 @@
 // The Instagram token renews itself (src/igtoken.js): stored sealed, renewed from day 7 through
-// graph.instagram.com/refresh_access_token, swapped in for every caller, a failed renewal keeps the
-// old token and warns near the end, a freshly pasted IG_ACCESS_TOKEN wins, and no log carries a token.
+// graph.instagram.com/refresh_access_token (a pasted token after 24 hours), swapped in for every caller,
+// a failed renewal keeps the old token and warns near the end, a token Meta refuses (190) warns at once
+// and every day after, a freshly pasted IG_ACCESS_TOKEN wins, and no log carries a token.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -24,7 +25,10 @@ const IG = '17841499999999999';
 
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
 
-/** A stand-in graph.instagram.com: refresh_access_token gives out `next` tokens in turn (or Meta's error). */
+/**
+ * A stand-in graph.instagram.com: refresh_access_token gives out `next` tokens in turn, or fails:
+ * 'meta' = the token refused (190/463 expired), 'busy' = Meta unavailable (code 2), 'network'.
+ */
 function fakeGraph({ next = [RENEWED, RENEWED2], fail = null } = {}) {
   const g = { refreshes: [], calls: [], fail };
   const queue = [...next];
@@ -37,6 +41,7 @@ function fakeGraph({ next = [RENEWED, RENEWED2], fail = null } = {}) {
     if (u.pathname === '/refresh_access_token') {
       g.refreshes.push({ token, grant: params.get('grant_type') });
       if (g.fail === 'network') throw new TypeError(`fetch failed for ${url}`);
+      if (g.fail === 'busy') return json({ error: { message: 'An unexpected error has occurred. Please retry your request later.', type: 'OAuthException', code: 2, is_transient: true } }, 503);
       if (g.fail) return json({ error: { message: 'Error validating access token: Session has expired', type: 'OAuthException', code: 190, error_subcode: 463 } }, 400);
       return json({ access_token: queue.shift(), token_type: 'bearer', expires_in: 5_183_944 });
     }
@@ -86,16 +91,17 @@ function setup({ graph = fakeGraph(), env = PASTED } = {}) {
   return ctx.boot();
 }
 
-test('renewal: not before day 7; then refresh_access_token, stored sealed, swapped in, and used after a restart', async () => {
+test('renewal: a pasted token after 24 hours, a renewed one not before day 7; stored sealed, swapped in, used after a restart', async () => {
   const ctx = setup();
   try {
     assert.equal(ctx.cfg.ig.accessToken, PASTED);
     assert.equal(ctx.keeper.current().source, 'env');
-    assert.match(ctx.text(), /instagram token: IG_ACCESS_TOKEN stored; renewed automatically from day 7/);
+    assert.match(ctx.text(), /instagram token: IG_ACCESS_TOKEN stored; renewed automatically after 24 hours/);
 
-    ctx.advance(RENEW_AFTER - 60_000);
+    // a pasted token's real age is unknown: renewed as soon as Meta allows (24 hours), which tells its true end
+    ctx.advance(DAY - 60_000);
     assert.equal(await ctx.keeper.check(), 'fresh');
-    assert.equal(ctx.graph.refreshes.length, 0, 'a token under 7 days old is left alone');
+    assert.equal(ctx.graph.refreshes.length, 0, 'a pasted token here under 24 hours is left alone');
 
     ctx.advance(2 * 60_000);
     assert.equal(await ctx.keeper.check(), 'renewed');
@@ -108,10 +114,13 @@ test('renewal: not before day 7; then refresh_access_token, stored sealed, swapp
     assert.equal(row.expires_at, ctx.clock.t + 5_183_944_000);
     for (const t of TOKENS) assert.ok(!JSON.stringify(row).includes(t), 'the stored token is sealed');
 
-    // the next day: nothing to do; seven days later it is renewed again, from the renewed token
+    // a renewed token is left alone until day 7, then renewed again, from the renewed token
     ctx.advance(DAY);
     assert.equal(await ctx.keeper.check(), 'fresh');
-    ctx.advance(RENEW_AFTER);
+    ctx.advance(RENEW_AFTER - DAY - 60_000);
+    assert.equal(await ctx.keeper.check(), 'fresh');
+    assert.equal(ctx.graph.refreshes.length, 1, 'a renewed token under 7 days old is left alone');
+    ctx.advance(2 * 60_000);
     assert.equal(await ctx.keeper.check(), 'renewed');
     assert.equal(ctx.graph.refreshes[1].token, RENEWED);
     assert.equal(ctx.cfg.ig.accessToken, RENEWED2);
@@ -119,7 +128,7 @@ test('renewal: not before day 7; then refresh_access_token, stored sealed, swapp
     // a restart with the same IG_ACCESS_TOKEN still set: the renewed token is the one used
     ctx.boot(PASTED);
     assert.equal(ctx.cfg.ig.accessToken, RENEWED2);
-    assert.match(ctx.logs.at(-1)[1], /instagram token: using the one renewed on 2026-09-16, valid ~60 days/);
+    assert.match(ctx.logs.at(-1)[1], /instagram token: using the one renewed on 2026-09-09, valid ~60 days/);
   } finally { ctx.done(); }
 });
 
@@ -159,15 +168,16 @@ test('the swapped token reaches every caller: poster, comment reads and replies,
   } finally { rmSync(postsDir, { recursive: true, force: true }); ctx.done(); }
 });
 
-test('a failed renewal keeps the old token; within 10 days of the end it warns loudly every day', async () => {
-  const graph = fakeGraph({ fail: 'meta' });
+test('a failed renewal (Meta busy) keeps the old token; within 10 days of the end it warns loudly every day', async () => {
+  const graph = fakeGraph({ fail: 'busy' });
   const ctx = setup({ graph });
   try {
     ctx.advance(RENEW_AFTER + 1);
     assert.equal(await ctx.keeper.check(), 'failed');
     assert.equal(ctx.cfg.ig.accessToken, PASTED);
     assert.equal(ctx.keeper.current().source, 'env');
-    assert.match(ctx.text(), /instagram token: renewal failed → 400 \(#190\/463\) Error validating access token: Session has expired; the current token stays in use/);
+    assert.equal(ctx.keeper.current().expiresAt, Date.UTC(2026, 8, 1, 12) + 60 * DAY, 'a busy answer says nothing about the token');
+    assert.match(ctx.text(), /instagram token: renewal failed → 503 \(#2\) An unexpected error has occurred\. Please retry your request later\.; the current token stays in use/);
     assert.ok(!/WARNING/.test(ctx.text()), 'no loud warning while there is time');
 
     // day 50: 10 days left → a loud warning with each failed daily check
@@ -265,5 +275,75 @@ test('one check at a time: two at once make one refresh call', async () => {
     const [a, b] = await Promise.all([ctx.keeper.check(), ctx.keeper.check()]);
     assert.deepEqual([a, b], ['renewed', 'renewed']);
     assert.equal(ctx.graph.refreshes.length, 1);
+  } finally { ctx.done(); }
+});
+
+test('a token Meta refuses (190) warns at once, marks it expired, and warns every day and at each start until a new one is pasted', async () => {
+  // The stored renewal is lost (fresh database) and IG_ACCESS_TOKEN, left in Render, died long ago.
+  const graph = fakeGraph({ fail: 'meta' });
+  const ctx = setup({ graph });
+  try {
+    const start = ctx.clock.t;
+    assert.equal(await ctx.keeper.check(), 'fresh', 'Meta refuses a refresh under 24 hours, so it is not asked yet');
+    assert.equal(ctx.graph.refreshes.length, 0);
+
+    // day 1: the first refresh is refused → the loud warning at once, not the routine line, not in 7 weeks
+    ctx.advance(DAY);
+    assert.equal(await ctx.keeper.check(), 'failed');
+    assert.equal(ctx.graph.refreshes.length, 1);
+    assert.equal(ctx.logs.at(-1)[0], 'error');
+    assert.match(ctx.logs.at(-1)[1], /^instagram token: WARNING — META REFUSED THE TOKEN IN USE \(400 \(#190\/463\) Error validating access token: Session has expired\): it has expired or been revoked and cannot be renewed\. DM claims, comment launches and the poster are stopped\. Generate a new token .* paste it into IG_ACCESS_TOKEN\.$/);
+    assert.ok(!/EXPIRES IN/.test(ctx.text()), 'no made-up end date');
+    assert.equal(ctx.keeper.current().expiresAt, ctx.clock.t, 'the stored token is marked expired');
+    assert.equal(ctx.cfg.ig.accessToken, PASTED);
+
+    // every daily check after: tried again, and warns again (days 2..52)
+    for (let d = 2; d <= 52; d++) {
+      ctx.advance(DAY);
+      const before = ctx.logs.length;
+      assert.equal(await ctx.keeper.check(), 'failed', `day ${d}`);
+      const lines = ctx.logs.slice(before).map(([, l]) => l);
+      assert.equal(lines.length, 1, `day ${d}: one line`);
+      assert.match(lines[0], /WARNING — META REFUSED THE TOKEN IN USE/, `day ${d}`);
+    }
+    assert.equal(ctx.graph.refreshes.length, 52);
+    assert.equal(ctx.keeper.current().expiresAt, start + DAY, 'the mark keeps the day Meta first refused it');
+
+    // a restart with the same dead IG_ACCESS_TOKEN still set warns at start too
+    ctx.boot(PASTED);
+    assert.equal(ctx.logs.at(-1)[0], 'error');
+    assert.match(ctx.logs.at(-1)[1], /instagram token: WARNING — THE TOKEN IN USE EXPIRED OR WAS REFUSED BY META ON 2026-09-02\. DM claims, comment launches and the poster are stopped\. Generate a new token/);
+
+    // a new token pasted: stored, no warning, renewed after 24 hours
+    graph.fail = null;
+    const before = ctx.logs.length;
+    ctx.boot(OTHER);
+    assert.equal(ctx.cfg.ig.accessToken, OTHER);
+    assert.equal(ctx.keeper.current().expiresAt, ctx.clock.t + 60 * DAY);
+    ctx.advance(DAY);
+    assert.equal(await ctx.keeper.check(), 'renewed');
+    assert.equal(ctx.graph.refreshes.at(-1).token, OTHER);
+    assert.equal(ctx.cfg.ig.accessToken, RENEWED);
+    assert.ok(!ctx.logs.slice(before).some(([, l]) => /WARNING/.test(l)));
+  } finally { ctx.done(); }
+});
+
+test('a renewed token that Meta later refuses warns at the next check, before day 7', async () => {
+  const graph = fakeGraph({ fail: null });
+  const ctx = setup({ graph });
+  try {
+    ctx.advance(DAY);
+    assert.equal(await ctx.keeper.check(), 'renewed');
+    // revoked (say, the password changed) at day 7 of the renewed token: the check that day says so loudly
+    graph.fail = 'meta';
+    ctx.advance(RENEW_AFTER);
+    assert.equal(await ctx.keeper.check(), 'failed');
+    assert.match(ctx.logs.at(-1)[1], /WARNING — META REFUSED THE TOKEN IN USE/);
+    assert.equal(ctx.keeper.current().source, 'renewed');
+    assert.equal(ctx.keeper.current().expiresAt, ctx.clock.t);
+    // and the next day, though the renewed token is only 8 days old
+    ctx.advance(DAY);
+    assert.equal(await ctx.keeper.check(), 'failed');
+    assert.match(ctx.logs.at(-1)[1], /WARNING — META REFUSED THE TOKEN IN USE/);
   } finally { ctx.done(); }
 });

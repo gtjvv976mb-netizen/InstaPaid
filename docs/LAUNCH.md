@@ -98,12 +98,13 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
     b. Add the product **Instagram** → **API setup with Instagram login**. Under **Generate access
        tokens**, add @instapaid.official and generate a token. Grant `instagram_business_basic` and
        `instagram_business_manage_messages`. Copy the token into Render as **`IG_ACCESS_TOKEN`**.
-       This kind of token lasts **60 days**, and the server renews it by itself: from day 7 it asks
-       Instagram for a fresh 60-day token, keeps it in the database (sealed with `VAULT_MASTER_KEY`),
+       This kind of token lasts **60 days**, and the server renews it by itself: 24 hours after it
+       first sees a pasted token, and every 7 days after that, it asks Instagram for a fresh 60-day token, keeps it in the database (sealed with `VAULT_MASTER_KEY`),
        and uses it at once; checked at every start and once a day. The Logs say
        `instagram token: renewed, valid ~60 days`. **No calendar reminder is needed. If the Logs warn**
        (`instagram token: WARNING — IT EXPIRES IN ~N DAYS …`, once a day from 10 days before the end,
-       when renewing keeps failing), generate a new token here and paste it into Render: a newly pasted
+       when renewing keeps failing; or `instagram token: WARNING — META REFUSED THE TOKEN IN USE …`,
+       at once and then daily, when the token has expired or been revoked), generate a new token here and paste it into Render: a newly pasted
        `IG_ACCESS_TOKEN` always wins over the stored one. (Leave the old one in Render otherwise;
        the server knows its renewal descends from it.)
     c. On the same page, copy the **Instagram app secret** into Render as **`IG_APP_SECRET`**. Then
@@ -125,7 +126,7 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
        tokens** → @instapaid.official → **Generate token**, and approve all four permissions in the
        window that opens (a token made before step a does not carry the new two). Copy it into Render
        as **`IG_ACCESS_TOKEN`**, replacing the one from step 11b. The server sees a new token at the
-       next start, uses it instead of the stored one and renews it from day 7 (step 11b).
+       next start, uses it instead of the stored one and renews it after 24 hours (step 11b).
     c. **Subscribe `comments`.** Same page → **Configure webhooks** → the webhook fields → subscribe
        **`comments`** next to `messages`. (With Instagram Login there is no separate `mentions` field:
        an @mention of the bot in a comment under someone else's post arrives as a `comments` event.)

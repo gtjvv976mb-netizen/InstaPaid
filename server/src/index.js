@@ -14,7 +14,7 @@ assertConfig(config);
 for (const note of configNotes(config)) console.warn(`config: ${note}`);
 const db = openDb(config.dbPath);
 // The Instagram token in use: IG_ACCESS_TOKEN, or the renewal of it stored here (60-day tokens are
-// renewed from day 7). Loaded before anything reads config.ig.accessToken.
+// renewed 24 hours after a paste, then every 7 days). Loaded before anything reads config.ig.accessToken.
 const igToken = createTokenKeeper({ db, cfg: config, fetchImpl: fetch });
 igToken.load();
 // @instapaid.official posts the coins that go live (AUTO_POST=1); off otherwise, and says why.
