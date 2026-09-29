@@ -23,7 +23,7 @@ test('the comment reply makes no hype: no rocket, no moon', () => {
 
 test('the site loads nothing from another host', () => {
   for (const f of ['index.html', 'launch.html', 'claim.html', 'account.html', 'privacy.html', 'data-deletion.html', '404.html',
-    'app.css', 'home.css', 'home.js', 'common.js', 'launch.js', 'claim.js', 'mascot.js']) {
+    'app.css', 'home.css', 'home.js', 'common.js', 'launch.js', 'claim.js', 'mascot.js', 'admin.html', 'admin.css', 'admin.js']) {
     // A canonical link names the page's own address; the browser loads nothing from it.
     const s = readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8').replace(/<link rel="canonical" href="https:\/\/instapaid\.fun\/[^"]*">/g, '');
     // src=, href= on <link>/<script>, url(...) and import from '...': only same-site paths.

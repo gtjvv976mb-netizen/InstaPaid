@@ -43,6 +43,8 @@ services:
         sync: false          # Instagram Login token: DM codes, comment launches, replies and the auto-poster
       - key: IG_APP_SECRET
         sync: false
+      - key: IG_APP_ID
+        sync: false          # optional: the Instagram app ID; turns on the owner's page /admin (Instagram login)
       - key: IG_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: META_APP_SECRET

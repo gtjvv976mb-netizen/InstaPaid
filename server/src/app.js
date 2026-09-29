@@ -16,6 +16,7 @@ import {
 import { loadImage, tokenDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
 import { createPoster, MINT_FILE_RE } from './poster.js';
+import { adminRouter } from './admin.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -540,6 +541,9 @@ export function createApp(deps) {
     res.redirect(301, bare + (q >= 0 ? req.originalUrl.slice(q) : ''));
   });
   app.get(['/404', '/404.html'], notFound);
+  // The owner's page (src/admin.js): before the static files, so /admin is always the checked route.
+  app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
+  app.use(adminRouter({ db, cfg, fetchImpl: deps.fetchImpl ?? fetch, pub }));
 
   const web3Iife = require.resolve('@solana/web3.js/lib/index.iife.min.js');
   app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife, { maxAge: '1d' }));

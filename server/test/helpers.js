@@ -42,11 +42,12 @@ export const DEFAULT_COIN = readFileSync(new URL('../public/coin-default.png', i
  * never comes) with chain.outcome ('live' | 'failed' | 'pending') for what launchStatus finds.
  * comments: the real src/comments.js (or another stand-in) instead of the fake readMention/replyToMention;
  * fetchImpl: the app's fetch (a stand-in Graph and CDN) instead of one that serves POST_PNG.
+ * dmSent: what the fake ig.reply resolves to (false = Instagram refused the DM).
  */
 export async function start({
   usernames = {}, mentions = {}, feePayerLamports = 10n ** 9n, launchFails = false,
   config = {}, graph, naming = {}, review = { nameOk: true, pictureOk: true }, now,
-  comments: commentsImpl, fetchImpl: fetchOverride,
+  comments: commentsImpl, fetchImpl: fetchOverride, dmSent,
 } = {}) {
   const db = openDb(':memory:');
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
@@ -78,7 +79,8 @@ export async function start({
   };
   const ig = {
     async usernameOf(c, igsid) { return usernames[igsid]; },
-    async reply(c, igsid, text) { calls.replies.push({ igsid, text }); },
+    // dmSent: what ig.reply resolves to (a value, or a function of the reply's number); undefined by default.
+    async reply(c, igsid, text) { calls.replies.push({ igsid, text }); return typeof dmSent === 'function' ? dmSent(calls.replies.length) : dmSent; },
   };
   const fetchImpl = fetchOverride ?? (async () => new Response(POST_PNG, { headers: { 'content-type': 'image/png' } }));
   const comments = commentsImpl ?? {

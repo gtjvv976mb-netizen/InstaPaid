@@ -160,7 +160,8 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
       that comment and the post it is on, and reply to it with the coin's link."
     - content publish: "@instapaid.official posts an announcement of new coins on its own feed and
       @mentions the creator in the caption so they can claim."
-    Record the flows from Part 5 (steps 16–21) with a tester.
+    Use the words and the screen recording script in **App Review: what to write and what to
+    record** below (step 14b).
 
     **Plainly: until Advanced Access for `instagram_business_manage_comments` is granted, comment
     launches only work for accounts with a role on the app** (step 13). A comment from anyone else
@@ -168,6 +169,97 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
     and Business Verification** of your Business portfolio (company documents; business.facebook.com →
     Settings → Security Center → Start verification). When both are approved, switch the app to
     **Live** (top of the app dashboard): webhooks for the public arrive only in Live mode.
+
+14a. [ ] **The owner page `/admin` (Instagram login, for the App Review recording).**
+    Meta's review of `instagram_business_manage_comments` wants to see "the complete Instagram login
+    process" in the app and a comment created, updated and deleted. That is `https://instapaid.fun/admin`:
+    it signs in with Instagram (Business Login) and lets **only @instapaid.official** in (any other
+    account sees "This page is only for @instapaid.official" and nothing is stored). Signed in, it
+    lists the account's posts and their comments, and can comment, reply, hide / unhide and delete,
+    with the token from that sign-in (sealed in a 1-hour cookie; never logged). It also lists the
+    latest comment-launch requests.
+    a. Meta app → **Instagram** → **API setup with Instagram login** → copy the **Instagram app ID**
+       into Render as **`IG_APP_ID`** (Environment → Add → Save; Render redeploys). Without it,
+       `/admin` says "Owner page not configured".
+    b. Same page → **Set up Instagram business login** (**Business login settings**) → **OAuth
+       redirect URIs** → add exactly `https://instapaid.fun/admin/callback` → **Save**. (A different
+       address, `www.`, or a trailing slash makes Instagram refuse the sign-in with "Invalid redirect_uri".)
+    c. Open `https://instapaid.fun/admin` → **Log in with Instagram** → sign in as @instapaid.official
+       → allow → the page says **Signed in as @instapaid.official**. The Logs say
+       `admin: @instapaid.official signed in`; a refusal from Meta is logged as `admin: <action> → <status> (#code) message`.
+
+14b. **App Review: what to write and what to record.** App → **App Review** → **Permissions and
+    features** → **Request advanced access** for each permission below. Paste the description, upload
+    the recording (English captions on screen: the steps' words below make good captions), and give
+    the reviewer a test login only if Meta asks for one (a tester account, never the owner's password).
+
+    **`instagram_business_manage_comments`** — description:
+    > InstaPaid lets fans launch a fan-made coin for an Instagram creator by commenting
+    > "@instapaid.official make a token for this creator" under the creator's public post. We use
+    > instagram_business_manage_comments to receive the comments that @mention @instapaid.official
+    > (the webhook's comments field), read that comment and the post it is on, and reply under the
+    > comment, as @instapaid.official, with the coin's details and the link where the creator can claim
+    > its fees. The owner of @instapaid.official also moderates the comments on its own posts on our
+    > owner page (instapaid.fun/admin, Instagram Business Login): viewing them, commenting, replying,
+    > hiding / unhiding and deleting. We do not read or store comments that do not mention us, and we
+    > do not comment on anyone else's posts except the one reply to the comment that asked us.
+
+    **`instagram_business_manage_messages`** — description:
+    > Creators prove they own their Instagram account before claiming their coin's fees: our claim page
+    > shows a one-time code, the creator sends it to @instapaid.official by Instagram Direct, and the
+    > bot replies to confirm (or, to a message without a code, with a short explanation of InstaPaid and
+    > the creator's coins). We read only the text of messages sent to @instapaid.official and the
+    > sender's username; we never message anyone who has not messaged us first.
+
+    **`instagram_business_content_publish`** — description:
+    > When a new coin goes live, @instapaid.official publishes one announcement post on its own feed
+    > (a card with the coin's name, ticker and picture) that @mentions the creator, so the creator
+    > learns the coin exists and can claim its fees. We publish only to @instapaid.official's own
+    > account, at most one post per creator per 30 days and 25 a day.
+
+    (`instagram_business_basic` needs only: "Reads @instapaid.official's own profile and posts, to
+    know its account id and list its posts on the owner page.")
+
+    **SCREEN RECORDING SCRIPT** (`instagram_business_manage_comments`; one take, about 3 minutes;
+    the phone shows the Instagram app signed in as @instapaid.official, screen-mirrored or filmed beside
+    the browser; a second phone, or the same one later, signed in as a **tester** account):
+    1. Browser: open `https://instapaid.fun/admin`. Caption: "InstaPaid's owner page. It is only for
+       @instapaid.official."
+    2. Click **Log in with Instagram**. Caption: "Instagram Business Login".
+    3. Instagram's sign-in and consent screen: sign in as @instapaid.official and show the two
+       permissions it asks for (profile and posts; manage comments). Click **Allow**. Caption: "The
+       owner grants instagram_business_basic and instagram_business_manage_comments."
+    4. Back on `/admin`: point at **Signed in as @instapaid.official**. Caption: "Signed in."
+    5. Click one of the posts under **Posts**; its comments open below. Caption: "The account's posts
+       and their comments, read with instagram_business_manage_comments."
+    6. **Create:** type a comment in **Add a comment** ("Thanks for stopping by!") → **Post comment**.
+       It appears in the list. Caption: "Create a comment."
+    7. Phone, Instagram app: open the same post → comments: the new comment is there. Caption: "The
+       same comment in the Instagram app."
+    8. **Update:** Instagram cannot edit a comment, so the page says so and updating is a reply or
+       hiding. Browser: **Reply** under a comment → type → **Post reply**; then **Hide** on a comment
+       (it gets a "Hidden" tag) → **Unhide**. Caption: "Update: reply to a comment, hide and unhide it."
+    9. Phone: show the reply under the comment in the Instagram app (and, while it is hidden, that
+       the hidden comment is gone for others — show it from the tester account). Caption: "The reply
+       and the hidden comment in the Instagram app."
+    10. **Delete:** browser: **Delete** on the comment made in step 6 → **Yes, delete**. It leaves the
+        list. Caption: "Delete a comment."
+    11. Phone: pull to refresh the post's comments: the comment is gone. Caption: "Gone in the
+        Instagram app too."
+    12. The bot's own use: tester account, Instagram app: under a post of a test "creator" account,
+        comment `@instapaid.official make a token for this creator`. Caption: "A fan asks
+        @instapaid.official for a coin in a comment."
+    13. Wait for the reply (under a minute): show @instapaid.official's reply under that comment, with
+        the coin's name and claim link. Caption: "The bot replies under the comment
+        (instagram_business_manage_comments)."
+    14. Browser: reload `/admin` and scroll to **Comment launch requests**: the request is the newest
+        row, "Launched · for @<creator>". Caption: "The request as InstaPaid recorded it."
+    15. Click **Log out**. Caption: "Log out."
+
+    For `instagram_business_manage_messages`, record the claim in Part 5, step 20 (the claim page's
+    code, DMed to the bot from the creator account, the bot's reply, the claim page turning to
+    verified). For `instagram_business_content_publish`, record a coin going live and its announcement
+    appearing on @instapaid.official's feed with the creator @mentioned (Part 5, steps 16–19).
 
 ## Part 5 — The first real test
 

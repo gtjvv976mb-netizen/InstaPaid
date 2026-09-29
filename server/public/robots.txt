@@ -1,5 +1,6 @@
 User-agent: *
 Disallow: /api/
 Disallow: /webhooks/
+Disallow: /admin
 
 Sitemap: https://instapaid.fun/sitemap.xml
