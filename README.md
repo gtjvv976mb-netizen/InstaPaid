@@ -27,7 +27,8 @@ Solana rejects it. After it lands, `/api/launch/confirm` reads the bonding curve
 coin only if its creator really is the vault.
 
 **Or by comment.** Anyone comments `@instapaid.official make a token ...` under a public post. Meta
-sends a `mentions` webhook. The server reads the comment and the post, and launches a coin for the
+sends a `comments` webhook (Instagram Login; `mentions` on the legacy Facebook Login path). The server
+reads the comment and the post, and launches a coin for the
 **post's owner**, paying the launch from its own wallet. The coin is made from the post:
 
 | | Comes from |
@@ -70,12 +71,17 @@ The rules:
 Meta limits what the bot can see:
 - The comment must **@mention** the bot. The plain word "instapaid" sends nothing.
 - Posts on **private** accounts and Stories send nothing.
-- Comment mentions need the *Instagram API with Facebook Login*: a Facebook Page linked to the bot's
-  account. DM verification uses *Instagram Login*. One Meta app can have both.
+- Everything runs on the *Instagram API with Instagram Login* (the bot is a Business or Creator
+  account; no Facebook Page). Meta lets one app use Instagram Login or Facebook Login, not both. The
+  Facebook Login path still works when `IG_USER_ID` and `IG_FB_ACCESS_TOKEN` are both set.
+- With Instagram Login, @mentions arrive in the `comments` field, with nothing that tells them apart
+  from comments on the bot's own posts: a comment counts when it names the bot and has the command,
+  and the bot's own posts and its own replies never launch anything.
 - Links in Instagram comments aren't clickable, so the reply spells them out.
-- The server asks Meta for the post owner's `username` on `mentioned_comment → media`. Meta's
-  reference doesn't list that field there. If Meta leaves it out, the request is skipped
-  (recorded as "post owner unknown"). **Check this first with a real comment.**
+- Reading someone else's post (for its owner's `username`) is not documented for Instagram Login. The
+  server tries `mentioned_comment`, then `mentioned_media`, then `/<media id>` on graph.instagram.com
+  (then Facebook Login, if set up), logging one line per try. If none gives the owner, nothing is
+  launched and nothing is replied. **Check this first with a real comment.**
 
 **The auto-poster.** Coins that go live (by comment or on the website) are posted on
 @instapaid.official's feed, when `AUTO_POST=1` (`src/poster.js`, `src/card.js`). Not every coin:
@@ -208,19 +214,23 @@ local server, set its address in the extension's options.
 1. The app's Instagram account is **@instapaid.official** (`IG_BOT_USERNAME`): people DM codes to it
    and @mention it in comments. Switch it to a **professional** account.
 2. Create a Meta app with the **Instagram API with Instagram Login** product. Add that account, and
-   generate a token with `instagram_business_basic` and `instagram_business_manage_messages`. That is
-   `IG_ACCESS_TOKEN`; the app secret is `IG_APP_SECRET`.
+   generate a token with `instagram_business_basic`, `instagram_business_manage_messages`,
+   `instagram_business_manage_comments` and `instagram_business_content_publish`. That is
+   `IG_ACCESS_TOKEN` (DMs, comment launches and the auto-poster); the app secret is `IG_APP_SECRET`.
+   The bot's Instagram id is read from the token at start. The token lasts 60 days; the server
+   renews it (`src/igtoken.js`, kept sealed in the database): a pasted token once it has been there 24
+   hours, then every 7 days. It warns in the logs daily from 10 days before the end if renewing fails,
+   and at once, then daily, if Meta refuses the token itself (expired or revoked).
 3. Set the webhook callback to `https://<your host>/webhooks/instagram`, with verify token
-   `IG_WEBHOOK_VERIFY_TOKEN`, and subscribe to `messages`.
-4. For comment launches and the auto-poster, add the **Instagram API with Facebook Login**: link
-   @instapaid.official to a Facebook Page, and make a token (a system user's token does not expire)
-   with `instagram_basic`, `instagram_manage_comments`, `instagram_content_publish`,
-   `pages_read_engagement`, `pages_show_list` and `pages_manage_metadata`. That is `IG_FB_ACCESS_TOKEN`;
-   the account's Instagram id is `IG_USER_ID`. Subscribe the webhook to `mentions`. If the two products
-   sign webhooks with different secrets, set the Meta app's secret as `META_APP_SECRET` too.
+   `IG_WEBHOOK_VERIFY_TOKEN`, and subscribe to `messages` and `comments` (the server also subscribes
+   the account at start). If webhooks are signed with the Meta app's own secret, set it as
+   `META_APP_SECRET` too. `COMMENT_LAUNCHES=0` switches comment launches off.
+4. (Legacy, optional) The Instagram API with Facebook Login still works when `IG_USER_ID` and
+   `IG_FB_ACCESS_TOKEN` are both set; it needs a Facebook Page linked to the account.
 5. Using messaging and comments with the public (not only the app's testers) needs Meta's **App
-   Review** and Advanced Access for `instagram_business_manage_messages`, `instagram_manage_comments`
-   and `instagram_content_publish`, and the app in Live mode.
+   Review** and Advanced Access for `instagram_business_manage_messages`,
+   `instagram_business_manage_comments` and `instagram_business_content_publish`, Business
+   Verification, and the app in Live mode.
 
 People who claim can use personal accounts. Only the app's own account must be professional. An IGSID
 is scoped to the app's account, so keep that account: a new one would see new IGSIDs, and vaults that

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { Keypair } from '@solana/web3.js';
 import sharp from 'sharp';
 import { openDb } from '../src/db.js';
-import { createPoster, postCaption, CAPTION_MAX, BACKOFF } from '../src/poster.js';
+import { createPoster, postCaption, CAPTION_MAX, BACKOFF, IG_POSTS_PER_DAY } from '../src/poster.js';
 import { blockCreator } from '../src/blocks.js';
 import { start, mentionHook, tick, launcher } from './helpers.js';
 
@@ -17,8 +17,11 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY_MS = 24 * HOUR;
 
-/** A fake graph.facebook.com: containers, their status, publishing, the feed, the quota. */
-function fakeGraph({ statuses = ['FINISHED'], quota = { usage: 0, total: 100 } } = {}) {
+/**
+ * A fake graph.facebook.com (or, with origin/token, graph.instagram.com with /me): containers, their
+ * status, publishing, the feed, the quota.
+ */
+function fakeGraph({ statuses = ['FINISHED'], quota = { usage: 0, total: 100 }, origin = 'https://graph.facebook.com', token = 'fb' } = {}) {
   const g = { calls: [], containers: new Map(), feed: [], quota, statuses, fail: { create: 0, publish: 0, lost: 0, quota: 0, status: 0 } };
   let n = 0;
   const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
@@ -27,10 +30,11 @@ function fakeGraph({ statuses = ['FINISHED'], quota = { usage: 0, total: 100 } }
     const u = new URL(url);
     const method = init.method ?? 'GET';
     const params = method === 'GET' ? u.searchParams : new URLSearchParams(init.body);
-    assert.equal(u.origin, 'https://graph.facebook.com');
-    assert.equal(params.get('access_token'), 'fb', 'every call carries the Facebook-Login token');
+    assert.equal(u.origin, origin);
+    assert.equal(params.get('access_token'), token, 'every call carries the one token');
     const path = u.pathname.replace(/^\/v23\.0\//, '');
     g.calls.push({ method, path, params: Object.fromEntries([...params].filter(([k]) => k !== 'access_token')) });
+    if (path === 'me' && origin === 'https://graph.instagram.com') return json({ user_id: IG, username: 'instapaid.official' });
     if (path === `${IG}/content_publishing_limit`) {
       if (g.fail.quota-- > 0) return err('quota lookup failed', 500);
       return json({ data: [{ quota_usage: g.quota.usage, config: { quota_total: g.quota.total, quota_duration: 86400 } }] });
@@ -431,6 +435,8 @@ test('in the app: a comment launch and a website launch each queue one post with
     await tick(); await t.drain();
     const comment = t.db.prepare(`select * from token where source = 'comment'`).get();
     assert.equal(t.db.prepare('select status from post_job where mint = ?').get(comment.mint).status, 'queued');
+    // the post was queued, so the reply promises it (in the future tense: it has not gone out yet)
+    assert.ok(t.calls.mentionReplies[0].message.includes("📣 We'll post it on our feed and tag @nat.geo."));
     const card = await sharp(join(t.postsDir, `${comment.mint}.jpg`)).metadata();
     assert.deepEqual([card.format, card.width, card.height], ['jpeg', 1080, 1350]);
 
@@ -647,5 +653,78 @@ test('POST_WEB_LAUNCHES=0: website launches are never posted (nor checked); comm
     assert.equal(ctx.reviews.length, 0);
     assert.deepEqual(readdirSync(join(ctx.postsDir, 'src')), [], 'its kept picture is gone');
     assert.equal(await ctx.poster.enqueue(ctx.coin('c1', { source: 'comment' })), true);
+  } finally { ctx.done(); }
+});
+
+// Instagram Login (no Facebook Page): the Instagram token on graph.instagram.com, the bot's IG_ID
+// read from /me first, then the same publish sequence, pacing and restart safety.
+const IG_LOGIN = { igUserId: '', fbAccessToken: '', ig: { accessToken: 'IGT', graphVersion: 'v23.0' } };
+const igLogin = () => ({ ...IG_LOGIN, ig: { ...IG_LOGIN.ig } });
+
+test('Instagram Login: publishes via graph.instagram.com with the Instagram token, IG_ID from /me', async () => {
+  const graph = fakeGraph({ origin: 'https://graph.instagram.com', token: 'IGT', statuses: ['IN_PROGRESS', 'FINISHED'] });
+  const ctx = setup({ config: igLogin(), graph });
+  try {
+    assert.equal(ctx.poster.off(), null);
+    const mint = ctx.coin('nat.geo');
+    assert.equal(await ctx.poster.enqueue(mint), true);
+    assert.equal(await ctx.poster.tick(), 'posted');
+    assert.deepEqual(graph.calls.map((c) => `${c.method} ${c.path}`), [
+      'GET me', `GET ${IG}/content_publishing_limit`, `POST ${IG}/media`, 'GET c1', 'GET c1', `POST ${IG}/media_publish`, 'GET media1',
+    ]);
+    assert.deepEqual(graph.calls[0].params, { fields: 'user_id,username' });
+    assert.equal(graph.calls[2].params.image_url, `https://instapaid.test/posts/${mint}.jpg`);
+    assert.equal(graph.calls[2].params.caption, postCaption(ctx.db.prepare('select * from token where mint = ?').get(mint), 'https://instapaid.test'));
+    assert.equal(ctx.job(mint).status, 'posted');
+    assert.equal(ctx.job(mint).permalink, 'https://www.instagram.com/p/POST1/');
+
+    // a second coin: /me is not asked again; the gap and the restart-safety rules are the same
+    const next = ctx.coin('alice');
+    await ctx.poster.enqueue(next);
+    assert.equal(await ctx.poster.tick(), 'gap');
+    ctx.advance(21 * MIN);
+    ctx.restart();
+    assert.equal(await ctx.poster.tick(), 'posted');
+    assert.equal(graph.calls.filter((c) => c.path === 'me').length, 1, 'asked once and kept for the process');
+    assert.equal(graph.feed.length, 2);
+  } finally { ctx.done(); }
+});
+
+test('Instagram Login: /me refused → the post waits and counts as a failure; the token alone turns the poster on', async () => {
+  const graph = fakeGraph({ origin: 'https://graph.instagram.com', token: 'IGT' });
+  const inner = graph.fetch;
+  let meDown = true;
+  graph.fetch = async (url, init) => (meDown && new URL(url).pathname.endsWith('/me')
+    ? new Response('{"error":{"message":"Invalid OAuth access token","code":190}}', { status: 400 })
+    : inner(url, init));
+  const ctx = setup({ config: igLogin(), graph });
+  try {
+    const mint = ctx.coin();
+    await ctx.poster.enqueue(mint);
+    assert.equal(await ctx.poster.tick(), 'error');
+    assert.match(ctx.logs.at(-1), /poster: publishing limit: the bot's IG_ID is unknown: GET \/me → 400 \(#190\) Invalid OAuth access token/);
+    assert.equal(ctx.job(mint).status, 'queued');
+    meDown = false;
+    assert.equal(await ctx.poster.tick(), 'posted');
+  } finally { ctx.done(); }
+  for (const config of [{ ...igLogin(), ig: { accessToken: '' } }, { igUserId: '1', fbAccessToken: '' }]) {
+    const off = setup({ config });
+    try { assert.match(off.poster.off(), /IG_ACCESS_TOKEN is required/); } finally { off.done(); }
+  }
+});
+
+test('never more than 50 posts in 24 hours, whatever POST_MAX_PER_DAY says', async () => {
+  assert.equal(IG_POSTS_PER_DAY, 50);
+  const ctx = setup({ config: { ...igLogin(), postMaxPerDay: 100, postMinGapMin: 0 }, graph: fakeGraph({ origin: 'https://graph.instagram.com', token: 'IGT' }) });
+  try {
+    for (let i = 0; i < 50; i++) {
+      const m = ctx.coin(`u${i}`);
+      ctx.db.prepare(`insert into post_job (mint, status, created_at, next_attempt_at, posted_at) values (?, 'posted', ?, ?, ?)`).run(m, ctx.clock.t, ctx.clock.t, ctx.clock.t - HOUR);
+    }
+    await ctx.poster.enqueue(ctx.coin('late'));
+    assert.equal(await ctx.poster.tick(), 'daily-cap');
+    ctx.poster.start();
+    assert.match(ctx.logs.find((l) => l.startsWith('auto-poster on')), /^auto-poster on: at most 50 a day, 0 min apart, via Instagram Login \(graph\.instagram\.com\)$/);
+    await ctx.poster.stop();
   } finally { ctx.done(); }
 });

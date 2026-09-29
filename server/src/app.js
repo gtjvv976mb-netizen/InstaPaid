@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -8,9 +8,10 @@ import { PublicKey } from '@solana/web3.js';
 import { normalizeHandle } from './handles.js';
 import { metaSignatureOk, newCode, readToken, signToken, safeEqual } from './crypto.js';
 import { claimableAccounts, bindAccount } from './identity.js';
-import { codeMessages, textMessages } from './instagram.js';
+import { codeMessages, textMessages, describeEntry } from './instagram.js';
 import {
   mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink, welcomeDm,
+  commentLaunchesOff, skipMention,
 } from './comments.js';
 import { loadImage, tokenDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
@@ -56,6 +57,12 @@ export function createApp(deps) {
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'no-referrer');
+    // Never framed (clickjacking on the claim and launch pages), no camera, microphone or location.
+    res.set('X-Frame-Options', 'DENY');
+    res.set('Content-Security-Policy', "frame-ancestors 'none'");
+    res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    // Only over HTTPS (behind the host's proxy that needs TRUST_PROXY=1): a plain-HTTP answer must not pin it.
+    if (req.secure) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   });
 
@@ -82,7 +89,12 @@ export function createApp(deps) {
     const entries = Array.isArray(body?.entry) ? body.entry : [];
     const messaging = entries.reduce((n, e) => n + (e.messaging?.length ?? 0), 0);
     const fields = [...new Set(entries.flatMap((e) => (e.changes ?? []).map((c) => c.field)))];
-    console.log(`webhook: object=${body?.object} entries=${entries.length} messaging=${messaging} changes=[${fields.join(',')}] codes=${codes.length}`);
+    const entryFields = [...new Set(entries.map((e) => e?.field).filter(Boolean))];
+    console.log(`webhook: object=${body?.object} entries=${entries.length} messaging=${messaging} changes=[${fields.join(',')}]`
+      + `${entryFields.length ? ` fields=[${entryFields.join(',')}]` : ''} codes=${codes.length}`);
+    // The raw shape of each entry (keys, field names, text lengths; never a text or a token), so the
+    // first live test shows exactly what Meta sends.
+    entries.slice(0, 20).forEach((e, i) => console.log(`webhook: entry ${i + 1}/${entries.length} ${describeEntry(e)}`));
     for (const { igsid, code } of codes) {
       try { await verifyCode(igsid, code); } catch (e) { console.error('verify failed', e.message); }
     }
@@ -90,8 +102,16 @@ export function createApp(deps) {
     for (const { igsid } of textMessages(body).filter((m) => !m.code)) {
       try { await welcome(igsid); } catch (e) { console.error('welcome failed', e.message); }
     }
-    if (cfg.igUserId) {
-      for (const ev of mentionEvents(body)) enqueue(() => handleMention(ev));
+    const events = mentionEvents(body, (why) => console.log(`mention: comment event ignored: ${why}`));
+    const off = events.length ? commentLaunchesOff(cfg) : null;
+    if (off) console.log(`mention: ${events.length} comment event${events.length === 1 ? '' : 's'} not handled: comment launches are off (${off})`);
+    else {
+      for (const ev of events) {
+        // The bot's own comments (its replies come back), Stories, and comments that do not ask.
+        const why = skipMention(ev, cfg.ig.botUsername, [cfg.ig.userId, cfg.igUserId]);
+        if (why) { console.log(`mention: comment ${ev.commentId} (${ev.field}) ignored: ${why}`); continue; }
+        enqueue(() => handleMention(ev));
+      }
     }
   });
 
@@ -104,7 +124,8 @@ export function createApp(deps) {
   };
   app.locals.drain = () => queue;
 
-  async function handleMention({ commentId, mediaId }) {
+  async function handleMention(ev) {
+    const { commentId, mediaId } = ev;
     const fresh = db.prepare(
       `insert into comment_request (comment_id, media_id, status, created_at) values (?, ?, 'working', ?)
        on conflict(comment_id) do nothing`
@@ -115,8 +136,12 @@ export function createApp(deps) {
     ).run(status, extra.username ?? null, extra.mint ?? null, extra.note ?? null, commentId);
     const reply = (message) => deps.comments.replyToMention(cfg, { commentId, mediaId }, message, deps.fetchImpl);
 
+    // A comment on one of our own posts (the poster's) is not a request; nothing to read.
+    if (db.prepare('select 1 from post_job where media_id = ?').get(mediaId)) return done('skipped', { note: 'our own post' });
+
     let mention;
-    try { mention = await deps.comments.readMention(cfg, { commentId }, deps.fetchImpl); }
+    // No launch and no reply when the post cannot be read: readMention logs each attempt.
+    try { mention = await deps.comments.readMention(cfg, ev, deps.fetchImpl); }
     catch (e) { return done('failed', { note: e.message }); }
     if (!isLaunchRequest(mention.text, cfg.ig.botUsername)) return done('skipped', { note: 'not a launch request' });
 
@@ -153,6 +178,13 @@ export function createApp(deps) {
       return done('existing', { username, mint: existing.mint });
     }
 
+    // No coin the fan would never hear about: the reply needs the bot's IG_ID (Instagram Login).
+    const noReply = await deps.comments.replyBlocked(cfg, deps.fetchImpl);
+    if (noReply) {
+      console.error(`mention: comment ${commentId} not launched: no reply could be sent (${noReply})`);
+      return done('failed', { username, note: 'bot IG_ID unknown' });
+    }
+
     // Pending launches count against the budget too (their rows are there).
     const today = db.prepare(
       `select count(*) n from token where source = 'comment' and created_at > ?`
@@ -163,7 +195,7 @@ export function createApp(deps) {
       return done('failed', { username, note: today >= cfg.maxServerLaunchesPerDay ? 'daily budget' : 'fee payer low' });
     }
 
-    let launched, sent = null, image;
+    let launched, sent = null, image, photo = false;
     const permalink = instagramPermalink(mention.media.permalink);
     try {
       // Everything about the coin comes from the post: its picture, its caption (for the name and
@@ -173,6 +205,7 @@ export function createApp(deps) {
       // A carousel or a post Meta sends no picture for gets the default coin image.
       const postImage = imageUrl ? await loadImage({ imageUrl }, deps.fetchImpl).catch(() => null) : null;
       image = postImage ?? DEFAULT_IMAGE();
+      photo = !!postImage; // the reply says the coin wears the post's photo only when it does
       const coin = await deps.nameCoin({
         username, caption: m.caption, image: postImage ?? undefined, lore: commentLore(mention.text, cfg.ig.botUsername),
       });
@@ -214,15 +247,16 @@ export function createApp(deps) {
         return done('failed', { username, note: String(e.message).slice(0, 300) });
       }
     }
-    // The coin is live: tell the fan under their comment, then @instapaid.official posts about it
-    // (when the poster is on) and mentions the creator.
+    // The coin is live: queue @instapaid.official's post about it (when the poster is on and the
+    // creator may be posted about), then tell the fan under their comment; the reply promises the
+    // post only when one was queued.
+    done('launched', { username, mint: launched.mint });
+    const queued = await poster.enqueue(launched.mint, launched.image).catch((e) => { console.error('post enqueue failed', e); return false; });
     await reply(launchedReply({
       username, name: launched.name, symbol: launched.symbol, mint: launched.mint, lore: launched.lore,
-      postPermalink: permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+      postPermalink: permalink, photo, posted: queued === true, publicUrl: cfg.publicUrl,
     }))
       .catch((e) => console.error('reply failed', e));
-    done('launched', { username, mint: launched.mint });
-    await poster.enqueue(launched.mint, launched.image).catch((e) => console.error('post enqueue failed', e));
   }
 
   const UNCONFIRMED = 'sent, not confirmed yet';
@@ -254,16 +288,18 @@ export function createApp(deps) {
     if (r.changes && announce) {
       // The fan who asked was told it was on its way; now tell them it is live.
       const asked = db.prepare(`select comment_id, media_id from comment_request where mint = ? and note = ?`).get(t.mint, UNCONFIRMED);
+      // Queued first, so the reply promises a post only when there will be one. Which picture the
+      // coin wears is not recorded, so this reply does not claim the post's photo.
+      const queued = await poster.enqueue(t.mint).catch((e) => { console.error('post enqueue failed', e); return false; });
       if (asked) {
         db.prepare(`update comment_request set note = null where comment_id = ?`).run(asked.comment_id);
         await deps.comments.replyToMention(cfg, { commentId: asked.comment_id, mediaId: asked.media_id },
           launchedReply({
             username: t.username, name: t.name, symbol: t.symbol, mint: t.mint, lore: t.lore,
-            postPermalink: t.post_permalink, posted: poster.enabled(), publicUrl: cfg.publicUrl,
+            postPermalink: t.post_permalink, posted: queued === true, publicUrl: cfg.publicUrl,
           }), deps.fetchImpl)
           .catch((e) => console.error('reply failed', e));
       }
-      await poster.enqueue(t.mint).catch((e) => console.error('post enqueue failed', e));
     }
     return 'live';
   }
@@ -309,7 +345,7 @@ export function createApp(deps) {
     ).run(igsid, username, v.id);
     if (r.changes) {
       console.log(`verify: verified @${username}`);
-      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and hit Claim. We never ask for a password or seed phrase.`);
+      await ig.reply(cfg.ig, igsid, `✅ Verified as @${username}! Head back to the claim page, paste the Solana wallet you want the fees in, and tap Send my fees. We never ask for a password or seed phrase.`);
     }
   }
 
@@ -485,15 +521,39 @@ export function createApp(deps) {
   });
 
   // Pages
+  const pub = join(here, '..', 'public');
+  const noCacheHtml = (res, file) => { if (file.endsWith('.html')) res.set('Cache-Control', 'no-cache'); };
+  const notFound = (req, res) => {
+    if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found.' });
+    res.status(404).set('Cache-Control', 'no-cache').sendFile(join(pub, '404.html'));
+  };
+  // A real page with a trailing slash (/launch/, /u/name/) → the page (301). Only known pages, so
+  // "//other.site/" can never become a redirect to another host.
+  const pages = new Set(readdirSync(pub).filter((f) => f.endsWith('.html') && f !== '404.html' && f !== 'index.html' && f !== 'account.html')
+    .map((f) => '/' + f.slice(0, -5)));
+  app.use((req, res, next) => {
+    if ((req.method !== 'GET' && req.method !== 'HEAD') || req.path === '/' || !req.path.endsWith('/')) return next();
+    const bare = req.path.replace(/\/+$/, '');
+    if (!pages.has(bare) && !/^\/u\/[^/]+$/.test(bare)) return next();
+    const q = req.originalUrl.indexOf('?');
+    res.redirect(301, bare + (q >= 0 ? req.originalUrl.slice(q) : ''));
+  });
+  app.get(['/404', '/404.html'], notFound);
+
   const web3Iife = require.resolve('@solana/web3.js/lib/index.iife.min.js');
-  app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife));
-  app.use(express.static(join(here, '..', 'public'), { extensions: ['html'] }));
-  app.get('/u/:username', (req, res) => res.sendFile(join(here, '..', 'public', 'account.html')));
+  app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife, { maxAge: '1d' }));
+  // Media and vendor files keep their names when they change: a day for media; the 3D engine is
+  // asked for with ?v=<its hash> (mascot.js), so it can be kept for 30 days. HTML is always revalidated.
+  app.use('/media', express.static(join(pub, 'media'), { maxAge: '1d', fallthrough: true }));
+  app.use('/vendor', express.static(join(pub, 'vendor'), { maxAge: '30d', fallthrough: true }));
+  app.use(express.static(pub, { extensions: ['html'], setHeaders: noCacheHtml }));
+  app.get('/u/:username', (req, res) => res.set('Cache-Control', 'no-cache').sendFile(join(pub, 'account.html')));
   // The "See a creator's page" form without JavaScript: /u?u=name → /u/name.
   app.get('/u', (req, res) => {
     const u = normalizeHandle(String(req.query.u ?? ''));
     res.redirect(302, u ? `/u/${encodeURIComponent(u)}` : '/#creators');
   });
+  app.use(notFound);
 
   return app;
 }
