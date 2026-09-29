@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Owner — InstaPaid</title>
+<meta name="theme-color" content="#1a1114">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/admin.css">
+<script type="module" src="/admin.js"></script>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap top-bar">
+    <a class="brand" href="/" aria-label="instapaid, home">
+      <img src="/mark.svg" alt="" width="38" height="38">
+      <span class="wordmark" aria-hidden="true"></span>
+    </a>
+    <nav class="nav" aria-label="Owner">
+      <span class="pill adm-who" id="who" hidden></span>
+      <button class="btn btn-ghost btn-sm" id="logout" type="button" hidden>Log out</button>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="page">
+  <div class="wrap adm-wrap">
+    <div class="page-head">
+      <img src="/mark.svg" alt="" width="46" height="46">
+      <div>
+        <span class="handle">Owner page</span>
+        <h1 class="page-title">Comments on @instapaid.official</h1>
+      </div>
+    </div>
+
+    <p class="note" id="status" role="status" hidden></p>
+
+    <section class="card adm-signin" id="signin" hidden aria-labelledby="signin-h">
+      <h2 id="signin-h">Log in with Instagram</h2>
+      <p class="sub">This page is only for <b data-bot>@instapaid.official</b>. Log in to Instagram as that account to see its posts and moderate their comments.</p>
+      <a class="btn btn-primary" href="/admin/login" id="login">
+        <svg aria-hidden="true"><use href="/icons.svg#lock"/></svg>
+        Log in with Instagram
+      </a>
+      <p class="fine adm-scopes">Instagram asks you to allow two things: reading the account's profile and posts, and managing their comments. The sign-in lasts one hour; nothing is posted until you press a button here.</p>
+    </section>
+
+    <div id="app" hidden>
+      <p class="adm-signed"><span class="status claimed" id="signed-as">Signed in</span></p>
+
+      <section class="card" aria-labelledby="posts-h">
+        <h2 id="posts-h">Posts</h2>
+        <p class="sub">The account's latest posts. Pick one to see and manage its comments.</p>
+        <ul class="adm-posts" id="posts" aria-busy="true"></ul>
+      </section>
+
+      <section class="card adm-post" id="post" hidden aria-labelledby="post-h" tabindex="-1">
+        <div class="adm-post-head">
+          <img id="post-pic" alt="" width="96" height="96" hidden>
+          <div class="adm-post-txt">
+            <h2 id="post-h">Selected post</h2>
+            <p class="adm-caption" id="post-caption"></p>
+            <p class="fine" id="post-meta"></p>
+            <a class="adm-link" id="post-link" href="#" rel="noopener" target="_blank" hidden>Open on Instagram <svg aria-hidden="true"><use href="/icons.svg#out"/></svg></a>
+          </div>
+        </div>
+
+        <form class="adm-form" id="new-comment" novalidate>
+          <label for="new-text">Add a comment <span class="hint">(create)</span></label>
+          <textarea id="new-text" maxlength="300" placeholder="Write a comment as @instapaid.official" required></textarea>
+          <div class="adm-form-row">
+            <span class="hint" id="new-count" aria-live="polite">0 / 300</span>
+            <button class="btn btn-primary btn-sm" type="submit">Post comment</button>
+          </div>
+        </form>
+
+        <div class="note warn adm-edit-note">Instagram has no way to edit a comment. To update one here, reply to it or hide it. A hidden comment stays visible to the person who wrote it and to you.</div>
+
+        <p class="note" id="post-status" role="status" hidden></p>
+        <h3 class="adm-h3">Comments <span class="hint" id="comments-count"></span></h3>
+        <ul class="adm-comments" id="comments"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="req-h">
+        <h2 id="req-h">Comment launch requests</h2>
+        <p class="sub">The latest comments asking <b data-bot>@instapaid.official</b> for a coin, and what the server did with each. Read-only.</p>
+        <ul class="adm-reqs" id="requests"></ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

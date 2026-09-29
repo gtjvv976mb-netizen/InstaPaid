@@ -52,6 +52,7 @@ export async function reply(cfg, igsid, text, fetchImpl = fetch) {
     body: JSON.stringify({ recipient: { id: igsid }, message: { text } }),
   }).catch((e) => { console.warn('dm reply: request failed', e.message); return null; });
   if (r && !r.ok) console.warn(`dm reply: Instagram said ${r.status}: ${await metaError(r)}`);
+  return Boolean(r?.ok);
 }
 
 // Meta's error message only (no tokens are ever in it), for the logs.
@@ -70,15 +71,15 @@ export function describeError(j) {
 
 /**
  * One Graph call that never throws: { ok, status, json, error }. `status` is the HTTP status, or
- * 'network' when no answer came. The token goes in the query (GET) or the form body (POST) and is
- * never in `error`.
+ * 'network' when no answer came. The token goes in the query (GET, DELETE) or the form body (POST)
+ * and is never in `error`.
  */
 export async function graphCall(fetchImpl, url, token, { method = 'GET', params = {} } = {}) {
   const q = new URLSearchParams({ ...params, access_token: token });
   let r;
   try {
-    r = method === 'GET'
-      ? await fetchImpl(`${url}?${q}`, { signal: AbortSignal.timeout(30_000) })
+    r = method === 'GET' || method === 'DELETE'
+      ? await fetchImpl(`${url}?${q}`, { ...(method === 'DELETE' ? { method } : {}), signal: AbortSignal.timeout(30_000) })
       : await fetchImpl(url, {
         method, headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: q.toString(),
         signal: AbortSignal.timeout(30_000),

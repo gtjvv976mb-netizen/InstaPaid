@@ -26,6 +26,11 @@ export const config = {
     appSecret: env('IG_APP_SECRET'),
     verifyToken: env('IG_WEBHOOK_VERIFY_TOKEN'),
     graphVersion: env('IG_GRAPH_VERSION', 'v23.0'),
+    // Optional: the Instagram app ID (Meta app → Instagram → API setup with Instagram login). Turns on
+    // the owner's page /admin (Instagram Business Login); unset, /admin says it is not configured.
+    appId: env('IG_APP_ID').trim(),
+    // Only for staging: a stand-in for https://api.instagram.com (the /admin sign-in's code exchange).
+    oauthBaseUrl: (env('IG_OAUTH_BASE_URL').trim() || 'https://api.instagram.com').replace(/\/+$/, ''),
     // Only for staging: a stand-in for graph.instagram.com (DMs, comment launches, the poster).
     // An empty IG_GRAPH_BASE_URL= (as .env.example once had it) counts as unset.
     graphBaseUrl: (env('IG_GRAPH_BASE_URL').trim() || 'https://graph.instagram.com').replace(/\/+$/, ''),
@@ -86,6 +91,9 @@ export function assertConfig(c = config) {
   }
   if (c.ig?.graphBaseUrl !== undefined && !graphBaseOk(c.ig.graphBaseUrl)) {
     problems.push('IG_GRAPH_BASE_URL must be an https address (or http on localhost); leave it unset for graph.instagram.com');
+  }
+  if (c.ig?.oauthBaseUrl !== undefined && !graphBaseOk(c.ig.oauthBaseUrl)) {
+    problems.push('IG_OAUTH_BASE_URL must be an https address (or http on localhost); leave it unset for api.instagram.com');
   }
   for (const k of ['postMaxPerDay', 'postMinGapMin', 'postMaxAgeH', 'postCreatorGapDays']) {
     if (c[k] !== undefined && !(Number.isFinite(c[k]) && c[k] >= 0)) problems.push(`${k.replace(/[A-Z]/g, (m) => '_' + m).toUpperCase()} must be a number ≥ 0`);
