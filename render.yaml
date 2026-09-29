@@ -40,7 +40,7 @@ services:
       - key: IG_BOT_USERNAME
         value: instapaid.official
       - key: IG_ACCESS_TOKEN
-        sync: false          # Instagram Login token: DM verification
+        sync: false          # Instagram Login token: DM codes, comment launches, replies and the auto-poster
       - key: IG_APP_SECRET
         sync: false
       - key: IG_WEBHOOK_VERIFY_TOKEN
@@ -49,10 +49,16 @@ services:
         sync: false          # optional: the Meta app's secret, if webhooks are signed with it rather than IG_APP_SECRET
       - key: IG_GRAPH_VERSION
         value: v23.0
+      # Comment launches ("@instapaid.official make a token …") run on IG_ACCESS_TOKEN. "0" switches
+      # them off without removing the token.
+      - key: COMMENT_LAUNCHES
+        value: "1"
+      # Optional, legacy: the Facebook Login path (needs a Facebook Page linked to the bot). Used only
+      # when BOTH are set; leave them empty on Instagram Login. The bot's IG id is read from the token.
       - key: IG_USER_ID
-        sync: false          # the bot's Instagram professional account id: comment launches and the poster
+        sync: false          # optional/legacy: only with IG_FB_ACCESS_TOKEN
       - key: IG_FB_ACCESS_TOKEN
-        sync: false          # Facebook Login token (incl. instagram_content_publish)
+        sync: false          # optional/legacy: a Facebook Login token (incl. instagram_content_publish)
       - key: FB_GRAPH_VERSION
         value: v23.0
       - key: ANTHROPIC_API_KEY

@@ -26,13 +26,20 @@ export const config = {
     appSecret: env('IG_APP_SECRET'),
     verifyToken: env('IG_WEBHOOK_VERIFY_TOKEN'),
     graphVersion: env('IG_GRAPH_VERSION', 'v23.0'),
+    // Only for staging: a stand-in for graph.instagram.com (DMs, comment launches, the poster).
+    // An empty IG_GRAPH_BASE_URL= (as .env.example once had it) counts as unset.
+    graphBaseUrl: (env('IG_GRAPH_BASE_URL').trim() || 'https://graph.instagram.com').replace(/\/+$/, ''),
   },
-  // Comment launches ("@bot make a token for this creator"): the Instagram API with Facebook Login.
+  // Comment launches ("@bot make a token for this creator") run on the Instagram token (Instagram
+  // Login) whenever it is set; COMMENT_LAUNCHES=0 switches them off without removing it.
+  commentLaunches: env('COMMENT_LAUNCHES', '1') !== '0',
+  // Optional, legacy: the Instagram API with Facebook Login instead (a Facebook Page linked to the
+  // bot). Used only when both are set.
   igUserId: env('IG_USER_ID'),
   fbAccessToken: env('IG_FB_ACCESS_TOKEN'),
   fbGraphVersion: env('FB_GRAPH_VERSION', 'v23.0'),
-  // Only for staging: a stand-in for graph.facebook.com (comment launches and the poster use it).
-  graphBaseUrl: env('GRAPH_BASE_URL', 'https://graph.facebook.com').replace(/\/+$/, ''),
+  // Only for staging: a stand-in for graph.facebook.com (the Facebook Login path).
+  graphBaseUrl: (env('GRAPH_BASE_URL').trim() || 'https://graph.facebook.com').replace(/\/+$/, ''),
   // Optional: the Meta app's secret (App settings → Basic) when it differs from IG_APP_SECRET.
   // Webhooks signed with either are accepted.
   metaAppSecret: env('META_APP_SECRET'),
@@ -72,12 +79,26 @@ export function assertConfig(c = config) {
   if (!c.ig.appSecret) problems.push('IG_APP_SECRET is required (webhook signatures)');
   if (!c.ig.accessToken) problems.push('IG_ACCESS_TOKEN is required (reading who sent a code)');
   if (!c.ig.verifyToken) problems.push('IG_WEBHOOK_VERIFY_TOKEN is required');
-  if (c.igUserId && !c.fbAccessToken) problems.push('IG_FB_ACCESS_TOKEN is required when IG_USER_ID is set (comment launches)');
+  // IG_USER_ID and IG_FB_ACCESS_TOKEN are optional (the Facebook Login path, used only when both
+  // are set): comment launches and the poster run on IG_ACCESS_TOKEN.
   if (c.graphBaseUrl !== undefined && !graphBaseOk(c.graphBaseUrl)) {
     problems.push('GRAPH_BASE_URL must be an https address (or http on localhost); leave it unset for graph.facebook.com');
+  }
+  if (c.ig?.graphBaseUrl !== undefined && !graphBaseOk(c.ig.graphBaseUrl)) {
+    problems.push('IG_GRAPH_BASE_URL must be an https address (or http on localhost); leave it unset for graph.instagram.com');
   }
   for (const k of ['postMaxPerDay', 'postMinGapMin', 'postMaxAgeH', 'postCreatorGapDays']) {
     if (c[k] !== undefined && !(Number.isFinite(c[k]) && c[k] >= 0)) problems.push(`${k.replace(/[A-Z]/g, (m) => '_' + m).toUpperCase()} must be a number ≥ 0`);
   }
   if (problems.length) throw new Error('Unsafe configuration:\n - ' + problems.join('\n - '));
+}
+
+/** Settings that are allowed but probably not meant, for the start-up log. */
+export function configNotes(c = config) {
+  const notes = [];
+  if (!!c.igUserId !== !!c.fbAccessToken) {
+    notes.push(`${c.igUserId ? 'IG_USER_ID' : 'IG_FB_ACCESS_TOKEN'} is set without ${c.igUserId ? 'IG_FB_ACCESS_TOKEN' : 'IG_USER_ID'}: `
+      + 'the Facebook Login path is off, and Instagram Login (IG_ACCESS_TOKEN) is used');
+  }
+  return notes;
 }
