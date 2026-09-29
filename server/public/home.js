@@ -194,9 +194,9 @@ function phone3d(scene) {
   // hinge cover down its left edge) shows beside the outer display, as the phone is usually photographed.
   const pose = () => {
     const small = compact.matches, shut = foldTo === 1;
-    restY = shut ? (small ? 18 : 28) : (small ? -10 : -24); restX = small ? 4 : 7;
+    restY = shut ? (small ? 18 : 28) : (small ? -10 : -16); restX = small ? 4 : 6;
     limY = small ? 34 : 40; limX = small ? 15 : 22; idleScale = small ? 0.6 : 1;
-    rz = small ? 90 : 0; // open, held in portrait on a narrow stage; it eases upright as it closes (render)
+    rz = 90; // open, it is held upright (a quarter turn from the way it is built); it eases back as it closes (render)
   };
   pose();
   let ry = 0, rx = 0, vy = 0, vx = 0;       // the body's own angle and speed (deg, deg/s)
@@ -296,8 +296,9 @@ function phone3d(scene) {
     const Y = ry + hovY + a * 3.4 * Math.sin(s * 0.55);
     const X = rx + hovX + a * 1.8 * Math.sin(s * 0.8 + 1.3);
     const lift = liftAmp * idleScale * 7 * (0.5 + 0.5 * Math.sin(s * 1.05));
-    // A narrow stage holds the open phone in portrait (halves stacked) and the closed one upright: it turns
-    // upright over the last part of closing (and back over the first part of opening), so half-open it stays a tent.
+    // The open phone is held upright (halves stacked, the fold across the middle) and so is the closed one: closing,
+    // it turns its quarter over the last part of the fold; opening, over the first part, and then the top half
+    // tilts back into the flat.
     const up = Math.min(1, Math.max(0, (fold - 0.55) / 0.4)), rzNow = rz * (1 - up * up * (3 - 2 * up));
     const key = `${Y.toFixed(2)} ${X.toFixed(2)} ${lift.toFixed(2)} ${fold.toFixed(4)} ${rzNow.toFixed(2)}`;
     if (key === drawn) return;

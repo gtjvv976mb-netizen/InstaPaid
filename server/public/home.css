@@ -84,23 +84,28 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .hero .mascot-slot { grid-column: 1; justify-self: start; width: 300px; height: 300px; margin: -32px 0 -16px; }
 
 /* ---------- the stage: a folding phone, a comment, our reply ---------- */
-.hero-stage { position: relative; container-type: inline-size; padding-top: 150px; min-width: 0; justify-self: end; width: 100%; max-width: 540px; }
+/* Wide, it stands in the right column beside both the words and the mascot (so the upright phone adds no height). */
+.hero-stage { position: relative; container-type: inline-size; grid-column: 2; grid-row: 1 / span 2; align-self: start; padding-top: 58px; min-width: 0; justify-self: end; width: 100%; max-width: 540px; }
 
 /* ---------- the phone: a book-style foldable in CSS 3D ----------
    The device is drawn to its published measurements, in millimetres: 1em = 1mm on .duo (its font-size is --u, the
-   scale, set from the stage's width). Open it is 164.6 × 117.8 × 5.2 mm, landscape; closed 84.1 × 117.8 × 11.3 mm,
-   a passport. Two halves (.duo-half, 82.3 mm each) stand on a hinge at the centre: the right half holds still and
-   carries the camera plateau on its back; the left half swings on the hinge (rotateY of --fold × 180°, written by
-   home.js) and carries the outer display on its back, so closed it faces you, 0.9 mm clear of the right half.
-   The hinge cover (.duo-hinge, polished titanium) turns at half the angle: open it is a narrow band down the back,
-   closed the spine column along the left edge. The rails (mirror-polished titanium, .p3-rim) and the hinge's
-   facets are built and lit by home.js as the phone turns. Each screen's words are live HTML on a pane (.scr).
-   Without JS it is the open phone, flat. Below 980px the open phone is held in portrait (--rz: 90deg, which
-   home.js eases back to 0 as it closes, so the closed phone stands upright): the halves stack, and each inner
-   screen's content is counter-rotated (.scr-in) so it reads upright. */
+   scale, set from the stage's width). It is built as it lies open on a table, 164.6 × 117.8 × 5.2 mm with the hinge
+   down the middle; closed it is 84.1 × 117.8 × 11.3 mm, a passport. Two halves (.duo-half, 82.3 mm each) stand on
+   the hinge: the right half holds still and carries the camera plateau on its back; the left half swings on the
+   hinge (rotateY of --fold × 180°, written by home.js) and carries the outer display on its back, so closed it
+   faces you, 0.9 mm clear of the right half. The hinge cover (.duo-hinge, polished titanium) turns at half the
+   angle: open it is a narrow band down the back, closed the spine column along the left edge. The rails
+   (mirror-polished titanium, .p3-rim) and the hinge's facets are built and lit by home.js as the phone turns.
+   Open, it is always held upright, as the maker photographs it: --rz turns it a quarter (home.js eases that back to
+   0 as it closes, so the closed phone stands upright too), the fold runs across the middle, the left half is the
+   top half. The inner display is then the outer display's shape, only larger: 111.0 × 157.8 mm (0.703) against
+   78.7 × 112.6 mm (0.699). Its bezel is an even 3.4 mm with all four corners rounded alike and no camera hole
+   (its camera is under the display); the outer display keeps the hole-punch, top right. Each screen's words are
+   live HTML (.scr-in), counter-turned so they read upright. Without JS it is the open phone, upright and flat. */
 .p3 {
-  --u: min(3.16px, calc((100cqw - 8px) / 164.6)); /* px per mm */
-  --ph: 117.8; --rz: 0deg;
+  --u: min(3.2px, calc(100cqw / 117.8)); /* px per mm: the upright open phone fills the stage's width, at most 3.2 */
+  --ph: 164.6; --rz: 90deg;
+  --bz: 3.4em; /* the inner display's bezel, even all round */
   position: relative; width: 100%; height: calc(var(--u) * var(--ph)); margin: 0;
   perspective: 1300px; perspective-origin: 50% 45%;
   border-radius: 30px;
@@ -162,19 +167,30 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 /* A lit screen at night: a warm cream Instagram post, with its own darker words. */
 .phone-screen {
   --s-ink: #2a1215; --s-ink-2: #5c3a40; --s-line: #f0dcd2; --s-tint: #ffe9de; --s-accent: #a83e27; /* 4.9:1 on the cream even under the coin's shadow */
-  position: absolute; top: 2.2em; bottom: 2.2em; overflow: hidden; background: #fff6ef; color: var(--s-ink);
+  position: absolute; top: var(--bz); bottom: var(--bz); overflow: hidden; background: #fff6ef; color: var(--s-ink);
 }
-.scr-l { left: 2.2em; right: 0; border-radius: 10.3em 0 0 10.3em; }
-.scr-r { left: 0; right: 2.2em; border-radius: 0 10.3em 10.3em 0; }
-.scr-in { position: absolute; left: 0; top: 0; width: 100%; height: 100%; font-size: 11.5px; line-height: 1.36; }
-.scr-r .scr-in { font-size: 11px; line-height: 1.34; } /* the reply is the long pane */
+.scr-l { left: var(--bz); right: 0; border-radius: 9.1em 0 0 9.1em; }
+.scr-r { left: 0; right: var(--bz); border-radius: 0 9.1em 9.1em 0; }
+/* Each pane's words, turned back a quarter so they read upright on the upright phone: a pane is 111.0 mm across
+   (the display's width) and 78.9 mm down (half its height). The top pane is the post, the bottom one the comments. */
+.scr-in {
+  position: absolute; left: 0; top: 0; width: calc(111 * var(--u)); height: calc(78.9 * var(--u));
+  transform-origin: 0 0; transform: translate(0, calc(111 * var(--u))) rotate(-90deg);
+  font-size: 11.5px; line-height: 1.34;
+}
+.scr-r .scr-in { font-size: 11px; } /* the reply is the long pane */
+/* The post fills its pane: the photo takes whatever height the words round it leave (cropped, never squeezed). */
+.scr-l .scr-in { display: flex; flex-direction: column; }
+.scr-l .scr-in > * { flex: none; }
+.scr-l .post-media { flex: 1 1 0; min-height: 0; position: relative; }
+.scr-l .post-media svg { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
+.scr-l .post-time { padding-bottom: 7px; }
 /* A narrower stage (a 1024 desk) draws the phone smaller: the words step down one size so the thread still fits. */
-@container (max-width: 500px) and (min-width: 400px) { .scr-in, .scr-r .scr-in { font-size: 10px; line-height: 1.3; } .cmt .ava, .reply .ava { width: 20px; height: 20px; } .reply-wrap { margin-left: 4px; margin-top: 6px; } .app-bar { height: 22px; } .thread { padding: 5px 10px 4px; } .cmt-body p + p { margin-top: 3px; } .links span + span { margin-top: 1px; } .caption, .post-head, .post-acts, .post-time { padding-inline: 10px; } }
 .phone-screen .mention { color: var(--s-accent); }
-.phone-screen .tick { background: #ffe0d3; color: #8a2a3a; }
+.phone-screen .tick { background: #ffe0d3; color: #8a2a3a; font-size: max(10px, .92em); }
 .phone-screen .lore-in { background: #ffe4d4; color: #7a3410; }
 .app-bar { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 12px; border-bottom: 1px solid var(--s-line); }
-.scr-l .app-bar { padding-left: 20px; } /* clear of the display's round outer corner */
+.scr-l .app-bar { padding-inline: 20px; } /* clear of the display's round corners (upright, the top two) */
 .ab-title { font-weight: 800; font-size: 12px; }
 .ab-tag { padding: 1px 7px; border-radius: 999px; background: #ffe4d4; color: #7a3410; font-size: 10.5px; font-weight: 800; }
 .post-head { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; }
@@ -196,7 +212,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .caption { padding: 8px 12px 0; }
 .thread { padding: 8px 12px 10px; }
 .cmt { display: flex; gap: 8px; align-items: flex-start; }
-.cmt .ava { width: 22px; height: 22px; font-size: 9.5px; }
+.cmt .ava { width: 22px; height: 22px; font-size: 10px; }
 .cmt-body { min-width: 0; }
 .cmt-body p + p { margin-top: 5px; }
 .reply-wrap { position: relative; margin-top: 8px; margin-left: 4px; min-height: 36px; }
@@ -218,7 +234,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 
 /* The crease down the middle of the inner display: a soft shadow with a highlight on its lip, faint head-on and
    clearer as the phone turns or folds (home.js sets --crease). */
-.duo-crease { position: absolute; top: 2.2em; bottom: 2.2em; width: 4.2em; opacity: var(--crease, .3); pointer-events: none; }
+.duo-crease { position: absolute; top: var(--bz); bottom: var(--bz); width: 4.2em; opacity: var(--crease, .3); pointer-events: none; }
 .duo-l .duo-crease { right: 0; background: linear-gradient(90deg, rgba(60, 36, 44, 0), rgba(60, 36, 44, .1) 60%, rgba(60, 36, 44, .2) 88%, rgba(255, 255, 255, .5) 97%, rgba(255, 255, 255, .15)); }
 .duo-r .duo-crease { left: 0; background: linear-gradient(270deg, rgba(60, 36, 44, 0), rgba(60, 36, 44, .1) 60%, rgba(60, 36, 44, .2) 88%, rgba(255, 255, 255, .35) 97%, rgba(255, 255, 255, .1)); }
 /* The inner display is one sheet of glass: as it folds, the left half's edge lifts off the right half's (the halves
@@ -226,22 +242,22 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
    it and no line of the page shows down the fold; flat, it is not drawn. */
 .duo-seam {
   position: absolute; top: 0; bottom: 0; right: -1.4em; width: 1.6em; pointer-events: none;
-  background: linear-gradient(180deg, #0b0a0c 2.2em, #f3e7e0 2.2em, #f3e7e0 calc(100% - 2.2em), #0b0a0c calc(100% - 2.2em));
+  background: linear-gradient(180deg, #0b0a0c var(--bz), #f3e7e0 var(--bz), #f3e7e0 calc(100% - var(--bz)), #0b0a0c calc(100% - var(--bz)));
   opacity: clamp(0, calc(var(--fold, 0) * 40), 1);
 }
-/* The inner display's front camera: a hole-punch at the top right of the right half. */
-.scr-cam, .osd-cam {
+/* The outer display's front camera: a hole-punch at its top right. (The inner display has none: its camera is
+   under the display.) */
+.osd-cam {
   position: absolute; border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle at 38% 34%, #5a5f78 0 7%, #1a1824 20%, #050408 46%, #0e0c14 70%, #1f1c26 100%);
   box-shadow: 0 0 0 .3em #030205, 0 0 0 .45em rgba(255, 255, 255, .06);
 }
-.scr-cam { top: 6.4em; right: 6.4em; width: 4.4em; height: 4.4em; } /* inset like the outer display's: screen all round it */
 
 /* The glass over each screen: a glare that slides as the phone turns (home.js). */
-.p3-glass { position: absolute; inset: 2.2em; overflow: hidden; pointer-events: none; }
-.duo-l .p3-face .p3-glass { right: 0; border-radius: 10.3em 0 0 10.3em; }
-.duo-r .p3-face .p3-glass { left: 0; border-radius: 0 10.3em 10.3em 0; }
-.p3-cover .p3-glass { border-radius: 1.2em 10.3em 10.3em 1.2em; }
+.p3-glass { position: absolute; inset: var(--bz); overflow: hidden; pointer-events: none; }
+.duo-l .p3-face .p3-glass { right: 0; border-radius: 9.1em 0 0 9.1em; }
+.duo-r .p3-face .p3-glass { left: 0; border-radius: 0 9.1em 9.1em 0; }
+.p3-cover .p3-glass { inset: 2.6em 2.2em 2.6em 1.4em; border-radius: 1.2em 10.1em 10.1em 1.2em; }
 .p3-glass::before { content: ""; position: absolute; inset: 0; background: linear-gradient(152deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, 0) 22%); }
 .p3-glass i {
   position: absolute; top: -30%; bottom: -30%; left: 10%; width: 80%; opacity: 0;
@@ -355,12 +371,13 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .p3-mic { position: absolute; left: 41.9em; top: 6em; width: 2.6em; height: 1.2em; border-radius: 1em; transform: translateZ(.02em); background: #2a262b; box-shadow: inset 0 .12em .2em rgba(0, 0, 0, .6), 0 0 0 .12em rgba(255, 255, 255, .7); }
 .p3-flash { position: absolute; left: 41.1em; top: 11.8em; width: 4.2em; height: 4.2em; border-radius: 50%; transform: translateZ(.1em); background: radial-gradient(circle at 50% 45%, #fffdf8 0 22%, #f3e6d6 44%, #d9c6b2 70%, #bfae9e); box-shadow: 0 0 0 .3em #e7e5e3, 0 0 0 .45em rgba(120, 110, 108, .35), inset 0 0 .5em rgba(110, 90, 70, .3); }
 
-/* The outer display, on the back of the left half: portrait, with generous rounded corners away from the hinge,
-   a thin even black bezel, and a hole-punch camera at its top right. The creator's lock screen: the time, our
+/* The outer display, on the back of the left half: portrait, with generous rounded corners away from the hinge and
+   tighter ones beside it, a thin black bezel (1.4 mm by the spine, 2.2 mm opposite, 2.6 mm top and bottom, as the
+   maker's photo measures: 78.7 × 112.6 mm, the inner display's shape), and a hole-punch camera at its top right. The creator's lock screen: the time, our
    notification, and the fan's comment under it. */
 .p3-cover { background: #0b0a0c; box-shadow: inset 0 0 0 .8em #050406; }
 .osd {
-  position: absolute; inset: 2.2em; overflow: hidden; border-radius: 1.2em 10.3em 10.3em 1.2em; color: var(--ink);
+  position: absolute; inset: 2.6em 2.2em 2.6em 1.4em; overflow: hidden; border-radius: 1.2em 10.1em 10.1em 1.2em; color: var(--ink);
   background:
     radial-gradient(70% 36% at 70% 12%, rgba(255, 122, 89, .42), rgba(255, 122, 89, 0) 70%),
     radial-gradient(70% 45% at 18% 96%, rgba(163, 52, 95, .5), rgba(163, 52, 95, 0) 70%),
@@ -379,12 +396,16 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 }
 .osd-old { background: rgba(255, 240, 232, .9); }
 .osd-ava { flex: none; width: 9.5em; height: 9.5em; }
-.osd-old .osd-ava { font-size: max(9px, 3.5em); width: 2.7em; height: 2.7em; }
-.osd-txt { display: flex; flex-direction: column; gap: .1em; min-width: 0; font-size: max(9.5px, 3.64em); line-height: 1.3; }
-.osd-txt small { font-size: .92em; font-weight: 700; color: #5c3a40; }
+.osd-old .osd-ava { font-size: max(10px, 3.5em); width: 2.7em; height: 2.7em; }
+.osd-txt { display: flex; flex-direction: column; gap: .1em; min-width: 0; font-size: max(10px, 3.64em); line-height: 1.3; }
+.osd-txt small { font-size: max(10px, .92em); font-weight: 700; color: #5c3a40; }
 .osd-txt b { font-size: 1em; }
 .osd-txt > span { color: #5c3a40; }
 .osd-old .osd-txt > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* Open, the outer display (on the back of the top half) is on its side: its lock screen turns with it (the other
+   way, as it faces the other way) and shows the newest notification only. Closed, it stands upright again. */
+.p3-live:not(.p3-closed) .osd-in { width: calc(112.6 * var(--u)); height: calc(78.7 * var(--u)); padding-top: 5em; transform-origin: 0 0; transform: translate(calc(78.7 * var(--u)), 0) rotate(90deg); }
+.p3-live:not(.p3-closed) .osd-old { display: none; }
 .osd-bar { position: absolute; bottom: 2em; left: 50%; width: 30em; height: 1.3em; translate: -50% 0; border-radius: 999px; background: rgba(255, 243, 234, .7); }
 
 /* The hinge cover: polished titanium along the spine. home.js builds its facets on a flattened half-round (2 mm
@@ -412,8 +433,9 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .p3 .sticker, .p3-coin, .p3-spark { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .p3-props { position: absolute; inset: 0; transform-style: preserve-3d; transform: scale(var(--props, 1)); pointer-events: none; }
 .p3-closed .p3-props { visibility: hidden; }
-/* The coin, floating above the phone at its own depth (a gentle bob; hidden on narrow stages). */
-.p3-coin { position: absolute; z-index: 3; top: -168px; right: -14px; width: clamp(160px, 40cqw, 210px); translate: 0 0 84px; animation: coin-bob 7s ease-in-out infinite; }
+/* The coin, floating by the phone's top corner at its own depth (a gentle bob), over the post's photo and the
+   empty end of the app bar, never over words. */
+.p3-coin { position: absolute; z-index: 3; top: -40px; right: calc(50% - 58.9 * var(--u) - 64px); width: clamp(96px, 32cqw, 172px); translate: 0 0 84px; animation: coin-bob 7s ease-in-out infinite; }
 .p3-coin .coin-img { width: 100%; height: auto; filter: drop-shadow(0 16px 22px rgba(0, 0, 0, .45)); }
 @keyframes coin-bob { 0%, 100% { translate: 0 0 84px; rotate: -4deg; } 50% { translate: 0 -12px 84px; rotate: 3deg; } }
 .p3-spark {
@@ -464,15 +486,25 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 .st-ava { flex: none; width: 38px; height: 38px; }
 /* The coin wears the post's photo: the same drawing, cropped round in a copper rim. */
 .post-coin { flex: none; width: 46px; height: 46px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .45)); }
-.sticker-coin { --z: 64px; top: 27%; left: -26px; }
-.sticker-post { --z: 44px; right: -6px; bottom: -50px; width: max-content; max-width: 62%; }
+.sticker-coin { --z: 64px; top: 21%; left: calc(50% - 58.9 * var(--u) - 58px); }
+.sticker-post { --z: 44px; right: calc(50% - 58.9 * var(--u) - 64px); bottom: -52px; width: max-content; max-width: 72%; }
 .sticker-post .st-txt { white-space: nowrap; }
 /* Under the full stage width (a 981-1159 desk, and every narrow stage) the line stops at the handle, so the words
    stay inside the pill. */
 @container (max-width: 539px) { .sticker-post .st-more { display: none; } }
-@container (max-width: 300px) { .sticker-post .st-txt { white-space: normal; } } /* a 320 phone: the name wraps */
+/* A 320 phone: both stickers a size down, so the post's stays on one line under the phone; the lock screen shows
+   the newest notification only (two do not fit a 49 mm-wide drawing at 10px). */
+@container (max-width: 300px) {
+  .osd-old { display: none; }
+  .sticker { gap: 8px; padding: 6px 11px 6px 6px; border-radius: 15px; }
+  .st-txt b { font-size: 13px; }
+  .st-txt small { font-size: 12px; }
+  .st-tick { font-size: 11.5px; }
+  .post-coin { width: 38px; height: 38px; }
+  .st-ava { width: 30px; height: 30px; }
+}
 
-.stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 88px; width: 100%; }
+.stage-foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 122px; width: 100%; }
 .replay {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px;
   border-radius: 999px; border: 1px solid var(--line-2); background: rgba(42, 28, 34, .86); color: var(--ink);
@@ -487,7 +519,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
 
 /* "Drag to turn": on the floor under the phone until it has been turned once; for keys, when focused. */
 .p3-hint {
-  display: none; position: absolute; left: 22%; top: calc(100% + 26px); translate: -50% 0; align-items: center; gap: 6px;
+  display: none; position: absolute; left: 50%; top: calc(100% + 80px); translate: -50% 0; align-items: center; gap: 6px;
   padding: 4px 11px 4px 8px; border-radius: 999px; background: rgba(42, 28, 34, .85); border: 1px solid var(--line-2);
   font-size: 13px; font-weight: 750; color: var(--ink-2); white-space: nowrap; pointer-events: none;
   transition: opacity .5s ease, transform .5s ease;
@@ -820,26 +852,13 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .hero-grid { grid-template-columns: 1fr; gap: 28px; }
   .hero-copy { max-width: 640px; }
   h1 { margin-top: 16px; }
-  .hero-stage { width: 100%; max-width: 380px; justify-self: center; padding-top: 0; }
-  .p3-coin { display: none; }
+  .hero-stage { grid-column: 1; grid-row: auto; width: 100%; max-width: 380px; justify-self: center; padding-top: 58px; }
+  .p3-coin { top: -44px; right: -10px; }
   .hero .mascot-slot { grid-column: 1; width: 140px; height: 140px; margin: -20px 0 0; justify-self: start; }
-  /* Held in portrait: the halves stack (the post above, the comments below) and each screen reads upright. */
-  .p3 { --rz: 90deg; --ph: 164.6; --u: min(3.2px, calc(100cqw / 117.8)); }
-  .scr-in { width: calc(113.4 * var(--u)); height: calc(80.1 * var(--u)); transform-origin: 0 0; transform: translate(0, calc(113.4 * var(--u))) rotate(-90deg); }
-  /* Open and held in portrait, the outer display (on the back) is on its side as well: its lock screen turns with
-     it (the other way, as it faces the other way), and shows the newest notification only. Closed, it stands
-     upright again (home.js), and so does the lock screen. */
-  .p3-live:not(.p3-closed) .osd-in { width: calc(113.4 * var(--u)); height: calc(77.9 * var(--u)); padding-top: 5em; transform-origin: 0 0; transform: translate(calc(77.9 * var(--u)), 0) rotate(90deg); }
-  .p3-live:not(.p3-closed) .osd-old { display: none; }
-  .post-media svg { max-height: calc(34 * var(--u)); }
-  .scr-in { line-height: 1.34; }
-  .app-bar { height: 22px; }
-  .thread { padding: 6px 12px 8px; }
-  .reply-wrap { margin-top: 7px; }
-  .sticker-coin { top: 17%; left: 8px; } /* its depth enlarges it: its left edge stays on the screen at 360 */
-  .sticker-post { right: 0; left: 0; bottom: -58px; margin-inline: auto; max-width: calc(100% - 12px); }
-  .stage-foot { margin: 112px auto 0; }
-  .p3-hint { left: 50%; top: calc(100% + 72px); }
+  .sticker-coin { top: 21%; left: 8px; } /* over the photo, under the name; its depth enlarges it: its left edge stays on the screen at 360 */
+  .sticker-post { right: 0; left: 0; bottom: -60px; margin-inline: auto; max-width: calc(100% - 12px); }
+  .stage-foot { margin: 116px auto 0; }
+  .p3-hint { left: 50%; top: calc(100% + 74px); }
   .sp1 { right: -8px; top: 10px; --z: 24px; }
   .sp2 { --z: 0px; right: 6px; top: 62%; }
   .sp3 { left: -10px; top: 46%; }
@@ -849,15 +868,13 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .band-side { padding-top: 110px; }
   .band-crown { width: 160px; top: -36px; right: 16px; }
 }
-/* A 320-375 phone draws the phone smaller still, but the words are px: one size down, the post's picture a little
-   shorter, and the reply without its Address and Trade lines, so the claim line and the fan-made line still show.
-   The last line keeps clear of the inner display's camera hole, which sits by the bottom right when held upright. */
+/* A 320-375 phone draws the phone smaller still, but the words are px: one size down, and the post's picture gives
+   up the height, so the whole reply (address, trade link, lore, the claim line and the fan-made line) still shows. */
 @container (max-width: 350px) {
-  .scr-in, .scr-r .scr-in { font-size: 10px; line-height: 1.3; }
+  .scr-in, .scr-r .scr-in { font-size: 10px; line-height: 1.26; }
   .app-bar { height: 20px; }
   .post-head { height: 32px; padding-inline: 10px; }
   .post-head .ava { width: 22px; height: 22px; }
-  .post-media svg { max-height: calc(30 * var(--u)); }
   .post-acts { height: 26px; padding-inline: 10px; }
   .post-acts svg { width: 15px; height: 15px; }
   .caption { padding: 5px 10px 0; }
@@ -865,13 +882,15 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .thread { padding: 5px 10px 4px; }
   .cmt { gap: 6px; }
   .cmt .ava, .reply .ava { width: 20px; height: 20px; }
-  .reply-wrap { margin-left: 2px; margin-top: 5px; }
-  .cmt-body p + p { margin-top: 3px; }
-  .links span:nth-child(-n+2) { display: none; }
-  .links span + span { margin-top: 1px; }
-  .fanmade { padding-right: calc(10 * var(--u)); }
+  .reply-wrap { margin-left: 2px; margin-top: 4px; }
+  .cmt-body p + p { margin-top: 2px; }
+  .links span + span { margin-top: 0; }
 }
-@container (max-width: 300px) { .links span:nth-child(3) { display: none; } } /* a 320 phone: the Lore line (the fan's own words, just above) goes too */
+/* A 320 phone: the comments pane opens straight onto the fan's comment (the post's "View comments" leads to it). */
+@container (max-width: 300px) {
+  .scr-r .app-bar { display: none; }
+  .thread { padding: 6px 8px 4px 9px; }
+}
 @media (max-width: 760px) {
   .ways { grid-template-columns: 1fr; }
   .ways .way:first-child { flex-direction: column; }
@@ -949,6 +968,7 @@ h1 .hl { display: block; background: linear-gradient(120deg, #ffd2b3 0%, #ff9a7a
   .cmd-on-dark .copy { justify-content: center; }
 }
 @media (max-width: 380px) {
-  .cta-row .btn { font-size: 15px; padding: 0 8px; }
+  .cta-row .btn { font-size: 15px; padding: 0 8px; gap: 6px; }
+  .cta-row .btn-primary { flex-grow: 1.4; } /* "Launch a coin" and its arrow stay inside the pill at 320 */
   .trust-row { font-size: 13px; }
 }
