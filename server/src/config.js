@@ -27,7 +27,8 @@ export const config = {
     verifyToken: env('IG_WEBHOOK_VERIFY_TOKEN'),
     graphVersion: env('IG_GRAPH_VERSION', 'v23.0'),
     // Only for staging: a stand-in for graph.instagram.com (DMs, comment launches, the poster).
-    graphBaseUrl: env('IG_GRAPH_BASE_URL', 'https://graph.instagram.com').replace(/\/+$/, ''),
+    // An empty IG_GRAPH_BASE_URL= (as .env.example once had it) counts as unset.
+    graphBaseUrl: (env('IG_GRAPH_BASE_URL').trim() || 'https://graph.instagram.com').replace(/\/+$/, ''),
   },
   // Comment launches ("@bot make a token for this creator") run on the Instagram token (Instagram
   // Login) whenever it is set; COMMENT_LAUNCHES=0 switches them off without removing it.
@@ -38,7 +39,7 @@ export const config = {
   fbAccessToken: env('IG_FB_ACCESS_TOKEN'),
   fbGraphVersion: env('FB_GRAPH_VERSION', 'v23.0'),
   // Only for staging: a stand-in for graph.facebook.com (the Facebook Login path).
-  graphBaseUrl: env('GRAPH_BASE_URL', 'https://graph.facebook.com').replace(/\/+$/, ''),
+  graphBaseUrl: (env('GRAPH_BASE_URL').trim() || 'https://graph.facebook.com').replace(/\/+$/, ''),
   // Optional: the Meta app's secret (App settings → Basic) when it differs from IG_APP_SECRET.
   // Webhooks signed with either are accepted.
   metaAppSecret: env('META_APP_SECRET'),

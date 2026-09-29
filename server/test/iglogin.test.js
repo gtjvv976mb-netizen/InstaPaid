@@ -3,10 +3,14 @@
 // /<IG_ID>/mentions, the bot's IG_ID from /me, the webhook subscription, the settings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { start, signedHook, tick, cfg, POST_PNG } from './helpers.js';
 import * as comments from '../src/comments.js';
 import {
-  mentionEvents, skipMention, isLaunchRequest, commentLore, readMention, replyToMention, commentLaunchesOff, launchedReply,
+  mentionEvents, skipMention, isLaunchRequest, commentLore, readMention, replyToMention, replyBlocked, commentLaunchesOff, launchedReply,
 } from '../src/comments.js';
 import { igAccount, subscribeMessages, describeEntry } from '../src/instagram.js';
 import { assertConfig, configNotes } from '../src/config.js';
@@ -378,4 +382,124 @@ test('settings: no IG_FB_ACCESS_TOKEN is fine; a half Facebook Login setup is on
     ['IG_USER_ID is set without IG_FB_ACCESS_TOKEN: the Facebook Login path is off, and Instagram Login (IG_ACCESS_TOKEN) is used']);
   assert.throws(() => assertConfig({ ...base, ig: { ...base.ig, graphBaseUrl: 'http://evil.example' } }), /IG_GRAPH_BASE_URL must be an https address/);
   assert.doesNotThrow(() => assertConfig({ ...base, ig: { ...base.ig, graphBaseUrl: 'http://127.0.0.1:9999' } }));
+});
+
+/** The documented body, but the comment's id under value.comment_id (no value.id). */
+const withCommentId = (opts) => {
+  const d = documented(opts);
+  const { id, ...rest } = d.entry[0].value;
+  d.entry[0].value = { comment_id: id, ...rest };
+  return d;
+};
+const commentIdInChanges = (opts) => {
+  const d = withCommentId(opts);
+  const { field, value, ...entry } = d.entry[0];
+  return { object: 'instagram', entry: [{ ...entry, changes: [{ field, value }] }] };
+};
+
+test('comment events: the comment id as value.comment_id, and the post id as value.media_id, in both shapes', () => {
+  const want = { field: 'comments', commentId: 'c1', mediaId: 'm1', botId: BOT, text: ASK, fromId: '5566778899', fromUsername: 'fan.one', productType: 'FEED' };
+  assert.deepEqual(mentionEvents(withCommentId()), [want]);
+  assert.deepEqual(mentionEvents(commentIdInChanges()), [want]);
+  const flat = { object: 'instagram', entry: [{ id: BOT, field: 'comments', value: { comment_id: 'c1', media_id: 'm1', text: ASK, from: { id: '5566778899', username: 'fan.one' } } }] };
+  assert.deepEqual(mentionEvents(flat), [{ ...want, productType: null }]);
+  // both present: the documented value.id wins
+  const both = documented();
+  both.entry[0].value.comment_id = 'other';
+  assert.equal(mentionEvents(both)[0].commentId, 'c1');
+});
+
+test('a comment event with no comment id or no post id is dropped with one log line, not silently', async () => {
+  const why = [];
+  assert.deepEqual(mentionEvents(documented({ id: null }), (w) => why.push(w)), []);
+  assert.deepEqual(mentionEvents(documented({ media: {} }), (w) => why.push(w)), []);
+  assert.deepEqual(mentionEvents({ object: 'instagram', entry: [{ id: '42', changes: [{ field: 'mentions', value: { media_id: 'm9' } }] }] }, (w) => why.push(w)), []);
+  assert.deepEqual(why, [
+    'a "comments" event with no comment id (value={from,id,media,text})',
+    'a "comments" event with no post id (value={from,id,media,text})',
+    'a "mentions" event with no comment id (value={media_id})',
+  ]);
+
+  const g = fakeIg();
+  const t = await app(g);
+  try {
+    const lines = await logged(() => hook(t, documented({ id: null })));
+    assert.ok(lines.includes('mention: comment event ignored: a "comments" event with no comment id (value={from,id,media,text})'), lines.join('\n'));
+    assert.equal(g.calls.length, 0);
+  } finally { t.close(); }
+});
+
+test('a comment whose id comes as value.comment_id launches and is answered, in both shapes', async () => {
+  for (const body of [withCommentId(), commentIdInChanges()]) {
+    const g = fakeIg();
+    const t = await app(g);
+    try {
+      await logged(() => hook(t, body));
+      assert.equal(t.calls.serverLaunches.length, 1);
+      assert.equal(t.db.prepare('select username from token').get().username, 'nat.geo');
+      assert.deepEqual(t.db.prepare('select comment_id, media_id, status from comment_request').get(), { comment_id: 'c1', media_id: 'm1', status: 'launched' });
+      assert.equal(g.replies.length, 1);
+      assert.equal(g.replies[0].comment_id, 'c1');
+      assert.equal(g.replies[0].media_id, 'm1');
+    } finally { t.close(); }
+  }
+});
+
+test('the bot\'s IG_ID cannot be read: the post is read, but no coin is launched that no reply could announce', async () => {
+  const g = fakeIg({ fail: ['me'] });
+  const t = await app(g);
+  try {
+    const lines = await logged(() => hook(t, documented()));
+    assert.ok(lines.includes('mention: read post via media → 200, owner @nat.geo'));
+    assert.equal(t.calls.serverLaunches.length, 0, 'no coin');
+    assert.equal(t.calls.uploads.length, 0, 'nothing uploaded');
+    assert.equal(t.db.prepare('select count(*) n from token').get().n, 0);
+    assert.equal(g.calls.filter((c) => c.method === 'POST').length, 0, 'nothing posted anywhere');
+    assert.deepEqual(t.db.prepare('select status, username, note from comment_request').get(), { status: 'failed', username: 'nat.geo', note: 'bot IG_ID unknown' });
+    assert.ok(lines.some((l) => /^mention: comment c1 not launched: no reply could be sent \(the bot's IG_ID is unknown: GET \/me → 400 \(#190\)/.test(l)), lines.join('\n'));
+    assert.equal(g.calls.filter((c) => c.path === 'me').length, 3, 'asked by the read, then twice before the launch');
+  } finally { t.close(); }
+});
+
+test('a /me that fails once and then answers: the launch goes ahead and the fan gets the reply', async () => {
+  const g = fakeIg({ fail: ['me'] });
+  const inner = g.fetch;
+  let mes = 0;
+  g.fetch = async (url, init) => {
+    if (new URL(url).pathname.endsWith('/me') && ++mes === 2) g.fail.delete('me');
+    return inner(url, init);
+  };
+  const t = await app(g);
+  try {
+    await logged(() => hook(t, documented()));
+    assert.equal(t.calls.serverLaunches.length, 1);
+    assert.equal(g.replies.length, 1);
+    assert.equal(t.db.prepare('select status from comment_request').get().status, 'launched');
+  } finally { t.close(); }
+});
+
+test('replyBlocked: nothing to ask with the Facebook Login fallback; the Instagram path needs the IG_ID', async () => {
+  assert.equal(await replyBlocked({ ig: { accessToken: TOKEN }, igUserId: '42', fbAccessToken: 'fb' }, async () => { throw new Error('not asked'); }), null);
+  assert.equal(await replyBlocked({ ig: { accessToken: TOKEN, graphVersion: 'v23.0' } }, fakeIg().fetch), null);
+  assert.match(await replyBlocked({ ig: { accessToken: TOKEN, graphVersion: 'v23.0' } }, fakeIg({ fail: ['me'] }).fetch), /^the bot's IG_ID is unknown: GET \/me → 400/);
+});
+
+test('.env.example copied as .env starts: empty or absent IG_GRAPH_BASE_URL / GRAPH_BASE_URL mean the real Graph APIs', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'instapaid-env-'));
+  copyFileSync(new URL('../.env.example', import.meta.url), join(dir, '.env'));
+  const script = `import(${JSON.stringify(new URL('../src/config.js', import.meta.url).href)}).then((m) => {
+    m.assertConfig(); console.log(JSON.stringify([m.config.ig.graphBaseUrl, m.config.graphBaseUrl]));
+  })`;
+  const hex = 'a'.repeat(64);
+  const secrets = { VAULT_MASTER_KEY: hex, SESSION_SECRET: hex, FEE_PAYER_SECRET: 'k', IG_APP_SECRET: 's', IG_ACCESS_TOKEN: TOKEN, IG_WEBHOOK_VERIFY_TOKEN: 'v' };
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/GRAPH_BASE_URL/.test(k)));
+  for (const extra of [{}, { IG_GRAPH_BASE_URL: '', GRAPH_BASE_URL: '' }, { IG_GRAPH_BASE_URL: '  ', GRAPH_BASE_URL: ' ' }]) {
+    const out = execFileSync(process.execPath, ['-e', script], { cwd: dir, env: { ...clean, ...secrets, ...extra }, encoding: 'utf8' });
+    assert.deepEqual(JSON.parse(out.trim().split('\n').at(-1)), ['https://graph.instagram.com', 'https://graph.facebook.com'], JSON.stringify(extra));
+  }
+  // An .env with the old empty lines behaves the same.
+  writeFileSync(join(dir, '.env'), 'IG_GRAPH_BASE_URL=\nGRAPH_BASE_URL=\n');
+  const out = execFileSync(process.execPath, ['-e', script], { cwd: dir, env: { ...clean, ...secrets }, encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(out.trim().split('\n').at(-1)), ['https://graph.instagram.com', 'https://graph.facebook.com']);
+  rmSync(dir, { recursive: true, force: true });
 });

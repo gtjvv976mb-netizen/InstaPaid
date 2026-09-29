@@ -87,6 +87,7 @@ export async function start({
       return mentions[commentId];
     },
     async replyToMention(c, ids, message) { calls.mentionReplies.push({ ...ids, message }); return true; },
+    async replyBlocked() { return null; },
   };
   // Stands in for Claude: names the coin, and passes the fan's lore unless naming.loreOk is false.
   const nameCoin = async (args) => {

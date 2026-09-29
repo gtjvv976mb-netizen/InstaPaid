@@ -102,7 +102,7 @@ export function createApp(deps) {
     for (const { igsid } of textMessages(body).filter((m) => !m.code)) {
       try { await welcome(igsid); } catch (e) { console.error('welcome failed', e.message); }
     }
-    const events = mentionEvents(body);
+    const events = mentionEvents(body, (why) => console.log(`mention: comment event ignored: ${why}`));
     const off = events.length ? commentLaunchesOff(cfg) : null;
     if (off) console.log(`mention: ${events.length} comment event${events.length === 1 ? '' : 's'} not handled: comment launches are off (${off})`);
     else {
@@ -176,6 +176,13 @@ export function createApp(deps) {
     if (existing) {
       await reply(existingReply({ username, ...existing, publicUrl: cfg.publicUrl }));
       return done('existing', { username, mint: existing.mint });
+    }
+
+    // No coin the fan would never hear about: the reply needs the bot's IG_ID (Instagram Login).
+    const noReply = await deps.comments.replyBlocked(cfg, deps.fetchImpl);
+    if (noReply) {
+      console.error(`mention: comment ${commentId} not launched: no reply could be sent (${noReply})`);
+      return done('failed', { username, note: 'bot IG_ID unknown' });
     }
 
     // Pending launches count against the budget too (their rows are there).

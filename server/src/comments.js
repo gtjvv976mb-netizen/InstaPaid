@@ -38,25 +38,37 @@ export function commentLaunchesOff(cfg) {
  *   entry.field/value with field "comments" (Instagram Login, as documented),
  *   entry.changes[] with field "comments" (Instagram Login, as the dashboard's Test sends it),
  *   entry.changes[] with field "mentions" (Facebook Login: {comment_id, media_id}, no text).
+ * The comment id may come as value.id or value.comment_id, the post's id as value.media.id or
+ * value.media_id. A "comments" or "mentions" change without both is left out, and `onDrop(why)` is
+ * told (one line in the log), so a change in what Meta sends shows up instead of going silent.
  * → [{ field, commentId, mediaId, text?, fromId?, fromUsername?, productType?, botId? }]
  */
-export function mentionEvents(body) {
+export function mentionEvents(body, onDrop = () => {}) {
   const out = [];
   if (body?.object !== 'instagram') return out;
+  const idOf = (x) => (x != null && x !== '' && (typeof x === 'string' || typeof x === 'number') ? String(x) : null);
   for (const entry of body.entry ?? []) {
     const botId = entry?.id != null ? String(entry.id) : null;
     const changes = [...(entry?.field ? [{ field: entry.field, value: entry.value }] : []), ...(entry?.changes ?? [])];
     for (const ch of changes) {
-      const v = ch?.value;
-      if (ch?.field === 'mentions' && v?.comment_id && v?.media_id) {
-        out.push({ field: 'mentions', commentId: String(v.comment_id), mediaId: String(v.media_id), botId });
-      } else if (ch?.field === 'comments' && v?.id && v?.media?.id) {
+      if (ch?.field !== 'mentions' && ch?.field !== 'comments') continue;
+      const v = ch.value ?? {};
+      const commentId = ch.field === 'comments' ? idOf(v.id) ?? idOf(v.comment_id) : idOf(v.comment_id);
+      const mediaId = ch.field === 'comments' ? idOf(v.media?.id) ?? idOf(v.media_id) : idOf(v.media_id) ?? idOf(v.media?.id);
+      if (!commentId || !mediaId) {
+        const keys = v && typeof v === 'object' ? Object.keys(v).sort().join(',') : typeof v;
+        onDrop(`a "${ch.field}" event with no ${commentId ? 'post id' : mediaId ? 'comment id' : 'comment id or post id'} (value={${keys}})`);
+        continue;
+      }
+      if (ch.field === 'mentions') {
+        out.push({ field: 'mentions', commentId, mediaId, botId });
+      } else {
         out.push({
-          field: 'comments', commentId: String(v.id), mediaId: String(v.media.id), botId,
+          field: 'comments', commentId, mediaId, botId,
           text: typeof v.text === 'string' ? v.text : undefined,
           fromId: v.from?.id != null ? String(v.from.id) : null,
           fromUsername: v.from?.username ? String(v.from.username).toLowerCase() : null,
-          productType: v.media.media_product_type ? String(v.media.media_product_type) : null,
+          productType: v.media?.media_product_type ? String(v.media.media_product_type) : null,
         });
       }
     }
@@ -173,6 +185,23 @@ export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl =
   }
   log.warn('mention: could not read the post — see the lines above');
   throw new Error('could not read the post');
+}
+
+/**
+ * Why no reply could be sent under a comment right now, or null when one can. Asked before a coin
+ * is launched, so the fee payer never pays for a coin the fan would never hear about. On Instagram
+ * Login the reply goes to /<IG_ID>/mentions, so the bot's IG_ID must be known: /me is asked (again,
+ * once more after a miss, since a failed lookup is not kept). With the Facebook Login settings as
+ * well, a refused Instagram reply falls back to graph.facebook.com, so nothing is asked.
+ */
+export async function replyBlocked(cfg, fetchImpl = fetch) {
+  const ig = cfg.ig ?? {};
+  if (!ig.accessToken || fbLogin(cfg)) return null;
+  let last;
+  for (let i = 0; i < 2; i++) {
+    try { await igAccount(ig, fetchImpl); return null; } catch (e) { last = e; }
+  }
+  return `the bot's IG_ID is unknown: ${last.message}`;
 }
 
 /**

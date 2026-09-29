@@ -196,8 +196,14 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     replied. Send the developer those lines (they hold Meta's error codes, never the token).
     `mention: reply via Instagram Login → 400 …` = the coin launched but the reply was refused
     (usually `instagram_business_manage_comments` missing from the token: step 12b).
-    `ignored: not a launch request` = the comment did not name the bot and the command; nothing at
-    all = webhooks (steps 11d, 12c, 13, and step 14 for anyone without a role on the app).
+    `not launched: no reply could be sent (the bot's IG_ID is unknown …)` = the server could not read
+    the bot's own account (`GET /me`) from `IG_ACCESS_TOKEN`, so it launched nothing rather than a coin
+    nobody would hear about: check the token (step 12b) and restart; the start-up log says
+    `instagram: @instapaid.official id …` when it is right.
+    `ignored: not a launch request` = the comment did not name the bot and the command;
+    `mention: comment event ignored: a "comments" event with no comment id …` = Meta sent a shape the
+    server does not know (the `webhook: entry` line above it shows the keys): send the developer both
+    lines. Nothing at all = webhooks (steps 11d, 12c, 13, and step 14 for anyone without a role on the app).
 18. [ ] **Check the coin** at the pump.fun link: the name and ticker fit the post, the picture is the
     post's photo, the website is the Instagram post, the description is "first light over the pines".
     `https://instapaid.fun/u/yourcreator` lists it.
