@@ -217,7 +217,9 @@ local server, set its address in the extension's options.
    generate a token with `instagram_business_basic`, `instagram_business_manage_messages`,
    `instagram_business_manage_comments` and `instagram_business_content_publish`. That is
    `IG_ACCESS_TOKEN` (DMs, comment launches and the auto-poster); the app secret is `IG_APP_SECRET`.
-   The bot's Instagram id is read from the token at start.
+   The bot's Instagram id is read from the token at start. The token lasts 60 days; the server
+   renews it from day 7 (`src/igtoken.js`, kept sealed in the database) and warns in the logs daily
+   from 10 days before the end if renewing fails.
 3. Set the webhook callback to `https://<your host>/webhooks/instagram`, with verify token
    `IG_WEBHOOK_VERIFY_TOKEN`, and subscribe to `messages` and `comments` (the server also subscribes
    the account at start). If webhooks are signed with the Meta app's own secret, set it as

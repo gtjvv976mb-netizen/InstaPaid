@@ -8,10 +8,15 @@ import { uploadMetadata } from './metadata.js';
 import * as comments from './comments.js';
 import { nameCoin } from './lore.js';
 import { createPoster } from './poster.js';
+import { createTokenKeeper } from './igtoken.js';
 
 assertConfig(config);
 for (const note of configNotes(config)) console.warn(`config: ${note}`);
 const db = openDb(config.dbPath);
+// The Instagram token in use: IG_ACCESS_TOKEN, or the renewal of it stored here (60-day tokens are
+// renewed from day 7). Loaded before anything reads config.ig.accessToken.
+const igToken = createTokenKeeper({ db, cfg: config, fetchImpl: fetch });
+igToken.load();
 // @instapaid.official posts the coins that go live (AUTO_POST=1); off otherwise, and says why.
 const poster = createPoster({ db, cfg: config, fetchImpl: fetch });
 const app = createApp({
@@ -30,6 +35,7 @@ const app = createApp({
 app.listen(config.port, () => {
   console.log(`instapaid on :${config.port} (${config.publicUrl})`);
   poster.start();
+  igToken.start();
   announceInstagram().catch((e) => console.error('instagram: start-up check failed', e));
 });
 

@@ -96,9 +96,10 @@ class Skip extends Error {}
 function graphClient(cfg, fetchImpl) {
   const viaFb = fbLogin(cfg);
   const base = viaFb ? `${graphBase(cfg)}/${cfg.fbGraphVersion || 'v23.0'}/` : igGraph(cfg.ig ?? {}, '');
-  const token = viaFb ? cfg.fbAccessToken : cfg.ig?.accessToken;
+  // Read at every call, never kept: the Instagram token is renewed while the server runs (src/igtoken.js).
+  const token = () => (viaFb ? cfg.fbAccessToken : cfg.ig?.accessToken);
   async function call(method, path, params = {}) {
-    const q = new URLSearchParams({ ...params, access_token: token });
+    const q = new URLSearchParams({ ...params, access_token: token() });
     const what = `${method} ${path.replace(/^\d{6,}\//, '')}`;
     let r;
     try {

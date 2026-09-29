@@ -98,8 +98,14 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
     b. Add the product **Instagram** → **API setup with Instagram login**. Under **Generate access
        tokens**, add @instapaid.official and generate a token. Grant `instagram_business_basic` and
        `instagram_business_manage_messages`. Copy the token into Render as **`IG_ACCESS_TOKEN`**.
-       This kind of token lasts **60 days**: put a reminder in your calendar for day 50 to generate a
-       new one here and paste it into Render.
+       This kind of token lasts **60 days**, and the server renews it by itself: from day 7 it asks
+       Instagram for a fresh 60-day token, keeps it in the database (sealed with `VAULT_MASTER_KEY`),
+       and uses it at once; checked at every start and once a day. The Logs say
+       `instagram token: renewed, valid ~60 days`. **No calendar reminder is needed. If the Logs warn**
+       (`instagram token: WARNING — IT EXPIRES IN ~N DAYS …`, once a day from 10 days before the end,
+       when renewing keeps failing), generate a new token here and paste it into Render: a newly pasted
+       `IG_ACCESS_TOKEN` always wins over the stored one. (Leave the old one in Render otherwise;
+       the server knows its renewal descends from it.)
     c. On the same page, copy the **Instagram app secret** into Render as **`IG_APP_SECRET`**. Then
        App settings → **Basic** → **App secret** (the Meta app's own) → **Show** → copy it into Render
        as **`META_APP_SECRET`**. (Meta signs some webhooks with one and some with the other; the server
@@ -118,8 +124,8 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
     b. **Generate a new token.** Instagram → **API setup with Instagram login** → **Generate access
        tokens** → @instapaid.official → **Generate token**, and approve all four permissions in the
        window that opens (a token made before step a does not carry the new two). Copy it into Render
-       as **`IG_ACCESS_TOKEN`**, replacing the one from step 11b. The 60-day reminder from step 11b now
-       counts from today.
+       as **`IG_ACCESS_TOKEN`**, replacing the one from step 11b. The server sees a new token at the
+       next start, uses it instead of the stored one and renews it from day 7 (step 11b).
     c. **Subscribe `comments`.** Same page → **Configure webhooks** → the webhook fields → subscribe
        **`comments`** next to `messages`. (With Instagram Login there is no separate `mentions` field:
        an @mention of the bot in a comment under someone else's post arrives as a `comments` event.)
@@ -131,7 +137,8 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
        ```
        The server reads the bot's id from the token and subscribes the account to `messages` and
        `comments` itself, at every start. `could not read the bot account` = the token is wrong or
-       expired (step b again). `webhook not subscribed … (#…)` = the line says what Meta refused: most
+       expired (step b again; with a new token pasted, the next start line is
+       `instagram token: a new IG_ACCESS_TOKEN replaces the stored one`). `webhook not subscribed … (#…)` = the line says what Meta refused: most
        often a token without `instagram_business_manage_comments`.
     e. Leave **`IG_USER_ID`** and **`IG_FB_ACCESS_TOKEN`** empty, and **`COMMENT_LAUNCHES`** at `1`
        (`0` switches comment launches off without touching the token; DMs and the poster go on).
@@ -241,7 +248,8 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
 23. [ ] **Spending caps.** `MAX_SERVER_LAUNCHES_PER_DAY` (20) × about 0.02 SOL is what comment launches
     can cost you a day. Keep the server wallet above `MIN_FEE_PAYER_SOL` plus that.
 24. [ ] **Keep safe copies** of `VAULT_MASTER_KEY` (step 8) and know how to reach Render's disk
-    snapshots. Set the calendar reminder for `IG_ACCESS_TOKEN` (step 11b).
+    snapshots. `IG_ACCESS_TOKEN` renews itself (step 11b): if the Logs ever show
+    `instagram token: WARNING`, generate a new token and paste it into Render.
 25. [ ] **Legal.** Read "Things to decide before launch" in the README with your lawyer — coins named
     after real people, the custodial vaults, and posting about creators who never asked.
 26. [ ] **Announce** — the extension's store listing, the site, and a first post from

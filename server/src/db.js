@@ -87,6 +87,17 @@ export function openDb(path) {
       value         text
     );
 
+    -- The Instagram token in use (src/igtoken.js), one row. Instagram Login tokens last 60 days and
+    -- are renewed here, so the renewed one must outlive a restart; IG_ACCESS_TOKEN stays what was pasted.
+    create table if not exists ig_token (
+      id            integer primary key check (id = 1),
+      token         text not null,              -- AES-256-GCM sealed under VAULT_MASTER_KEY, aad = 'ig_token'
+      env_hash      text not null,              -- HMAC of the IG_ACCESS_TOKEN this token descends from (a new paste wins)
+      source        text not null check (source in ('env','renewed')),
+      refreshed_at  integer not null,           -- when this token was pasted (first seen) or renewed
+      expires_at    integer not null            -- renewed: from Meta's expires_in; pasted: assumed 60 days from first seen
+    );
+
     create table if not exists claim (
       id            integer primary key autoincrement,
       username      text not null references account(username),
