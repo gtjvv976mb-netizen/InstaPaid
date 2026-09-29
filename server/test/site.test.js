@@ -41,3 +41,19 @@ test('the home page draws the folding phone without naming a phone brand', () =>
     assert.doesNotMatch(s, /iphone|apple/i, `${f} names the device's maker`);
   }
 });
+
+test("the phone's description matches the upright open phone: post on top, the comments below it", () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const label = html.match(/<div class="phone duo" role="img" aria-label="([^"]*)"/)[1];
+  // Open, it stands upright at every width (home.js pose: rz = 90), so nothing in it is "on the left" or "on the right".
+  assert.doesNotMatch(label, /\b(on the )?(left|right)\b/i, 'the description still places the panes side by side');
+  const top = label.indexOf('on top'), below = label.indexOf('Below it, the comments');
+  assert.ok(top > 0 && below > top, 'the post is on top and the comments below it');
+  // Each part is described in the half that draws it: the post in the swinging half, the fan's comment and the reply in the other.
+  const post = label.indexOf('bakery post'), fan = label.indexOf("a fan's comment"), reply = label.indexOf("instapaid.official's reply");
+  assert.ok(top < post && post < below && below < fan && fan < reply, 'post, then the comments: the fan, then the reply');
+  const [postPane, commentPane] = [html.indexOf('scr scr-l'), html.indexOf('scr scr-r')];
+  const fanInDom = html.indexOf('<div class="cmt s1">');
+  assert.ok(postPane > 0 && commentPane > postPane && fanInDom > commentPane, "the fan's comment is drawn in the comments half");
+  assert.match(html.slice(commentPane, fanInDom), /<span class="ab-title">Comments<\/span>/);
+});
