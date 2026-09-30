@@ -320,3 +320,31 @@ html.js[data-tab="recent"] body.app:not(.tabs-ready) #recent,
 html.js[data-tab="creators"] body.app:not(.tabs-ready) #creators,
 html.js[data-tab="fans"] body.app:not(.tabs-ready) #fans,
 html.js[data-tab="faq"] body.app:not(.tabs-ready) #faq { display: flex; }
+
+/* Coins: each card leads with the coin's own picture, big and square, sized to the screen's height so
+   the row still fits one screen; the name, the creator and the status stay compact under it. */
+html.js body.app .recent .coin-card { --pic: clamp(160px, 31vh, 260px); width: calc(var(--pic) + 26px); padding: 13px; gap: 7px; }
+.recent .cc-top { flex-direction: column; align-items: stretch; gap: 10px; }
+.recent .cc-top .coin-ava {
+  width: 100%; height: auto; aspect-ratio: 1; border-radius: 18px; font-size: clamp(56px, 9vh, 88px);
+  box-shadow: inset 0 0 0 1px rgba(255, 220, 200, .18), 0 14px 30px -18px rgba(0, 0, 0, .8);
+}
+.recent .cc-top .coin-ava img { inset: 0; width: 100%; height: 100%; border-radius: 18px; transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
+.recent .coin-card:hover .coin-ava img { transform: scale(1.05); }
+.recent .cc-name { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.recent .cc-name b { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16.5px; }
+.recent .cc-name .tick { flex: none; }
+.recent .cc-for { font-size: 14px; }
+.recent .cc-lore { padding: 6px 10px 7px; font-size: 14px; }
+.recent .cc-lore-t { -webkit-line-clamp: 2; line-clamp: 2; }
+.recent .cc-meta { padding-top: 8px; }
+.recent .cc-when { font-size: 12.5px; }
+@media (max-height: 740px) {
+  html.js body.app .recent .cc-lore, html.js body.app .recent .cc-src, html.js body.app .recent .cc-when { display: none; }
+}
+@media (max-width: 640px) {
+  html.js body.app .recent .coin-card { --pic: min(56vw, 25vh, 220px); }
+  html.js body.app .recent .cc-lore, html.js body.app .recent .cc-src, html.js body.app .recent .cc-when,
+  html.js body.app .recent-sub, html.js body.app .recent .pill { display: none; }
+  html.js body.app .recent-head h2 { font-size: 28px; }
+}
