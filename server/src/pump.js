@@ -83,6 +83,13 @@ export async function buildLaunchTx(connection, { launcher, vault, name, symbol,
   return { mint: mint.publicKey.toBase58(), tx: Buffer.from(tx.serialize()).toString('base64'), lastValidBlockHeight };
 }
 
+/** The coin's metadata uri, from its Token-2022 metadata on chain (pump.fun's create_v2); null if none. */
+export async function metadataUri(connection, mint) {
+  const { getTokenMetadata, TOKEN_2022_PROGRAM_ID } = require('@solana/spl-token');
+  const md = await getTokenMetadata(connection, new PublicKey(mint), 'confirmed', TOKEN_2022_PROGRAM_ID);
+  return md?.uri ?? null;
+}
+
 /** True once the coin exists on-chain with this vault as its creator. */
 export async function confirmLaunch(connection, mint, vault) {
   const online = new OnlinePumpSdk(connection);

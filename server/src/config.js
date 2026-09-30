@@ -67,6 +67,8 @@ export const config = {
 };
 // The cards the poster publishes, served at /posts/<mint>.jpg. Beside the database by default.
 config.postsDir = env('POSTS_DIR') ? resolve(env('POSTS_DIR')) : join(dirname(resolve(config.dbPath)), 'posts');
+// Each coin's picture for the site (/coins/<mint>.webp), beside the database.
+config.coinsDir = env('COINS_DIR') ? resolve(env('COINS_DIR')) : join(dirname(resolve(config.dbPath)), 'coins');
 
 // The Graph API gets our access tokens: https, or plain http only to this machine.
 function graphBaseOk(u) {
