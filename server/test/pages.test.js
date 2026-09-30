@@ -74,13 +74,15 @@ test('caching: HTML revalidated, media a day, the versioned 3D engine 30 days', 
     }
     assert.equal((await t.get('/media/coin-400.webp')).headers.get('cache-control'), 'public, max-age=86400');
     assert.equal((await t.get('/media/pip.glb')).headers.get('cache-control'), 'public, max-age=86400');
-    const mv = await t.get('/vendor/model-viewer.min.js');
-    assert.equal(mv.headers.get('cache-control'), 'public, max-age=2592000');
-    // Kept 30 days under one name, so the page asks for it with its hash: a new file is a new URL.
+    const engine = await t.get('/vendor/three-pip.js');
+    assert.equal(engine.headers.get('cache-control'), 'public, max-age=2592000');
+    // Kept 30 days (a day for media) under one name, so each file is asked for with its hash: a new
+    // file is a new URL. mascot.js loads pip3d.js, which loads the engine and the model.
     const hash = (f) => createHash('sha256').update(readFileSync(new URL(`../public/${f}`, import.meta.url))).digest('hex').slice(0, 8);
-    const mascot = readFileSync(new URL('../public/mascot.js', import.meta.url), 'utf8');
-    assert.ok(mascot.includes(`/vendor/model-viewer.min.js?v=${hash('vendor/model-viewer.min.js')}`), 'model-viewer ?v= is its hash');
-    assert.ok(mascot.includes(`/media/pip.glb?v=${hash('media/pip.glb')}`), 'pip.glb ?v= is its hash');
+    const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8');
+    assert.ok(read('mascot.js').includes(`/pip3d.js?v=${hash('pip3d.js')}`), 'pip3d.js ?v= is its hash');
+    assert.ok(read('pip3d.js').includes(`/vendor/three-pip.js?v=${hash('vendor/three-pip.js')}`), 'three-pip.js ?v= is its hash');
+    assert.ok(read('pip3d.js').includes(`/media/pip.glb?v=${hash('media/pip.glb')}`), 'pip.glb ?v= is its hash');
   } finally { t.close(); }
 });
 
