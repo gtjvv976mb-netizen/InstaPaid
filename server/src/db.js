@@ -106,6 +106,17 @@ export function openDb(path) {
       created_at    integer not null
     );
 
+    -- A website launch waiting for the launcher's wallet to sign first (Phantom's signing order):
+    -- the coin address's key and the transaction as prepared, until /api/launch/submit checks the
+    -- wallet's signature and adds this one. Deleted once sent; expired rows are swept.
+    create table if not exists launch_pending (
+      mint          text primary key,
+      secret        text not null,              -- AES-256-GCM sealed under VAULT_MASTER_KEY, aad = 'launch:' || mint
+      tx            text not null,              -- base64, as prepared (unsigned)
+      launcher      text not null,
+      expires_at    integer not null
+    );
+
     create table if not exists claim (
       id            integer primary key autoincrement,
       username      text not null references account(username),

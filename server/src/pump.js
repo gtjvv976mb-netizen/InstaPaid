@@ -4,6 +4,7 @@ import {
 } from '@solana/web3.js';
 import BN from 'bn.js';
 import bs58 from 'bs58';
+import { createPublicKey, verify as verifyEd25519 } from 'node:crypto';
 import { sealSecret, openSecret } from './crypto.js';
 
 // The SDK's ESM build fails to import (@coral-xyz/anchor is CommonJS); its CJS build is fine.
@@ -12,6 +13,7 @@ const { PUMP_SDK, OnlinePumpSdk, getBuyTokenAmountFromSolAmount } = require('@pu
 
 export const LAMPORTS_PER_SOL = 1_000_000_000;
 const MAX_DEV_BUY_SOL = 50;
+const MAX_TX_BYTES = 1232; // Solana's packet limit for one transaction
 
 export function parseSecretKey(s) {
   s = s.trim();
@@ -38,12 +40,17 @@ export function vaultKeypair(account, masterKey) {
 
 /**
  * Build the launch transaction. The launcher's wallet pays and signs; the creator — who alone can
- * ever collect the coin's creator fees — is the Instagram account's vault. The mint keypair signs
- * here, so the launcher can sign and send this exact message or nothing: changing the creator
- * would break the mint's signature. `mint` is the coin's address keypair (one from the stock that
- * ends in "pump", src/mintpool.js); without it the coin gets a random address.
+ * ever collect the coin's creator fees — is the Instagram account's vault. `mint` is the coin's
+ * address keypair (one from the stock that ends in "pump", src/mintpool.js); without it the coin
+ * gets a random address.
+ *
+ * signMint (default true): the mint signs here, so the only other signer can sign and send this
+ * exact message or nothing (the server paying for a comment launch). A website launch passes
+ * false: Phantom asks to sign first, so the mint signs after, in cosignLaunch, which checks the
+ * wallet changed nothing that matters. The keypair is then returned as mintKey, for the caller to
+ * keep (sealed) until the wallet has signed.
  */
-export async function buildLaunchTx(connection, { launcher, vault, name, symbol, uri, devBuySol, mint: mintKey }) {
+export async function buildLaunchTx(connection, { launcher, vault, name, symbol, uri, devBuySol, mint: mintKey, signMint = true }) {
   const online = new OnlinePumpSdk(connection);
   const mint = mintKey ?? Keypair.generate();
   const user = new PublicKey(launcher);
@@ -79,8 +86,89 @@ export async function buildLaunchTx(connection, { launcher, vault, name, symbol,
     ],
   }).compileToV0Message();
   const tx = new VersionedTransaction(msg);
+  // Its signature slots are already there, so this is the size that goes on the wire. A launch with
+  // a first buy is ~1,270 bytes, over Solana's limit: no wallet could send it, so say so here.
+  if (tx.serialize().length > MAX_TX_BYTES) {
+    throw new Error(lamports > 0
+      ? 'A launch with a first buy is too large for one Solana transaction right now. Set the first buy to 0 and buy on pump.fun after it launches.'
+      : 'This launch is too large for one Solana transaction. Try a shorter name.');
+  }
+  if (signMint) tx.sign([mint]);
+  return {
+    mint: mint.publicKey.toBase58(), tx: Buffer.from(tx.serialize()).toString('base64'), lastValidBlockHeight,
+    ...(signMint ? {} : { mintKey: mint }),
+  };
+}
+
+const COMPUTE_BUDGET = ComputeBudgetProgram.programId.toBase58();
+// DER header of an Ed25519 public key; the 32 raw key bytes follow it.
+const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
+
+/** A message's instructions with their accounts resolved (static keys only). */
+function resolvedInstructions(message) {
+  const keys = message.staticAccountKeys.map((k) => k.toBase58());
+  return message.compiledInstructions.map((ix) => ({
+    program: keys[ix.programIdIndex],
+    accounts: ix.accountKeyIndexes.map((i) => keys[i]),
+    data: Buffer.from(ix.data).toString('base64'),
+  }));
+}
+
+/** Refused website launch: the sentence is for the launch page. */
+export class CosignRefused extends Error {
+  get refused() { return true; }
+}
+
+/** Sends a fully signed launch; the RPC's refusal comes back as the error. Returns the signature. */
+export async function sendLaunch(connection, tx) {
+  return connection.sendRawTransaction(tx.serialize(), { maxRetries: 3 });
+}
+
+/**
+ * A website launch the launcher's wallet signed first, as Phantom asks (its Lighthouse checks
+ * flag a transaction someone else signed before it). Checks what came back against what was
+ * prepared, then adds the coin address's signature. Refuses (CosignRefused) when:
+ * - the message uses lookup tables (nothing to check it against), or is not the launcher's to pay;
+ * - the launcher's signature is missing or does not verify;
+ * - any signer other than the launcher and the coin address is needed;
+ * - the prepared instructions — pump.fun's create with the vault as creator, and any first buy —
+ *   are not all there, byte for byte and in order (compute-budget ones may be the wallet's own);
+ * - an instruction the wallet added touches the coin address, the only thing our signature allows.
+ * Returns the fully signed transaction.
+ */
+export function cosignLaunch({ prepared, signed, mint, launcher }) {
+  let tx;
+  try { tx = VersionedTransaction.deserialize(Buffer.from(String(signed), 'base64')); } catch {
+    throw new CosignRefused('That is not a signed launch.');
+  }
+  const msg = tx.message;
+  if (msg.version !== 0 || msg.addressTableLookups.length) throw new CosignRefused('The wallet changed the launch in a way that cannot be checked.');
+  const keys = msg.staticAccountKeys.map((k) => k.toBase58());
+  const mintAddr = mint.publicKey.toBase58();
+  if (keys[0] !== launcher) throw new CosignRefused('The launch must be paid by the wallet that prepared it.');
+  const signers = keys.slice(0, msg.header.numRequiredSignatures);
+  if (!signers.includes(mintAddr) || signers.some((k) => k !== launcher && k !== mintAddr)) {
+    throw new CosignRefused('The wallet changed who signs the launch.');
+  }
+  const pub = createPublicKey({ key: Buffer.concat([ED25519_SPKI, new PublicKey(launcher).toBuffer()]), format: 'der', type: 'spki' });
+  if (!verifyEd25519(null, Buffer.from(msg.serialize()), pub, Buffer.from(tx.signatures[0]))) {
+    throw new CosignRefused('The wallet did not sign the launch.');
+  }
+
+  const want = resolvedInstructions(VersionedTransaction.deserialize(Buffer.from(prepared, 'base64')).message)
+    .filter((ix) => ix.program !== COMPUTE_BUDGET);
+  const same = (a, b) => a.program === b.program && a.data === b.data
+    && a.accounts.length === b.accounts.length && a.accounts.every((k, i) => k === b.accounts[i]);
+  let next = 0;
+  for (const ix of resolvedInstructions(msg)) {
+    if (next < want.length && same(ix, want[next])) { next++; continue; }
+    if (ix.program !== COMPUTE_BUDGET && (ix.program === mintAddr || ix.accounts.includes(mintAddr))) {
+      throw new CosignRefused('The wallet added something that uses the coin address.');
+    }
+  }
+  if (next !== want.length) throw new CosignRefused('The wallet changed the launch.');
   tx.sign([mint]);
-  return { mint: mint.publicKey.toBase58(), tx: Buffer.from(tx.serialize()).toString('base64'), lastValidBlockHeight };
+  return tx;
 }
 
 /** The coin's metadata uri, from its Token-2022 metadata on chain (pump.fun's create_v2); null if none. */

@@ -92,9 +92,15 @@ $('#f').addEventListener('submit', async (e) => {
       ...(file ? { imageBase64: await readFile(file) } : { imageUrl: picUrl }),
     });
 
+    // The wallet signs first, as Phantom asks; the server then adds the coin address's signature
+    // (after checking the wallet changed nothing that matters) and sends it.
     note(msg, 'warn', 'Approve the launch in your wallet.');
     const tx = solanaWeb3.VersionedTransaction.deserialize(Uint8Array.from(atob(prep.tx), (c) => c.charCodeAt(0)));
-    const { signature } = await w.signAndSendTransaction(tx);
+    const walletSigned = await w.signTransaction(tx);
+    let bin = '';
+    for (const b of walletSigned.serialize()) bin += String.fromCharCode(b);
+    note(msg, 'warn', 'Sending the launch…');
+    const { signature } = await api('/api/launch/submit', { mint: prep.mint, tx: btoa(bin) });
 
     note(msg, 'warn', 'Sent. Waiting for Solana to confirm…');
     for (let i = 0; i < 30; i++) {

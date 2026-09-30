@@ -4,9 +4,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
-import { PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { normalizeHandle } from './handles.js';
-import { metaSignatureOk, newCode, readToken, signToken, safeEqual } from './crypto.js';
+import { metaSignatureOk, newCode, readToken, signToken, safeEqual, sealSecret, openSecret } from './crypto.js';
 import { claimableAccounts, bindAccount } from './identity.js';
 import { codeMessages, textMessages, describeEntry } from './instagram.js';
 import {
@@ -23,6 +23,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const VERIFY_TTL = 15 * 60_000;
 const CLAIM_TTL = 30 * 60_000;
+// A prepared website launch waits this long for the wallet's signature; its blockhash lives ~90 s.
+const PENDING_TTL = 3 * 60_000;
 // A post that shares no picture gets the InstaPaid coin: public/coin-default.png, drawn by
 // scripts/make-default-coin.js (npm run default-coin). It becomes the coin's picture on IPFS for good.
 const DEFAULT_IMAGE = () => ({ buf: readFileSync(join(here, '..', 'public', 'coin-default.png')), type: 'image/png' });
@@ -41,7 +43,7 @@ function limiter(limit, windowMs) {
 
 /**
  * deps: { db, cfg, connection,
- *         pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, confirmLaunch, pendingFees, payOut, launchPaidByServer,
+ *         pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, cosignLaunch, sendLaunch, confirmLaunch, pendingFees, payOut, launchPaidByServer,
  *                launchStatus, balanceOf},
  *         ig: {usernameOf, reply}, comments: {readMention, replyToMention}, nameCoin,
  *         uploadMetadata, feePayer, fetchImpl, poster? (src/poster.js; made here when not given),
@@ -65,6 +67,7 @@ export function createApp(deps) {
   app.disable('x-powered-by');
 
   const launchLimit = limiter(20, 60 * 60_000);
+  const submitLimit = limiter(60, 60 * 60_000);
   const verifyLimit = limiter(20, 60 * 60_000);
   const claimLocks = new Set();
 
@@ -451,12 +454,19 @@ export function createApp(deps) {
         name: cleanName, symbol: cleanSymbol, username, image,
         description: tokenDescription(username, description, cfg.publicUrl),
       }, deps.fetchImpl);
+      // Unsigned: the launcher's wallet signs first (Phantom's order), then /api/launch/submit adds
+      // the coin address's signature. Its key waits here, sealed, for as long as the blockhash lives.
       const built = await pump.buildLaunchTx(connection, {
         launcher, vault: acct.vault_pubkey, name: cleanName, symbol: cleanSymbol, uri, devBuySol: buy, mint: nextMint(),
+        signMint: false,
       });
+      const now = Date.now();
+      db.prepare('delete from launch_pending where expires_at < ?').run(now);
+      db.prepare('insert into launch_pending (mint, secret, tx, launcher, expires_at) values (?, ?, ?, ?, ?)')
+        .run(built.mint, sealSecret(built.mintKey.secretKey, cfg.vaultMasterKey, `launch:${built.mint}`), built.tx, launcher, now + PENDING_TTL);
       db.prepare(
         `insert into token (mint, username, name, symbol, launcher, status, created_at) values (?, ?, ?, ?, ?, 'prepared', ?)`
-      ).run(built.mint, username, cleanName, cleanSymbol, launcher, Date.now());
+      ).run(built.mint, username, cleanName, cleanSymbol, launcher, now);
       // Kept for the poster's card, drawn when the launch is confirmed.
       await poster.keepSource(built.mint, image).catch((e) => console.error('keep picture failed', e.message));
       await keepPicture(built.mint, image);
@@ -464,6 +474,33 @@ export function createApp(deps) {
     } catch (e) {
       console.error('prepare failed', e);
       res.status(400).json({ error: e.message || 'Could not prepare the launch.' });
+    }
+  });
+
+  // The launcher's wallet signed the prepared launch: check it, add the coin address's signature
+  // (pump.cosignLaunch says what is refused), and send it. The key is used once, then deleted.
+  app.post('/api/launch/submit', async (req, res) => {
+    if (!submitLimit(req.ip)) return res.status(429).json({ error: 'Too many tries from here. Try again in an hour.' });
+    const { mint, tx } = req.body ?? {};
+    const p = typeof mint === 'string' && db.prepare('select * from launch_pending where mint = ?').get(mint);
+    if (!p || p.expires_at < Date.now()) return res.status(410).json({ error: 'This launch expired before it was signed. Press Launch again.' });
+    if (typeof tx !== 'string' || tx.length > 4000) return res.status(400).json({ error: 'That is not a signed launch.' });
+    let signed;
+    try {
+      const key = Keypair.fromSecretKey(openSecret(p.secret, cfg.vaultMasterKey, `launch:${mint}`));
+      signed = pump.cosignLaunch({ prepared: p.tx, signed: tx, mint: key, launcher: p.launcher });
+    } catch (e) {
+      if (e?.refused) return res.status(400).json({ error: e.message });
+      console.error('cosign failed', mint, e);
+      return res.status(500).json({ error: 'Could not add the coin address signature. Press Launch again.' });
+    }
+    try {
+      const signature = await pump.sendLaunch(connection, signed);
+      db.prepare('delete from launch_pending where mint = ?').run(mint);
+      res.json({ signature });
+    } catch (e) {
+      console.error('launch send failed', mint, e.message);
+      res.status(400).json({ error: `Solana did not accept the launch: ${String(e.message || e).split('\n')[0]}` });
     }
   });
 

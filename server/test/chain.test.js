@@ -84,3 +84,31 @@ test('launch tx: a coin address from the stock is the mint, and it signed', { sk
   const { default: nacl } = await import('tweetnacl');
   assert.ok(nacl.sign.detached.verify(tx.message.serialize(), tx.signatures[idx], mint.publicKey.toBytes()));
 });
+
+test('Phantom order on a real launch: unsigned, the wallet signs, cosignLaunch adds the coin address; sizes', { skip: !reachable && 'no RPC' }, async () => {
+  const { cosignLaunch } = await import('../src/pump.js');
+  const { default: nacl } = await import('tweetnacl');
+  const real = { name: 'Gungun the AI Panda Coin', symbol: 'GUNGUN', uri: 'https://ipfs.io/ipfs/bafkreiatpf2mlnmz6bnd73vv3f2ljzwn24bad5onwu4hy7psgf3kbpskdy' };
+  // With a first buy a real launch is over Solana's 1,232 bytes: refused with a sentence, never handed to a wallet.
+  await assert.rejects(buildLaunchTx(conn, {
+    launcher: Keypair.generate().publicKey.toBase58(), vault: Keypair.generate().publicKey.toBase58(), ...real, devBuySol: 0.1, signMint: false,
+  }), /too large for one Solana transaction.*first buy to 0/);
+  for (const devBuySol of [0]) {
+    const wallet = Keypair.generate();
+    const out = await buildLaunchTx(conn, {
+      launcher: wallet.publicKey.toBase58(), vault: Keypair.generate().publicKey.toBase58(), ...real, devBuySol, signMint: false,
+    });
+    const unsigned = VersionedTransaction.deserialize(Buffer.from(out.tx, 'base64'));
+    assert.ok(unsigned.signatures.every((s) => s.every((b) => b === 0)), 'nobody signed before the wallet');
+    unsigned.sign([wallet]);
+    const tx = cosignLaunch({ prepared: out.tx, signed: Buffer.from(unsigned.serialize()).toString('base64'), mint: out.mintKey, launcher: wallet.publicKey.toBase58() });
+    const msg = tx.message.serialize();
+    for (const k of [wallet.publicKey, out.mintKey.publicKey]) {
+      const i = tx.message.staticAccountKeys.findIndex((x) => x.equals(k));
+      assert.ok(nacl.sign.detached.verify(msg, tx.signatures[i], k.toBytes()));
+    }
+    const size = tx.serialize().length;
+    console.log(`launch size, first buy ${devBuySol} SOL: ${size} of 1232 bytes (${1232 - size} left)`);
+    assert.ok(size <= 1232);
+  }
+});
