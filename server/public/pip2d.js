@@ -5,8 +5,11 @@
 // leap, stretches in the air, squashes and kicks up dust on landing, and his shadow sits on whatever
 // is under him. He hops onto buttons and stomps them (a dip, a glow, sparkles: never a real click),
 // tells you what they do, waves, looks around, dances and cheers. Scroll away and he drops in from
-// above onto something you can see. Tap him, drag him (he falls onto whatever is below when let go),
-// or send him off for the visit with the ×. Only Pip himself takes the pointer.
+// above onto something you can see. On the tabbed home page he plays it like a platformer: each tab
+// is a new level he runs into from behind the rail, the page's pieces are the platforms and obstacles
+// he leaps across, and the rail's tabs are blocks he jumps up and bumps for a coin. Nobody steers
+// him: a click only startles him (he hops, says so, and runs off on his own way). The × sends him
+// off for the visit. Only Pip himself takes the pointer.
 //
 // startPip2D(from) → Promise<boolean>: `from` is the drawn Pip's slot, where he first appears.
 
@@ -19,6 +22,9 @@ const LINES = {
   copy: ['Copy this, comment it on any post!', 'That’s the magic comment ✨'],
   other: ['Ooh, what does this do?', 'Boop!'],
   drop: ['Whoa, put me down! 😆', 'Wheee!'],
+  poke: ['Hey! I’m busy! 😤', 'Can’t catch me!', 'Boing!', 'Eek! 😆', 'Hehe, not today!', 'I go where I want!'],
+  bump: ['Ding! A coin! 🪙', 'Bonk! 💥', 'Coin block!', 'Let’s-a go!'],
+  level: ['New level! 🏁', 'Here we go!', 'Onward!'],
   arrive: ['Found you!', 'Wait for me!', 'I’m here!', 'Hi again!'],
   bye: ['Bye for now! 👋'],
 };
@@ -34,9 +40,13 @@ const GROUND = 'main h1, main h2, main h3, main .btn, main button.copy, main img
 
 const CSS = `
 .pip2d{position:absolute;left:0;top:0;z-index:15;width:var(--pw);height:var(--ph);pointer-events:none;will-change:transform;transition:opacity .4s}
-.pip2d-body{position:absolute;inset:8% 14% 0;pointer-events:auto;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;outline:none;border-radius:40%}
+.pip2d-body{position:absolute;inset:8% 14% 0;pointer-events:auto;cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;outline:none;border-radius:40%}
 .pip2d-body:focus-visible{box-shadow:0 0 0 3px rgba(255,122,89,.7)}
-.pip2d.is-held .pip2d-body{cursor:grabbing}
+.pip2d-sprite.startle{animation:pip2d-startle .55s cubic-bezier(.2,.9,.3,1)}
+@keyframes pip2d-startle{0%{translate:0 0;rotate:0deg}30%{translate:0 -46px;rotate:-12deg}55%{translate:0 -52px;rotate:10deg}100%{translate:0 0;rotate:0deg}}
+.pip2d-bumped{transition:transform .09s ease-out,box-shadow .35s ease!important;transform:translateX(-7px) scale(1.04)!important;box-shadow:0 0 0 3px rgba(255,194,155,.6),0 0 30px rgba(255,122,89,.7)!important}
+.pip2d-coin{width:30px;height:30px;background:url(/media/coin-400.webp) center/cover;box-shadow:0 0 14px rgba(255,194,155,.8);animation:pip2d-coin .9s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes pip2d-coin{0%{opacity:0;transform:translate(0,0) scaleX(1)}15%{opacity:1}50%{transform:translate(var(--dx),-80px) scaleX(-1)}100%{opacity:0;transform:translate(var(--dx),-120px) scaleX(1)}}
 .pip2d-squash{position:absolute;inset:0;transform-origin:50% 100%;will-change:transform}
 .pip2d-sprite{position:absolute;left:50%;bottom:0;background-repeat:no-repeat;transform-origin:50% 100%;pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
 .pip2d-floor{position:absolute;left:8%;right:8%;bottom:10px;height:1px;pointer-events:none;visibility:hidden}
@@ -88,7 +98,7 @@ export async function startPip2D(from) {
   el.className = 'pip2d';
   el.style.setProperty('--pw', `${PW}px`);
   el.style.setProperty('--ph', `${PH}px`);
-  el.innerHTML = `<div class="pip2d-squash"><div class="pip2d-sprite"></div></div><div class="pip2d-body" role="img" tabindex="0" aria-label="Pip, the InstaPaid axolotl, exploring the page. Press Enter to make him jump; drag him anywhere."></div><div class="pip2d-say" aria-live="polite"></div><button class="pip2d-x" type="button" aria-label="Send Pip away for this visit">×</button>`;
+  el.innerHTML = `<div class="pip2d-squash"><div class="pip2d-sprite"></div></div><div class="pip2d-body" role="img" tabindex="0" aria-label="Pip, the InstaPaid axolotl, exploring the page on his own. Press Enter to startle him."></div><div class="pip2d-say" aria-live="polite"></div><button class="pip2d-x" type="button" aria-label="Send Pip away for this visit">×</button>`;
   const shadow = document.createElement('div');
   shadow.className = 'pip2d-shadow';
   shadow.style.setProperty('--sw', `${Math.round(PW * 0.62)}px`);
@@ -277,8 +287,8 @@ export async function startPip2D(from) {
     const d = target - groundDX;
     if (Math.abs(d) < 6) return;
     face = d > 0 ? 1 : -1;
-    await play('walk', { speed: 1.15 });
-    const dur = Math.abs(d) / (small ? 95 : 120) + 0.35;
+    await play('walk', { speed: 1.6 });
+    const dur = Math.abs(d) / (small ? 150 : 210) + 0.3;
     const g0 = groundDX, t0 = performance.now();
     while (alive() && ground) {
       const u = Math.min(1, (performance.now() - t0) / 1000 / dur);
@@ -414,6 +424,87 @@ export async function startPip2D(from) {
     return true;
   };
 
+  // ---- The platformer: levels, blocks, and a pointer that only startles him.
+  const railEl = () => { const r = document.querySelector('body.app > .rail'); return r && r.getBoundingClientRect().width ? r : null; };
+  const floorGround = () => (document.body.classList.contains('app') ? fallbackGrounds()[0] ?? null : null);
+  // A new tab is a new level: he runs in from behind the rail along the floor, then plays on.
+  let newLevel = false;
+  addEventListener('app:tab', () => { newLevel = true; });
+  const enterLevel = async () => {
+    newLevel = false;
+    const rail = railEl(), fl = floorGround();
+    if (!rail || !fl) return dropIn();
+    const rr = rail.getBoundingClientRect();
+    airborne = false; ground = null;
+    x = rr.right + scrollX - PW * 0.2; y = fl.r.t; shadowY = y; lift = 0;
+    standOn(fl.e, x);
+    face = 1;
+    talk(pick(LINES.level), 1500);
+    await walkTo(rr.right + scrollX + rand(PW * 1.2, Math.min(PW * 3, docW() * 0.3)));
+    return true;
+  };
+  // A rail tab is a block: he runs up beside it, jumps, bonks it, and a coin pops out.
+  const bumpTab = async () => {
+    const rail = railEl(), fl = floorGround();
+    if (!rail || !fl) return false;
+    const rr = rail.getBoundingClientRect();
+    const floorY = fl.r.t - scrollY; // viewport
+    const tabs = [...rail.querySelectorAll('.rail-tab, .rail-act')].filter((t) => {
+      const b = t.getBoundingClientRect();
+      const need = floorY - PH * 0.75 - (b.top + b.height / 2);
+      return b.height && need > 10 && need < (small ? 300 : 380);
+    });
+    if (!tabs.length) return false;
+    const tab = pick(tabs);
+    const bx = rr.right + scrollX + PW * 0.42;
+    if (ground !== fl.e || Math.abs(y - fl.r.t) > 2) await leapTo(bx, fl.r.t, fl.e);
+    else await walkTo(bx);
+    if (!alive()) return true;
+    face = -1;
+    const b = tab.getBoundingClientRect();
+    const peak = b.top + b.height / 2 + scrollY + PH * 0.75; // his feet when his head is level with the block
+    squish(1.14, 0.84);
+    await sleep(140);
+    airborne = true; ground = null;
+    play('jump', { speed: 1.8 });
+    const y0 = y, up = y0 - peak, t0 = performance.now(), dur = clamp(0.5 + up / 900, 0.5, 0.95) * 1000;
+    let hit = false;
+    while (!stopped && !held) {
+      const u = Math.min(1, (performance.now() - t0) / dur);
+      y = y0 - up * Math.sin(u * Math.PI); lift = y0 - y; shadowY = y0;
+      if (!hit && u >= 0.5) {
+        hit = true;
+        tab.classList.add('pip2d-bumped');
+        setTimeout(() => tab.classList.remove('pip2d-bumped'), 220);
+        fx('pip2d-coin', b.right + scrollX - 44, b.top + scrollY - 6, { '--dx': `${rand(-8, 8)}px` }, 950);
+        sparkle(b.right + scrollX - 30, b.top + b.height / 2 + scrollY, 10);
+        talk(pick(LINES.bump), 1600);
+      }
+      if (u >= 1) break;
+      await frameWait();
+    }
+    airborne = false;
+    y = y0; lift = 0; shadowY = y0;
+    standOn(fl.e, x);
+    squish(1.18, 0.8);
+    dust(x, y, 6);
+    face = 1;
+    await play('cheer', { once: true, speed: 1.8 });
+    return true;
+  };
+  // A click startles him: a hop and a word, then he runs off on his own way. Never steered.
+  let spooked = false;
+  const disturbed = () => {
+    const sprite = el.querySelector('.pip2d-sprite');
+    sprite.classList.remove('startle');
+    void sprite.offsetWidth;
+    sprite.classList.add('startle');
+    squish(0.86, 1.16);
+    sparkle(x, y - PH * 0.6, 8);
+    talk(pick(LINES.poke), 1500);
+    spooked = true;
+  };
+
   const moves = {
     explore: () => explore(),
     explore2: () => explore(),
@@ -423,6 +514,8 @@ export async function startPip2D(from) {
     dance: () => play('dance', { once: true, speed: 1.4 }),
     cheer: () => play('cheer', { once: true, speed: 1.5 }),
     rest: () => play('idle').then(() => sleep(rand(900, 1800))),
+    block: async () => { if (!(await bumpTab())) await explore(); },
+    block2: async () => { if (!(await bumpTab())) await explore(); },
   };
 
   // ---- His life: an entrance, then a shuffled bag of moves with a button stomp every third.
@@ -459,6 +552,16 @@ export async function startPip2D(from) {
   const liveOn = async () => {
     while (!stopped) {
       if (held) { await sleep(200); continue; }
+      if (newLevel && document.body.classList.contains('app')) {
+        await sleep(380); // the section is still rising in
+        try { await enterLevel(); } catch { /* next time */ }
+        continue;
+      }
+      if (spooked) {
+        spooked = false;
+        try { if (!(await explore())) await (Math.random() < 0.5 ? bumpTab() : explore()); } catch { /* next time */ }
+        continue;
+      }
       if (!ground || offScreen()) {
         await sleep(900);
         if (!held && !stopped && (!ground || offScreen())) await dropIn();
@@ -479,56 +582,9 @@ export async function startPip2D(from) {
     }
   };
 
-  // ---- Tap: jump and say something. Drag: pick him up; let go and he falls onto what is below.
-  let drag = null;
-  body.addEventListener('pointerdown', (e) => {
-    drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: x, oy: y, moved: false };
-    body.setPointerCapture(e.pointerId);
-  });
-  body.addEventListener('pointermove', (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
-    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-    if (!drag.moved) { drag.moved = true; held = true; ground = null; el.classList.add('is-held'); play('cheer', { speed: 1.6 }); talk(pick(LINES.drop), 1600); }
-    x = drag.ox + dx; y = drag.oy + dy; lift = 40; shadowY = y + 40;
-  });
-  const release = async (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const moved = drag.moved;
-    drag = null;
-    if (!moved) { tapped(); return; }
-    el.classList.remove('is-held');
-    // Fall onto the ground below the drop point; with none, the life loop drops him in somewhere.
-    const below = grounds().filter((g) => g.r.l < x && g.r.r > x && g.r.t >= y - 10).sort((p, q) => p.r.t - q.r.t)[0];
-    if (below) {
-      airborne = true;
-      held = false;
-      const t0 = performance.now(), y0 = y, ty = below.r.t, dur = clamp(Math.sqrt(Math.max(1, ty - y0) / 900), 0.25, 0.9) * 1000;
-      while (!stopped) {
-        const u = Math.min(1, (performance.now() - t0) / dur);
-        y = y0 + (ty - y0) * u * u; shadowY = ty; lift = ty - y;
-        if (u >= 1) break;
-        await frameWait();
-      }
-      airborne = false;
-      standOn(below.e, x);
-      squish(1.22, 0.76);
-      dust(x, ty, 8);
-      play('idle');
-    } else {
-      ground = null;
-      held = false;
-    }
-  };
-  body.addEventListener('pointerup', release);
-  body.addEventListener('pointercancel', release);
-  const tapped = () => {
-    if (!loop) return;
-    talk(pick(LINES.tap));
-    squish(1.1, 0.9);
-    play(pick(['jump', 'cheer', 'dance']), { once: true, speed: 1.5 });
-  };
-  body.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tapped(); } });
+  // ---- A click or a tap only startles him; nobody can pick him up or steer him.
+  body.addEventListener('pointerdown', (e) => { e.preventDefault(); disturbed(); });
+  body.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); disturbed(); } });
 
   el.querySelector('.pip2d-x').addEventListener('click', async () => {
     stopped = true;
