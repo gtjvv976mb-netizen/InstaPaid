@@ -39,6 +39,7 @@ const CSS = `
 .pip2d.is-held .pip2d-body{cursor:grabbing}
 .pip2d-squash{position:absolute;inset:0;transform-origin:50% 100%;will-change:transform}
 .pip2d-sprite{position:absolute;left:50%;bottom:0;background-repeat:no-repeat;transform-origin:50% 100%;pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+.pip2d-floor{position:absolute;left:8%;right:8%;bottom:10px;height:1px;pointer-events:none;visibility:hidden}
 .pip2d-shadow{position:absolute;left:0;top:0;z-index:14;width:var(--sw);height:14px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.38),rgba(0,0,0,.12) 60%,transparent);pointer-events:none;will-change:transform,opacity}
 .pip2d-say{position:absolute;left:50%;bottom:calc(100% + 2px);transform:translate(-50%,8px) scale(.85);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.35 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:9px 13px;border-radius:16px;box-shadow:0 14px 34px -12px rgba(0,0,0,.55);width:max-content;max-width:min(230px,70vw);text-align:center;transition:transform .35s cubic-bezier(.2,1.2,.3,1),opacity .25s ease}
 .pip2d-say::after{content:"";position:absolute;left:calc(50% - var(--nudge,0px));top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
@@ -79,7 +80,7 @@ export async function startPip2D(from) {
   document.head.appendChild(style);
 
   const small = matchMedia('(max-width: 640px)').matches;
-  const PH = small ? 112 : 156;
+  const PH = small ? 96 : 156;
   const front = meta.clips.idle;
   const PW = Math.round((front.w / front.h) * PH);
 
@@ -141,47 +142,74 @@ export async function startPip2D(from) {
     for (const c of n.childNodes) if (c.nodeType === 3 && c.textContent.trim()) return true;
     return false;
   };
-  const openAbove = (e, r) => {
+  // A sticky header's foot (the other pages have one; the home page's rail is at the side).
+  const topOff = () => {
+    const h = document.querySelector('header.top');
+    return h && getComputedStyle(h).position !== 'static' ? Math.max(0, h.getBoundingClientRect().bottom) : 0;
+  };
+  const COVER = 'h1, h2, h3, .kicker, .pill, button, .btn, input, .lookup-field, .cmd, img, video, summary, .claim-mock, .coin-card, .step-art, .way-art, .rail';
+  const openAbove = (e, r, stomp = false) => {
     // The element must be the thing actually showing at its top edge (not covered by something),
     // and just above that edge nothing solid may sit but what it lies in. His body may stand in
     // front of the words above: he is a character on the page, not in its flow.
     const was = el.style.visibility;
     el.style.visibility = 'hidden';
     try {
-      const button = e.matches('.btn, button');
+      const button = stomp && e.matches('.btn, button');
       for (const fx of [0.35, 0.5, 0.65]) {
         const px = r.l - scrollX + r.w * fx;
         const own = document.elementFromPoint(px, r.vt + Math.min(4, r.h / 2));
         if (!own || !(own === e || e.contains(own))) return false;
         if (button) continue;
         const py = r.vt - 6;
-        if (py < 64) return false; // under the sticky header
+        if (py < topOff() + 4) return false; // under a sticky header
         const hit = document.elementFromPoint(px, py);
         if (!hit || hit === e || hit.contains(e) || el.contains(hit)) continue;
         if (hit.closest('header') || solid(hit)) return false;
       }
+      // Where his body would be: never in front of a heading, a control or a picture (text he may cover).
+      if (!button) {
+        for (const fx of [0.35, 0.5, 0.65]) {
+          const px = r.l - scrollX + r.w * fx;
+          for (const k of [0.35, 0.7]) {
+            const py = r.vt - PH * k;
+            if (py < topOff()) continue;
+            const hit = document.elementFromPoint(px, py);
+            if (!hit || hit === e || hit.contains(e) || el.contains(hit)) continue;
+            if (hit.closest(COVER)) return false;
+          }
+        }
+      }
       return true;
     } finally { el.style.visibility = was; }
   };
-  const grounds = () => {
+  // Somewhere to stand for a while; with stomp, the buttons he only hops on for a moment count too.
+  const grounds = (stomp = false) => {
     const vh = innerHeight, out = [];
     for (const e of document.querySelectorAll(GROUND)) {
       const r = rectDoc(e);
       if (r.w < PW * 0.9 || r.h < 20) continue;
-      if (r.vt < 60 + PH * 0.7 || r.vt > vh - 20) continue; // his head clear of the sticky header
+      if (r.vt < topOff() + PH * 0.7 || r.vt > vh - 20) continue; // his head clear of the sticky header
       const cs = getComputedStyle(e);
       if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
-      if (!openAbove(e, r)) continue;
+      if (!openAbove(e, r, stomp)) continue;
       out.push({ e, r });
     }
     return out;
   };
   // When nothing in view qualifies: the top of any wide block in view (a section, the footer).
+  let floor = null;
   const fallbackGrounds = () => {
     const vh = innerHeight, out = [];
+    const main = document.body.classList.contains('app') && document.querySelector('body.app > main');
+    if (main) {
+      // The tabbed home page never scrolls: the foot of the screen is a floor he can always land on.
+      if (!floor) { floor = document.createElement('i'); floor.className = 'pip2d-floor'; floor.setAttribute('aria-hidden', 'true'); main.append(floor); }
+      return [{ e: floor, r: rectDoc(floor) }];
+    }
     for (const e of document.querySelectorAll('main section, main > *, main .wrap, footer')) {
       const r = rectDoc(e);
-      if (r.w < PW * 1.5 || r.vt < 60 + PH * 0.7 || r.vt > vh - 40) continue;
+      if (r.w < PW * 1.5 || r.vt < topOff() + PH * 0.7 || r.vt > vh - 40) continue;
       out.push({ e, r });
     }
     return out;
@@ -351,7 +379,7 @@ export async function startPip2D(from) {
   // Hop onto a button and stomp it: it dips, glows and sparkles. Never a real click.
   const recent = [];
   const stompButton = async () => {
-    const list = grounds().filter((g) => g.e.matches('.btn, button.copy') && !recent.includes(g.e));
+    const list = grounds(true).filter((g) => g.e.matches('.btn, button.copy') && !recent.includes(g.e));
     if (!list.length) return false;
     const dist = (g) => Math.hypot((g.r.l + g.r.r) / 2 - x, g.r.t - y);
     const g = list.sort((p, q) => dist(p) - dist(q))[0];
@@ -381,6 +409,8 @@ export async function startPip2D(from) {
       await sleep(160);
     }
     await play('cheer', { once: true, speed: 1.8 });
+    // Off the button again: it is for pressing, not for standing in front of.
+    if (alive() && !(await explore())) { ground = null; }
     return true;
   };
 
@@ -538,7 +568,7 @@ export async function startPip2D(from) {
     place();
   };
 
-  if (window.PIP_DEBUG) window.__pip = { grounds, rectDoc, openAbove, GROUND };
+  if (window.PIP_DEBUG) window.__pip = { grounds, rectDoc, openAbove, GROUND, get ground() { return ground; }, get airborne() { return airborne; } };
   el.style.opacity = '0';
   show();
   place();

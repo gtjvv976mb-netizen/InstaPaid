@@ -20,6 +20,181 @@ for (const btn of document.querySelectorAll('[data-copy]')) {
 // ---- "See a creator's page" ----
 for (const form of document.querySelectorAll('[data-lookup]')) wireLookup(form);
 
+// ---- The tabs: the rail's sections, one on screen at a time, so the page itself never scrolls. The address
+//      keeps the one showing (#how, #faq …) and Back goes to the last one. A scroll or a swipe past the end of a
+//      section moves to the next; PageUp/PageDown too. Without scripts the page is the same sections, stacked. ----
+const panels = [...document.querySelectorAll('[data-panel]')];
+if (panels.length && document.body.classList.contains('app')) tabbed(panels);
+
+function tabbed(panels) {
+  const ids = panels.map((p) => p.id);
+  const tabs = [...document.querySelectorAll('.rail [data-tab]')];
+  const ind = $('.rail-ind');
+  const main = $('#main');
+  let current = null;
+  const panelOf = (id) => panels[ids.indexOf(id)];
+  // The section an address means: its own id, or the section holding the element it names.
+  const idFor = (hash) => {
+    let id = '';
+    try { id = decodeURIComponent((hash || '').replace(/^#/, '')); } catch { /* a malformed address: home */ }
+    if (ids.includes(id)) return id;
+    const inner = id && document.getElementById(id)?.closest('[data-panel]');
+    return inner ? inner.id : null;
+  };
+  const glide = () => {
+    const t = tabs.find((a) => a.dataset.tab === current);
+    if (!t || !ind) return;
+    ind.style.setProperty('--y', `${t.offsetTop}px`);
+    ind.style.setProperty('--h', `${t.offsetHeight}px`);
+    ind.classList.add('on');
+  };
+  const show = (id, { focus = false, target = null } = {}) => {
+    const panel = panelOf(id);
+    if (id !== current) {
+      const from = ids.indexOf(current), to = ids.indexOf(id);
+      for (const p of panels) {
+        const on = p === panel;
+        p.hidden = !on;
+        p.classList.remove('enter');
+      }
+      panel.style.setProperty('--dir', from < 0 || to > from ? 1 : -1);
+      panel.scrollTop = 0;
+      if (from >= 0) {
+        void panel.offsetWidth;
+        panel.classList.add('enter');
+        // Its pieces rise again, one after another, each time it is opened.
+        const rises = [...panel.querySelectorAll('[data-reveal]')];
+        for (const r of rises) r.classList.remove('in');
+        requestAnimationFrame(() => requestAnimationFrame(() => { for (const r of rises) r.classList.add('in'); }));
+      }
+      for (const a of tabs) {
+        if (a.dataset.tab === id) a.setAttribute('aria-current', 'true');
+        else a.removeAttribute('aria-current');
+      }
+      current = id;
+      document.documentElement.dataset.tab = id;
+      document.body.classList.add('tabs-ready');
+      glide();
+      window.dispatchEvent(new CustomEvent('app:tab', { detail: { id } }));
+    }
+    if (target && target !== panel) target.scrollIntoView({ block: 'nearest' });
+    if (focus) {
+      const h = panel.querySelector('h1, h2');
+      if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    }
+  };
+  const go = (id, opts = {}) => {
+    if (!id || (id === current && !opts.target)) return;
+    const url = id === 'home' ? location.pathname + location.search : `#${id}`;
+    history.pushState(null, '', url);
+    show(id, opts);
+  };
+  const step = (by) => {
+    const i = ids.indexOf(current) + by;
+    if (i >= 0 && i < ids.length) go(ids[i]);
+  };
+
+  show(idFor(location.hash) || 'home');
+  addEventListener('popstate', () => show(idFor(location.hash) || 'home'));
+  addEventListener('resize', glide);
+  document.fonts?.ready.then(glide);
+
+  // Every in-page link that names a section (the rail, "How it works" in the words …) opens it here.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const id = idFor(a.getAttribute('href'));
+    if (!id) return; // the skip link and the like keep their own way
+    e.preventDefault();
+    const named = document.getElementById(a.getAttribute('href').slice(1));
+    go(id, { focus: !a.closest('.rail') || e.detail === 0, target: named });
+    if (id === current && named && named !== panelOf(id)) named.scrollIntoView({ block: 'nearest' });
+  });
+
+  // The rail's tabs: up and down arrows move between them, Home and End to the first and last.
+  $('.rail-nav')?.addEventListener('keydown', (e) => {
+    const i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const j = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (j === undefined) return;
+    e.preventDefault();
+    tabs[(j + tabs.length) % tabs.length].focus();
+  });
+
+  // Past the end of a section, keep going: the next one. A section that is taller than the screen (a small
+  // phone, a zoomed page) scrolls inside itself first.
+  const typing = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  const atEdge = (dir) => {
+    const p = panelOf(current);
+    return dir > 0 ? p.scrollTop + p.clientHeight >= p.scrollHeight - 2 : p.scrollTop <= 1;
+  };
+  let lockUntil = 0, acc = 0, lastWheel = 0;
+  main.addEventListener('wheel', (e) => {
+    const now = performance.now();
+    const quiet = now - lastWheel > 260; // a new gesture, not the tail of the last one
+    lastWheel = now;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.ctrlKey) return;
+    const dir = Math.sign(e.deltaY);
+    if (!dir || !atEdge(dir)) { acc = 0; return; }
+    if (now < lockUntil) { if (quiet) lockUntil = now; else return; }
+    if (quiet || Math.sign(acc) !== dir) acc = 0;
+    acc += e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY;
+    if (Math.abs(acc) > 90) { acc = 0; lockUntil = now + 1100; step(dir); }
+  }, { passive: true });
+  let touch = null;
+  main.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    touch = e.touches.length === 1 && !typing(e.target) ? { x: t.clientX, y: t.clientY, top: atEdge(-1), end: atEdge(1) } : null;
+  }, { passive: true });
+  main.addEventListener('touchend', (e) => {
+    if (!touch) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touch.x, dy = t.clientY - touch.y;
+    if (Math.abs(dy) > 70 && Math.abs(dy) > Math.abs(dx) * 1.6) {
+      if (dy < 0 && touch.end) step(1);
+      else if (dy > 0 && touch.top) step(-1);
+    }
+    touch = null;
+  }, { passive: true });
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || typing(document.activeElement)) return;
+    if (e.key === 'PageDown' && atEdge(1)) { e.preventDefault(); step(1); }
+    else if (e.key === 'PageUp' && atEdge(-1)) { e.preventDefault(); step(-1); }
+  });
+
+  // The coins: one row that slides sideways; the arrows move it a card or two at a time.
+  const shelf = $('#recent-shelf'), shelfNav = $('.shelf-nav');
+  if (shelf && shelfNav) {
+    const [back, fwd] = shelfNav.querySelectorAll('[data-shelf]');
+    const sync = () => {
+      const max = shelf.scrollWidth - shelf.clientWidth;
+      shelfNav.hidden = max < 4;
+      back.disabled = shelf.scrollLeft <= 2;
+      fwd.disabled = shelf.scrollLeft >= max - 2;
+    };
+    for (const b of [back, fwd]) b.addEventListener('click', () => {
+      const card = shelf.querySelector('.coin-card');
+      const by = Math.max(card ? card.offsetWidth + 16 : 280, Math.floor(shelf.clientWidth / ((card?.offsetWidth || 280) + 16)) * ((card?.offsetWidth || 280) + 16));
+      shelf.scrollBy({ left: by * Number(b.dataset.shelf), behavior: 'smooth' });
+    });
+    shelf.addEventListener('scroll', sync, { passive: true });
+    addEventListener('resize', sync);
+    addEventListener('app:tab', () => requestAnimationFrame(sync));
+    new MutationObserver(sync).observe(shelf, { childList: true, subtree: true });
+    sync();
+  }
+
+  // On a phone every answer starts closed, so all the questions fit on one screen.
+  if (matchMedia('(max-width: 640px)').matches) for (const d of document.querySelectorAll('.faq details[open]')) d.open = false;
+
+  // One answer open at a time, where the browser does not already do it for details with one name.
+  for (const d of document.querySelectorAll('.faq details')) {
+    d.addEventListener('toggle', () => {
+      if (d.open) for (const o of document.querySelectorAll('.faq details[open]')) if (o !== d) o.open = false;
+    });
+  }
+}
+
 // ---- The phone in 3D: a book-style foldable. Drag it, flick it, turn it with the arrow keys; Fold / Open closes and
 //      opens it. CSS 3D, so the screens stay live HTML. Only transforms, opacity and the lighting's custom
 //      properties change, in one requestAnimationFrame loop that sleeps when the phone is off-screen, the tab is

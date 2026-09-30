@@ -24,33 +24,48 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/app.css">
 <link rel="stylesheet" href="/home.css">
-<script>document.documentElement.classList.add('js'); if ('noModule' in HTMLScriptElement.prototype) document.documentElement.classList.add('p3-js');</script>
+<link rel="stylesheet" href="/shell.css">
+<script>document.documentElement.classList.add('js'); document.documentElement.dataset.tab = ({ '#how': 'how', '#recent': 'recent', '#creators': 'creators', '#fans': 'fans', '#faq': 'faq' })[location.hash] || 'home'; if ('noModule' in HTMLScriptElement.prototype) document.documentElement.classList.add('p3-js');</script>
 <script type="module" src="/home.js"></script>
 <script src="/mascot.js" defer></script>
 </head>
-<body>
+<body class="app">
 
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="top">
-  <div class="wrap top-bar">
-    <a class="brand" href="/" aria-label="instapaid, home">
-      <img src="/mark.svg" alt="" width="38" height="38">
-      <span class="wordmark" aria-hidden="true"></span>
-    </a>
-    <nav class="nav" aria-label="Main">
-      <a class="nav-link hide-md" href="#how">How it works</a>
-      <a class="nav-link hide-md" href="#faq">FAQ</a>
-      <a class="nav-link" href="/claim"><span class="long">Claim fees</span><span class="short">Claim</span></a>
-      <a class="btn btn-primary btn-sm" href="/launch"><span class="long">Launch a coin</span><span class="short">Launch</span></a>
-    </nav>
+<!-- The left rail: the page's sections as tabs, the two actions, and the small print. With scripts
+     on, one section shows at a time and the page itself never scrolls (shell.css, home.js). -->
+<aside class="rail" aria-label="InstaPaid">
+  <a class="brand rail-brand" href="#home" aria-label="instapaid, home">
+    <img src="/mark.svg" alt="" width="38" height="38">
+    <span class="wordmark" aria-hidden="true"></span>
+  </a>
+  <nav class="rail-nav" aria-label="Sections">
+    <i class="rail-ind" aria-hidden="true"></i>
+    <a class="rail-tab" href="#home" data-tab="home"><svg aria-hidden="true"><use href="/icons.svg#spark"/></svg><span>Home</span></a>
+    <a class="rail-tab" href="#how" data-tab="how"><svg aria-hidden="true"><use href="/icons.svg#post"/></svg><span class="long">How it works</span><span class="short">How</span></a>
+    <a class="rail-tab" href="#recent" data-tab="recent"><svg aria-hidden="true"><use href="/icons.svg#coin"/></svg><span>Coins</span></a>
+    <a class="rail-tab" href="#creators" data-tab="creators"><svg aria-hidden="true"><use href="/icons.svg#key"/></svg><span>Creators</span></a>
+    <a class="rail-tab" href="#fans" data-tab="fans"><svg aria-hidden="true"><use href="/icons.svg#chat"/></svg><span>Fans</span></a>
+    <a class="rail-tab" href="#faq" data-tab="faq"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>FAQ</span></a>
+  </nav>
+  <div class="rail-actions">
+    <a class="rail-act rail-launch" href="/launch"><svg aria-hidden="true"><use href="/icons.svg#rocket"/></svg><span class="long">Launch a coin</span><span class="short">Launch</span></a>
+    <a class="rail-act rail-claim" href="/claim"><svg aria-hidden="true"><use href="/icons.svg#wallet"/></svg><span class="long">Claim fees</span><span class="short">Claim</span></a>
   </div>
-</header>
+  <div class="rail-foot">
+    <p><b>Not affiliated with Instagram or Meta.</b> Fan-made coins; not financial advice.</p>
+    <nav class="rail-links" aria-label="Legal">
+      <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/data-deletion">Data deletion</a><a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
+    </nav>
+    <p>© 2026 Brylliant Labs Inc.</p>
+  </div>
+</aside>
 
 <main id="main">
 
   <!-- ============ HERO: the film ============ -->
-  <section class="hero" aria-labelledby="hero-title">
+  <section class="hero" id="home" data-panel aria-labelledby="hero-title">
     <!-- Decorative: a phone on a plum surface, warm bubbles rising. The words say everything it shows. -->
     <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="/media/hero-loop-poster.webp" width="1280" height="716" aria-hidden="true" tabindex="-1" disablepictureinpicture data-loop>
       <source src="/media/hero-loop-480.mp4" type="video/mp4" media="(max-width: 760px)">
@@ -240,20 +255,18 @@
       <!-- The mascot's spot: mascot.js fills it. -->
       <div class="mascot-slot" data-mascot data-size="lg"></div>
     </div>
+    <div class="trust" role="note" aria-label="About InstaPaid">
+      <ul class="wrap trust-row">
+        <li>Launches on <b>pump.fun</b></li>
+        <li>Runs on <b>Solana</b></li>
+        <li>Fees tied to the <b>Instagram account</b></li>
+        <li><b>Not affiliated</b> with Instagram or Meta</li>
+      </ul>
+    </div>
   </section>
 
-  <!-- ============ TRUST STRIP ============ -->
-  <div class="trust" role="note" aria-label="About InstaPaid">
-    <ul class="wrap trust-row">
-      <li>Launches on <b>pump.fun</b></li>
-      <li>Runs on <b>Solana</b></li>
-      <li>Fees tied to the <b>Instagram account</b></li>
-      <li><b>Not affiliated</b> with Instagram or Meta</li>
-    </ul>
-  </div>
-
   <!-- ============ HOW IT WORKS: four steps ============ -->
-  <section class="section how" id="how" aria-labelledby="how-title">
+  <section class="section how" id="how" data-panel aria-labelledby="how-title">
     <div class="wrap">
       <div class="sec-head" data-reveal>
         <div>
@@ -315,12 +328,13 @@
           </div>
         </li>
       </ol>
+      <p class="swipe-hint" aria-hidden="true"><svg><use href="/icons.svg#arrow"/></svg>Swipe for the next step</p>
       <p class="note-line" data-reveal><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>Public posts only: private accounts and Stories don't reach us.</span></p>
     </div>
   </section>
 
   <!-- ============ RECENTLY LAUNCHED ============ -->
-  <section class="section recent" id="recent" aria-labelledby="recent-title">
+  <section class="section recent" id="recent" data-panel aria-labelledby="recent-title">
     <img class="recent-scatter" src="/media/scatter-900.webp" srcset="/media/scatter-900.webp 900w, /media/scatter.webp 1600w" sizes="(max-width: 980px) 520px, 900px" width="900" height="506" alt="" aria-hidden="true" loading="lazy">
     <div class="wrap">
       <div class="recent-head" data-reveal>
@@ -389,22 +403,26 @@
     </div>
     <div class="wrap">
       <button class="btn btn-ghost btn-sm more" id="recent-more" type="button" hidden>Show more</button>
+      <div class="shelf-nav" hidden>
+        <button class="shelf-btn" type="button" data-shelf="-1" aria-label="Earlier coins" aria-controls="recent-shelf"><svg aria-hidden="true"><use href="/icons.svg#arrow"/></svg></button>
+        <button class="shelf-btn" type="button" data-shelf="1" aria-label="More coins" aria-controls="recent-shelf"><svg aria-hidden="true"><use href="/icons.svg#arrow"/></svg></button>
+      </div>
       <p class="recent-foot"><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>A listing here is not a recommendation. Coins are fan-made and not endorsed by the creator unless they say so. We never show prices.</span></p>
     </div>
   </section>
 
   <!-- ============ FOR CREATORS ============ -->
-  <section class="band" id="creators" aria-labelledby="creators-title">
+  <section class="band" id="creators" data-panel aria-labelledby="creators-title">
     <div class="wrap band-grid">
       <div class="band-copy" data-reveal>
         <span class="pill"><svg aria-hidden="true"><use href="/icons.svg#key"/></svg>For creators</span>
         <h2 class="sec-title" id="creators-title">Only the creator <em>can claim.</em></h2>
         <p class="band-lead">Did <b data-bot>@instapaid.official</b> mention you in a post? A fan made you a coin, and its creator fees are yours. Until you claim, they wait in a vault InstaPaid keeps for your handle. If there is a platform share, the claim page shows it before anything is sent.</p>
         <ul class="reasons">
-          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Tied to the account, not a wallet.</b> Fees wait for the Instagram username the coin was launched for.</span></li>
-          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Proved by a DM.</b> A one-time code, valid for 15 minutes, sent from your own account.</span></li>
-          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Any Solana wallet.</b> You choose where the fees go when you claim.</span></li>
-          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Bound after the first claim.</b> If you rename, or someone later takes your old handle, the fees stay with you.</span></li>
+          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Tied to the account, not a wallet.</b> <span class="why">Fees wait for the Instagram username the coin was launched for.</span></span></li>
+          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Proved by a DM.</b> <span class="why">A one-time code, valid for 15 minutes, sent from your own account.</span></span></li>
+          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Any Solana wallet.</b> <span class="why">You choose where the fees go when you claim.</span></span></li>
+          <li><svg aria-hidden="true"><use href="/icons.svg#check"/></svg><span><b>Bound after the first claim.</b> <span class="why">If you rename, or someone later takes your old handle, the fees stay with you.</span></span></li>
         </ul>
         <a class="btn btn-primary" href="/claim">Claim your fees <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
 
@@ -449,7 +467,7 @@
   </section>
 
   <!-- ============ FOR FANS ============ -->
-  <section class="section fans" id="fans" aria-labelledby="fans-title">
+  <section class="section fans" id="fans" data-panel aria-labelledby="fans-title">
     <div class="wrap">
       <div class="sec-head fans-head" data-reveal>
         <div>
@@ -500,12 +518,13 @@
           </div>
         </article>
       </div>
+      <p class="swipe-hint" aria-hidden="true"><svg><use href="/icons.svg#arrow"/></svg>Swipe for the other ways</p>
       <p class="note-line" data-reveal><svg aria-hidden="true"><use href="/icons.svg#info"/></svg><span>You never become the coin's creator: its fees go to the person it's for, and every coin says it's fan-made.</span></p>
     </div>
   </section>
 
   <!-- ============ FAQ ============ -->
-  <section class="section faq-sec" id="faq" aria-labelledby="faq-title">
+  <section class="section faq-sec" id="faq" data-panel aria-labelledby="faq-title">
     <div class="wrap wrap-narrow">
       <div class="sec-head" data-reveal>
         <div>
@@ -515,131 +534,95 @@
       </div>
 
       <div class="faq">
-        <details open>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Where do the name and picture come from?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>From the post you comment under. We look at its photo and caption and name the coin after them, with a ticker of 2 to 10 letters. The coin's picture is the post's photo (for a video or Reel, its cover), and its link on pump.fun opens that post.</p>
-            <p>If we can't read the post, the name comes from the caption's first words or the creator's username. A post that shares no picture with us gets the InstaPaid coin.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Can I add lore?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>Yes. Write it after the command: <b><span data-bot>@instapaid.official</span> make a token for this creator: the king of sunsets</b>. It becomes the coin's description on pump.fun.</p>
-            <p>Links are taken out and it's kept under 400 characters. We leave it out if it's hateful, sexual, harassing or defamatory, pretends to be someone, or promises price, profit or returns, and if we can't check it. Without lore the description stays empty: we never write lore for you.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Where do you post new coins?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>On our own Instagram feed, <span data-bot>@instapaid.official</span>. We post new coins there and mention the creator, so they know a coin exists and can claim its fees. We post a limited number a day and at most one post per creator a month, and a coin launched on the website only once its name and picture pass our check, so not every coin gets a post.</p>
-            <p>For a comment launch we also reply under the comment that asked, with the coin's link and the creator's claim page.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Who gets the fees?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>The creator the coin was made for. pump.fun's creator fees from every coin made for a handle build up in one vault for that handle. The fan who launched it never gets them.</p>
-            <p>Until the creator claims, that vault is kept by InstaPaid. If InstaPaid ever takes a share, the claim page shows it before anything is sent.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">How does a creator claim?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>Open <b>instapaid.fun/claim</b> and get a one-time code (it lasts 15 minutes). DM it to <span data-bot>@instapaid.official</span> from your account, then enter any Solana wallet and the fees are sent.</p>
-            <p>The first claim ties the vault to your account for good, even if you change your username later. We never ask for your password, seed phrase or private key, and never ask you to pay to claim.</p>
-            <a class="text-link" href="/claim">Open the claim page <svg aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">What does it cost?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>Commenting is free: we pay the launch. On the website you pay pump.fun's launch cost and network fees, plus any first buy you choose, from your own wallet. We pay the network fee when a creator claims.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Does it work on any post?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>Public posts only. The comment has to @mention <span data-bot>@instapaid.official</span>; the word alone sends us nothing. Private accounts and Stories don't reach us.</p>
-            <p>A creator who already has a coin doesn't get another by comment; asking again gets a reply pointing to it. If launches are paused for the day, the reply says so.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Is this official?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>No. InstaPaid is independent and isn't affiliated with or endorsed by Instagram or Meta. Coins are made by fans, and a creator hasn't endorsed one unless they say so themselves.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">I'm a creator and don't want coins</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>DM <span data-bot>@instapaid.official</span> from your account and tell us. We stop new coins in your name, by comment and on the website, and stop posting about you; anyone who asks after that gets a reply saying you'd rather not.</p>
-            <p>A coin already on pump.fun can't be deleted by anyone, but its fees stay yours: you can claim them or leave them.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">What if a username changes hands?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>Before the first claim, whoever holds the handle when they verify can claim it. After that the vault stays with the account that claimed, through renames and recycled handles. Each creator's page shows whether their vault has been claimed.</p>
-            <p>Very small balances (below about 0.001 SOL) can't be sent yet. If that happens, come back when more has built up.</p>
-          </div></div>
-        </details>
-        <details>
-          <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Is it financial advice?</span></summary>
-          <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
-            <p>No. Meme coins are speculative and can lose all their value. Nothing here is financial advice, and nothing here says any coin will go up. Only use money you can afford to lose.</p>
-          </div></div>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ CLOSING ============ -->
-  <section class="closing" aria-labelledby="end-title">
-    <div class="wrap">
-      <div class="end-card" data-reveal>
-        <div class="end-coin" aria-hidden="true">
-          <img src="/media/coin-400.webp" srcset="/media/coin-400.webp 400w, /media/coin.webp 800w" sizes="(max-width: 760px) 190px, 360px" width="400" height="400" alt="" loading="lazy">
+        <div class="faq-col">
+          <details name="faq" open>
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Where do the name and picture come from?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>From the post you comment under. We look at its photo and caption and name the coin after them, with a ticker of 2 to 10 letters. The coin's picture is the post's photo (for a video or Reel, its cover), and its link on pump.fun opens that post.</p>
+              <p>If we can't read the post, the name comes from the caption's first words or the creator's username. A post that shares no picture with us gets the InstaPaid coin.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Can I add lore?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>Yes. Write it after the command: <b><span data-bot>@instapaid.official</span> make a token for this creator: the king of sunsets</b>. It becomes the coin's description on pump.fun.</p>
+              <p>Links are taken out and it's kept under 400 characters. We leave it out if it's hateful, sexual, harassing or defamatory, pretends to be someone, or promises price, profit or returns, and if we can't check it. Without lore the description stays empty: we never write lore for you.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Where do you post new coins?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>On our own Instagram feed, <span data-bot>@instapaid.official</span>. We post new coins there and mention the creator, so they know a coin exists and can claim its fees. We post a limited number a day and at most one post per creator a month, and a coin launched on the website only once its name and picture pass our check, so not every coin gets a post.</p>
+              <p>For a comment launch we also reply under the comment that asked, with the coin's link and the creator's claim page.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Who gets the fees?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>The creator the coin was made for. pump.fun's creator fees from every coin made for a handle build up in one vault for that handle. The fan who launched it never gets them.</p>
+              <p>Until the creator claims, that vault is kept by InstaPaid. If InstaPaid ever takes a share, the claim page shows it before anything is sent.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">How does a creator claim?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>Open <b>instapaid.fun/claim</b> and get a one-time code (it lasts 15 minutes). DM it to <span data-bot>@instapaid.official</span> from your account, then enter any Solana wallet and the fees are sent.</p>
+              <p>The first claim ties the vault to your account for good, even if you change your username later. We never ask for your password, seed phrase or private key, and never ask you to pay to claim.</p>
+              <a class="text-link" href="/claim">Open the claim page <svg aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">What does it cost?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>Commenting is free: we pay the launch. On the website you pay pump.fun's launch cost and network fees, plus any first buy you choose, from your own wallet. We pay the network fee when a creator claims.</p>
+            </div></div>
+          </details>
         </div>
-        <div class="end-copy">
-          <h2 class="sec-title" id="end-title">Find a post you love. Leave the comment.</h2>
-          <div class="cmd cmd-on-dark">
-            <div class="cmd-row">
-              <code class="cmd-text" id="cmd-end"><b data-bot>@instapaid.official</b> make a token for this creator</code>
-              <button class="copy" type="button" data-copy="#cmd-end"><svg aria-hidden="true"><use href="/icons.svg#copy"/></svg><span data-copy-label>Copy</span></button>
-            </div>
-          </div>
-          <p class="end-note">We name it from the post, post it on our feed and mention the creator.</p>
-          <div class="cta-row">
-            <a class="btn btn-primary" href="/launch">Launch a coin <svg class="go" aria-hidden="true"><use href="/icons.svg#arrow"/></svg></a>
-            <a class="btn btn-ghost" href="/claim"><span class="long">I'm a creator — claim fees</span><span class="short">Creators: claim</span></a>
-          </div>
+        <div class="faq-col">
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Does it work on any post?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>Public posts only. The comment has to @mention <span data-bot>@instapaid.official</span>; the word alone sends us nothing. Private accounts and Stories don't reach us.</p>
+              <p>A creator who already has a coin doesn't get another by comment; asking again gets a reply pointing to it. If launches are paused for the day, the reply says so.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Is this official?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>No. InstaPaid is independent and isn't affiliated with or endorsed by Instagram or Meta. Coins are made by fans, and a creator hasn't endorsed one unless they say so themselves.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">I'm a creator and don't want coins</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>DM <span data-bot>@instapaid.official</span> from your account and tell us. We stop new coins in your name, by comment and on the website, and stop posting about you; anyone who asks after that gets a reply saying you'd rather not.</p>
+              <p>A coin already on pump.fun can't be deleted by anyone, but its fees stay yours: you can claim them or leave them.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">What if a username changes hands?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>Before the first claim, whoever holds the handle when they verify can claim it. After that the vault stays with the account that claimed, through renames and recycled handles. Each creator's page shows whether their vault has been claimed.</p>
+              <p>Very small balances (below about 0.001 SOL) can't be sent yet. If that happens, come back when more has built up.</p>
+            </div></div>
+          </details>
+          <details name="faq">
+            <summary><span class="ava ava-rose sm" aria-hidden="true">?</span><span class="q">Is it financial advice?</span></summary>
+            <div class="a"><img class="ava sm" src="/mark.svg" alt="" width="26" height="26" loading="lazy"><div>
+              <p>No. Meme coins are speculative and can lose all their value. Nothing here is financial advice, and nothing here says any coin will go up. Only use money you can afford to lose.</p>
+            </div></div>
+          </details>
         </div>
       </div>
+      <p class="faq-small"><svg aria-hidden="true"><use href="/icons.svg#shield"/></svg><span><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Coins launch on pump.fun, which we don't run. Meme coins are speculative and can lose all their value; nothing here is financial advice. InstaPaid is operated by Brylliant Labs Inc.</span></p>
+      <nav class="faq-links" aria-label="Legal">
+        <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/data-deletion">Data deletion</a><a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a><span>© 2026 Brylliant Labs Inc.</span>
+      </nav>
     </div>
   </section>
 </main>
 
-<footer class="foot">
-  <div class="wrap foot-grid">
-    <div class="foot-brand">
-      <a class="brand" href="/" aria-label="instapaid, home"><img src="/mark.svg" alt="" width="32" height="32" loading="lazy"><span class="wordmark" aria-hidden="true"></span></a>
-      <p>© 2026 Brylliant Labs Inc.</p>
-      <p>InstaPaid is operated by Brylliant Labs Inc.</p>
-    </div>
-    <p class="disclaimer"><b>Not affiliated with or endorsed by Instagram or Meta.</b> Coins are fan-made and not endorsed by creators unless they say so. Coins launch on pump.fun, which we don't run. Meme coins are speculative and can lose all their value; nothing here is financial advice.</p>
-    <nav class="foot-links" aria-label="Footer">
-      <a href="#how">How it works</a>
-      <a href="#faq">FAQ</a>
-      <a href="/launch">Launch</a>
-      <a href="/claim">Claim fees</a>
-      <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy</a>
-      <a href="/data-deletion">Data deletion</a>
-      <a href="https://www.instagram.com/instapaid.official/" rel="noopener">@instapaid.official</a>
-    </nav>
-  </div>
-</footer>
+
 
 <p class="sr-only" role="status" aria-live="polite" id="copy-status"></p>
 </body>
