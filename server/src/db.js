@@ -98,6 +98,14 @@ export function openDb(path) {
       expires_at    integer not null            -- renewed: from Meta's expires_in; pasted: assumed 60 days from first seen; now when Meta refuses it (190)
     );
 
+    -- Coin addresses ending in "pump", found in the background (src/mintpool.js) so a launch never
+    -- waits for one. A row is deleted as it is handed out: no address is offered twice.
+    create table if not exists mint_key (
+      pubkey        text primary key,
+      secret        text not null,              -- AES-256-GCM sealed under VAULT_MASTER_KEY, aad = 'mint:' || pubkey
+      created_at    integer not null
+    );
+
     create table if not exists claim (
       id            integer primary key autoincrement,
       username      text not null references account(username),
