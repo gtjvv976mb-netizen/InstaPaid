@@ -6,6 +6,7 @@ import { ComputeBudgetProgram, Keypair, PublicKey, TransactionInstruction, Trans
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { createPoster } from '../src/poster.js';
+import { createScout } from '../src/scout.js';
 import { getOrCreateAccount, vaultKeypair, cosignLaunch } from '../src/pump.js';
 
 export const PUMP_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
@@ -54,6 +55,7 @@ export const cfg = {
   postMinGapMin: 20,
   postMaxAgeH: 24,
   ig: { botUsername: 'instapaid.official', accessToken: 't', appSecret: 'app-secret', verifyToken: 'vt', graphVersion: 'v23.0' },
+  scout: { intervalS: 60, seeds: [], minFollowers: 1000, maxFollowers: 0, maxPerDay: 2, minSol: 0.5, minScore: 100, everyMin: 60 },
 };
 
 export const quiet = { log() {}, error() {}, warn() {} };
@@ -77,7 +79,7 @@ export const DEFAULT_COIN = readFileSync(new URL('../public/coin-default.png', i
 export async function start({
   usernames = {}, mentions = {}, feePayerLamports = 10n ** 9n, launchFails = false,
   config = {}, graph, naming = {}, review = { nameOk: true, pictureOk: true }, now,
-  comments: commentsImpl, fetchImpl: fetchOverride, dmSent, mintPool,
+  comments: commentsImpl, fetchImpl: fetchOverride, dmSent, mintPool, scoutFetch,
 } = {}) {
   const db = openDb(':memory:');
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
@@ -149,8 +151,10 @@ export async function start({
     fetchImpl: graph ?? (async () => { throw new Error('no Graph in this test'); }),
     review: async (args) => { calls.reviews.push(args); return typeof review === 'function' ? review(args) : review; },
   });
+  // The launcher bot's scout, with a stand-in for instagram.com (scoutFetch) when a test gives one.
+  const scout = scoutFetch ? createScout({ db, cfg: c, fetchImpl: scoutFetch, log: quiet, now: now ?? Date.now }) : undefined;
   const app = createApp({
-    db, cfg: c, connection: null, pump, ig, comments, nameCoin, fetchImpl, feePayer: Keypair.generate(), poster, mintPool,
+    db, cfg: c, connection: null, pump, ig, comments, nameCoin, fetchImpl, feePayer: Keypair.generate(), poster, mintPool, scout,
     uploadMetadata: async (conf, args) => { calls.uploads.push(args); return 'https://ipfs.test/meta.json'; },
   });
   const server = await new Promise((ok) => { const s = app.listen(0, () => ok(s)); });
@@ -161,6 +165,7 @@ export async function start({
   return {
     db, calls, base, post, get: (p) => fetch(base + p), usernames, mentions, drain: () => app.locals.drain(),
     poster, cfg: c, postsDir, chain, settlePending: () => app.locals.settlePending(),
+    scout, bot: app.locals,
     close: () => { server.close(); rmSync(postsDir, { recursive: true, force: true }); rmSync(coinsDir, { recursive: true, force: true }); },
   };
 }

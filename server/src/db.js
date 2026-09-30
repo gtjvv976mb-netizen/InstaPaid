@@ -81,6 +81,33 @@ export function openDb(path) {
       note          text
     );
 
+    -- The launcher bot's scout (src/scout.js): public Instagram creators it has found, and how much
+    -- their last week of posts is trending. Public profile facts only; never a private account's posts.
+    create table if not exists scout_profile (
+      username      text primary key,
+      priority      real not null default 0,
+      found_via     text,
+      created_at    integer not null,
+      checked_at    integer,
+      status        text not null default 'new',
+      followers     integer,
+      is_private    integer not null default 0,
+      is_verified   integer not null default 0,
+      full_name     text,
+      score         integer not null default 0,
+      recent_posts  integer not null default 0,
+      top_shortcode text,
+      top_image     text,
+      top_caption   text,
+      top_taken_at  integer,
+      attempts      integer not null default 0,
+      launched_mint text,
+      launched_at   integer,
+      note          text
+    );
+    create index if not exists scout_profile_next on scout_profile (checked_at, priority);
+    create index if not exists scout_profile_score on scout_profile (status, score);
+
     -- Small durable settings, e.g. the poster's circuit breaker.
     create table if not exists kv (
       key           text primary key,
@@ -141,6 +168,8 @@ const ADDED_COLUMNS = [
   // = Instagram refused the tag for this coin, so its post goes with the caption mention only.
   ['post_job', 'tagged', 'integer'],
   ['post_job', 'untagged', 'integer'],
+  // Who decided on a server-paid coin: null = a fan's comment; 'bot' = the launcher bot (src/scout.js).
+  ['token', 'origin', 'text'],
 ];
 
 export function migrate(db) {

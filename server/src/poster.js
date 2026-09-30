@@ -66,14 +66,14 @@ const quotable = (s) => visibleOnly(s).replace(/[@#＠＃]+(?=\S)/g, '').replace
  * The caption. Only the coin's ticker, the creator's handle, the post's link and the lore Claude
  * passed go in; nothing else anyone typed. ≤ 2200 characters, 1 @mention (the creator), 3 hashtags.
  */
-export function postCaption({ username, symbol, mint, lore, post_permalink }, publicUrl) {
+export function postCaption({ username, symbol, mint, lore, post_permalink, origin }, publicUrl) {
   const host = String(publicUrl).replace(/^https?:\/\//, '');
   const build = (l) => `$${symbol} is live for @${username} 🚀\n\n`
     + `@${username} — this coin's creator fees are yours. Only you can claim them: ${host}/u/${username}\n\n`
     + (l ? `"${l}"\n\n` : '')
     + (post_permalink ? `Original post: ${post_permalink}\n` : '')
     + `Coin: pump.fun/coin/${mint}\n\n`
-    + `Fan-made, not by @${username}. Not financial advice.\n${HASHTAGS}`;
+    + `${origin === 'bot' ? 'Made by the InstaPaid bot' : 'Fan-made'}, not by @${username}. Not financial advice.\n${HASHTAGS}`;
   let l = lore ? quotable(lore) : '';
   let caption = build(l);
   while (caption.length > CAPTION_MAX && l) {

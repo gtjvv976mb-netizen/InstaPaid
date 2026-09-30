@@ -50,6 +50,18 @@ export const config = {
   metaAppSecret: env('META_APP_SECRET'),
   maxServerLaunchesPerDay: Number(env('MAX_SERVER_LAUNCHES_PER_DAY', '20')),
   minFeePayerSol: Number(env('MIN_FEE_PAYER_SOL', '0.1')),
+  // The launcher bot: the scout finds trending creators (src/scout.js) and, when the owner turns it on
+  // in /admin, the server launches coins for the top ones. Both switches start off.
+  scout: {
+    intervalS: Number(env('SCOUT_INTERVAL_S', '60')),
+    seeds: env('SCOUT_SEEDS', '').split(/[\s,]+/).filter(Boolean),
+    minFollowers: Number(env('SCOUT_MIN_FOLLOWERS', '10000')),
+    maxFollowers: Number(env('SCOUT_MAX_FOLLOWERS', '0')),
+    maxPerDay: Number(env('SCOUT_MAX_LAUNCHES_PER_DAY', '3')),
+    minSol: Number(env('SCOUT_MIN_FEE_PAYER_SOL', '0.5')),
+    minScore: Number(env('SCOUT_MIN_SCORE', '1000')),
+    everyMin: Number(env('SCOUT_LAUNCH_EVERY_MIN', '60')),
+  },
   ipfsUploadUrl: env('IPFS_UPLOAD_URL', 'https://pump.fun/api/ipfs'),
   dbPath: env('DB_PATH', './instapaid.db'),
   // The auto-poster: @instapaid.official posts the coins that go live (src/poster.js).

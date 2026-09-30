@@ -77,8 +77,49 @@ async function boot() {
   $('#signed-as').textContent = `Signed in as @${s.username}`;
   for (const b of document.querySelectorAll('[data-bot]')) b.textContent = `@${s.username}`;
   $('#new-text').placeholder = `Write a comment as @${s.username}`;
-  await Promise.all([loadPosts(), loadRequests()]);
+  await Promise.all([loadPosts(), loadRequests(), loadBot()]);
 }
+
+// ---- The launcher bot: Scouting and Auto-launch switches, its limits, the shortlist, its launches.
+function drawBot(b) {
+  $('#bot-scouting').checked = !!b.crawling;
+  $('#bot-launching').checked = !!b.launching;
+  const l = b.limits;
+  const sol = l.feePayerSol == null ? 'unknown' : `${l.feePayerSol.toFixed(3)} SOL`;
+  $('#bot-facts').replaceChildren(
+    el('li', { text: `Launched by the bot today: ${l.botToday} of ${l.botCap}` }),
+    el('li', { text: `Server launches today (comments + bot): ${l.serverToday} of ${l.serverCap}` }),
+    el('li', { text: `Fee payer: ${sol} (the bot stops below ${l.floorSol} SOL)` }),
+    el('li', { text: `Profiles found ${b.total} · read ${b.checked} · trending ${b.scored}` }),
+    b.pausedUntil ? el('li', { class: 'warn', text: `Instagram asked us to slow down; scouting resumes ${when(b.pausedUntil)}${b.lastError ? ` (${b.lastError})` : ''}` }) : null,
+  );
+  const sl = $('#bot-shortlist');
+  sl.replaceChildren(...(b.shortlist.length ? b.shortlist.map((c) => el('li', {},
+    el('a', { href: `https://www.instagram.com/${encodeURIComponent(c.username)}/`, target: '_blank', rel: 'noopener', text: `@${c.username}` }),
+    el('span', { class: 'fine', text: `score ${c.score.toLocaleString()}${c.score < l.minScore ? ' (below the launch bar)' : ''} · ${(c.followers ?? 0).toLocaleString()} followers · ${plural(c.recentPosts, 'post')} this week` })))
+    : [el('li', { class: 'empty', text: b.crawling ? 'Nothing trending found yet. Scouting reads one profile a minute.' : 'Turn Scouting on to start finding creators.' })]));
+  const ll = $('#bot-launched');
+  ll.replaceChildren(...(b.launched.length ? b.launched.map((x) => el('li', {},
+    el('time', { text: when(x.launched_at) }),
+    el('span', { text: `@${x.username}${x.symbol ? ` · $${x.symbol}` : ''}${x.status && x.status !== 'live' ? ` (${x.status})` : ''}` }),
+    x.mint ? el('a', { href: `https://pump.fun/coin/${encodeURIComponent(x.mint)}`, target: '_blank', rel: 'noopener', text: 'pump.fun' }) : null))
+    : [el('li', { class: 'empty', text: 'The bot has not launched anything yet.' })]));
+}
+async function loadBot() {
+  try { drawBot(await api('/admin/api/bot')); } catch (e) { $('#bot').hidden = true; }
+}
+async function setBot(body, msg) {
+  try { const b = await api('/admin/api/bot', { method: 'POST', body }); drawBot(b); say('ok', typeof msg === 'function' ? msg(b) : msg); }
+  catch (e) { say('err', e.message); await loadBot(); }
+}
+$('#bot-scouting').addEventListener('change', (e) => setBot({ scouting: e.target.checked }, e.target.checked ? 'Scouting is on: it reads one public profile a minute.' : 'Scouting is off.'));
+$('#bot-launching').addEventListener('change', (e) => setBot({ launching: e.target.checked }, e.target.checked ? 'Auto-launch is on: the bot launches the top trending creator within its limits.' : 'Auto-launch is off. Nothing more will be launched by the bot.'));
+$('#bot-seeds').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const seeds = $('#bot-seed-text').value.trim();
+  if (!seeds) return say('warn', 'Paste one or more usernames first.');
+  setBot({ seeds }, (b) => { $('#bot-seed-text').value = ''; return `${plural(b.added, 'username')} added for scouting.`; });
+});
 
 async function loadPosts() {
   const list = $('#posts');

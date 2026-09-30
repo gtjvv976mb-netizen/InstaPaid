@@ -94,6 +94,25 @@
         <p class="sub">The latest comments asking <b data-bot>@instapaid.official</b> for a coin, and what the server did with each. Read-only.</p>
         <ul class="adm-reqs" id="requests"></ul>
       </section>
+
+      <section class="card" id="bot" aria-labelledby="bot-h">
+        <h2 id="bot-h">Launcher bot</h2>
+        <p class="sub">Finds trending creators from public Instagram profiles and launches a coin for the top one, paid by the server wallet, within the limits below. Its coins and posts say "Made by InstaPaid". Both switches start off.</p>
+        <div class="adm-switches">
+          <label class="adm-switch"><input type="checkbox" id="bot-scouting" role="switch"> <span><b>Scouting</b><small>Read one public profile a minute and rank creators by this week's engagement.</small></span></label>
+          <label class="adm-switch"><input type="checkbox" id="bot-launching" role="switch"> <span><b>Auto-launch</b><small>Launch a coin for the top trending creator, at most once an hour and within the daily cap.</small></span></label>
+        </div>
+        <ul class="adm-facts" id="bot-facts"></ul>
+        <form class="adm-form" id="bot-seeds" novalidate>
+          <label for="bot-seed-text">Starting points <span class="hint">(usernames the scout reads first; it follows their related accounts)</span></label>
+          <textarea id="bot-seed-text" maxlength="4000" placeholder="creator.one, creator.two"></textarea>
+          <div class="adm-form-row"><span class="hint">Separate with commas or spaces.</span><button class="btn btn-primary btn-sm" type="submit">Add</button></div>
+        </form>
+        <h3 class="adm-h3">Shortlist</h3>
+        <ol class="adm-reqs" id="bot-shortlist"></ol>
+        <h3 class="adm-h3">Launched by the bot</h3>
+        <ul class="adm-reqs" id="bot-launched"></ul>
+      </section>
     </div>
   </div>
 </main>

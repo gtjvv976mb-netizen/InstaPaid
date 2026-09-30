@@ -77,6 +77,21 @@
 .adm-reqs .what { min-width: 0; overflow-wrap: anywhere; }
 .adm-reqs .what .fine { display: block; color: var(--ink-2); }
 .st { justify-self: start; }
+
+/* The launcher bot: two switches, its limits, the shortlist. */
+.adm-switches { display: grid; gap: 10px; margin: 16px 0 8px; }
+.adm-switch { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; background: var(--card-2); border: 1px solid var(--line); cursor: pointer; }
+.adm-switch input { appearance: none; flex: none; position: relative; width: 52px; height: 30px; margin: 2px 0 0; border-radius: 999px; background: rgba(255, 214, 196, .16); border: 1.5px solid var(--line-2); cursor: pointer; transition: background-color .2s ease; }
+.adm-switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px; border-radius: 50%; background: var(--ink); transition: transform .25s cubic-bezier(.3, 1.4, .5, 1); }
+.adm-switch input:checked { background: var(--btn-grad); border-color: transparent; }
+.adm-switch input:checked::after { transform: translateX(22px); background: var(--btn-ink); }
+.adm-switch input:focus-visible { outline: 3px solid var(--peach); outline-offset: 3px; }
+.adm-switch span { display: flex; flex-direction: column; gap: 2px; }
+.adm-switch small { color: var(--ink-2); font-size: 14.5px; }
+.adm-facts { list-style: none; margin: 12px 0 18px; padding: 0; display: grid; gap: 6px; color: var(--ink-2); font-size: 15px; }
+.adm-facts .warn { color: var(--warn); font-weight: 700; }
+#bot-shortlist li, #bot-launched li { grid-template-columns: minmax(0, 1fr) auto; }
+#bot-launched li { grid-template-columns: 150px minmax(0, 1fr) auto; }
 .st.failed { background: var(--err-tint); color: var(--err); border-color: var(--err-line); }
 .st.skipped, .st.working { background: rgba(255, 214, 196, .07); color: var(--ink-2); border-color: var(--line-2); }
 .st.existing { background: var(--warn-tint); color: var(--warn); border-color: var(--warn-line); }

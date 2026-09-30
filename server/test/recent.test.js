@@ -22,8 +22,9 @@ test('recent: live coins only, newest first, public fields only, at most 12', as
     await t.post('/api/launch/confirm', { mint: a.mint, signature: 'sig-a' });
     let list = await recent(t);
     assert.equal(list.length, 1);
-    assert.deepEqual(Object.keys(list[0]).sort(), ['claimed', 'created_at', 'lore', 'mint', 'name', 'post_permalink', 'symbol', 'username']);
+    assert.deepEqual(Object.keys(list[0]).sort(), ['claimed', 'created_at', 'lore', 'mint', 'name', 'origin', 'post_permalink', 'symbol', 'username']);
     assert.equal(list[0].post_permalink, null, 'a web launch has no post');
+    assert.equal(list[0].origin, null, 'a fan made it (the launcher bot says "bot")');
     assert.equal(list[0].mint, a.mint);
     assert.equal(list[0].username, 'alice');
     assert.equal(list[0].name, 'Alice Coin');

@@ -164,8 +164,8 @@ if (a.error) {
       what.append(lore);
     }
     const meta = Object.assign(document.createElement('p'), { className: 'token-meta' });
-    meta.append(Object.assign(document.createElement('span'), { className: 'fan-made', textContent: 'Fan-made' }),
-      Object.assign(document.createElement('span'), { className: 'hint', textContent: (t.source === 'comment' ? 'Launched by comment · ' : 'Launched on the website · ') + new Date(t.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) }));
+    meta.append(Object.assign(document.createElement('span'), { className: 'fan-made', textContent: t.origin === 'bot' ? 'Made by InstaPaid' : 'Fan-made' }),
+      Object.assign(document.createElement('span'), { className: 'hint', textContent: (t.origin === 'bot' ? 'Launched by the InstaPaid bot · ' : t.source === 'comment' ? 'Launched by comment · ' : 'Launched on the website · ') + new Date(t.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) }));
     what.append(meta);
     const links = Object.assign(document.createElement('div'), { className: 'token-links' });
     const link = Object.assign(document.createElement('a'), { className: 'token-link', href: `https://pump.fun/coin/${encodeURIComponent(t.mint)}`, target: '_blank', rel: 'noopener', textContent: 'pump.fun' });
