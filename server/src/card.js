@@ -243,7 +243,7 @@ export async function renderCard({ image, symbol, name, username, publicUrl }) {
   const [pic, ticker, creator, claim] = await Promise.all([
     picture(image),
     fitLine([[`$${visible(symbol)}`, INK]], BOLD, { max: 132, min: 64 }),
-    fitLine([['for ', INK2], [`@${handle}`, INK2]], SEMI, { max: 42, min: 28, step: 2 }),
+    fitLine([['for ', INK2], [`@${handle}`, INK]], SEMI, { max: 42, min: 28, step: 2 }),
     fitLine([['Claim at ', INK2], [`${host}/u/${handle}`, LINK]], SEMI, { max: 36, min: 22, step: 2 }),
   ]);
 

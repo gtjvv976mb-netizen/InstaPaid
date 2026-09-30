@@ -97,6 +97,11 @@ test('every line passes 4.5:1 against the panel pixels behind it (white, yellow 
           const ratio = contrast(ink(l, x0, x1), bg);
           assert.ok(ratio >= 4.5, `${l.role} (${part}): ${ratio.toFixed(2)}:1`);
         }
+        if (l.role === 'creator') {
+          // two colours, as COLOURS says: "for" in blush, the handle in cream (brighter)
+          const forInk = ink(l, l.x, l.x + 0.9 * l.size), handleInk = ink(l, l.x + l.w / 2, l.x + l.w);
+          assert.ok(handleInk > forInk + 0.05, `the handle (${handleInk.toFixed(3)}) is brighter than "for" (${forInk.toFixed(3)})`);
+        }
       }
     }
   }
