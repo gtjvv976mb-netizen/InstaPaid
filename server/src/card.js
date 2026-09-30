@@ -1,5 +1,7 @@
 // The picture @instapaid.official posts for each new coin: 1080×1350 (Instagram's 4:5 portrait),
-// JPEG, the coin's picture on top of the brand gradient and every word on one dark panel.
+// JPEG, the coin's picture in a coral-to-rose frame on the site's warm dark ground (espresso warming
+// to plum and mulberry, a coral glow behind the picture; nothing yellow or gold), and every word on
+// one espresso panel in the site's cream, blush and coral.
 //
 // Text is drawn by sharp (Pango) with the bundled fonts in assets/fonts only, so the card looks the
 // same on any host, even one with no fonts at all: Inter for Latin, Greek and Cyrillic, and Noto
@@ -37,17 +39,21 @@ const READ = { failOn: 'error', limitInputPixels: 40_000_000 };
 export const W = 1080;
 export const H = 1350;
 const PIC = 760; // the picture's side
-const RING = 12; // white frame around it
+const RING = 8; // the coral-to-rose frame around it
 const PIC_TOP = 64;
-// The panel: dark enough that white words pass 4.5:1 over the brightest end of the gradient.
-export const PANEL = { x: 48, y: PIC_TOP + PIC + RING * 2 + 34, w: W - 96, r: 44, fill: '#140c24', opacity: 0.8 };
+// The panel: espresso, opaque enough that every word passes 4.5:1 over the glow behind it.
+export const PANEL = { x: 48, y: PIC_TOP + PIC + RING * 2 + 34, w: W - 96, r: 44, fill: '#1a1114', opacity: 0.9 };
 PANEL.h = H - 48 - PANEL.y;
 const PAD_X = 52;
 const MAX_W = PANEL.w - PAD_X * 2;
 
-const WHITE = '#ffffff';
-const SOFT = '#f3e8ff'; // lilac white for the second lines
-const GOLD = '#fde68a'; // the claim link
+// The site's own colours (public/app.css :root).
+export const COLOURS = {
+  ink: '#fff3ea', // cream: the ticker, the name, the handle
+  ink2: '#f1d9cf', // blush: "for", "Claim at"
+  link: '#ff7a59', // coral: the claim link
+};
+const { ink: INK, ink2: INK2, link: LINK } = COLOURS;
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Control characters, zero-width and direction-override marks never reach Pango; nor do stacks of
@@ -193,20 +199,35 @@ async function picture(image) {
     try { return await shape(Buffer.from(image.buf)); } catch { /* not a picture sharp can read */ }
   }
   try { return await shape(readFileSync(DEFAULT_PICTURE)); } catch { /* no default either */ }
-  return sharp({ create: { width: PIC, height: PIC, channels: 4, background: '#9333ea' } })
+  return sharp({ create: { width: PIC, height: PIC, channels: 4, background: '#7a2e57' } })
     .composite([{ input: mask, blend: 'dest-in' }]).png().toBuffer();
 }
 
 function background() {
-  const px = (W - PIC) / 2 - RING;
+  const px = (W - PIC) / 2 - RING, cx = W / 2, cy = PIC_TOP + PIC / 2;
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#7c3aed"/><stop offset=".42" stop-color="#e1306c"/>
-      <stop offset=".78" stop-color="#f97316"/><stop offset="1" stop-color="#fbbf24"/>
-    </linearGradient></defs>
-    <rect width="${W}" height="${H}" fill="url(#g)"/>
-    <rect x="${px}" y="${PIC_TOP - RING}" width="${PIC + RING * 2}" height="${PIC + RING * 2}" rx="${44 + RING}" fill="#ffffff" fill-opacity=".95"/>
+    <linearGradient id="ground" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#1a1114"/><stop offset=".45" stop-color="#2e1520"/>
+      <stop offset=".8" stop-color="#4a1d33"/><stop offset="1" stop-color="#5c2240"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="${cx}" cy="${cy}" r="${W * 0.72}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a59" stop-opacity=".55"/><stop offset=".5" stop-color="#ff5c8a" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#a3345f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="low" cx="${W * 0.15}" cy="${H * 0.95}" r="${W * 0.7}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a3345f" stop-opacity=".45"/><stop offset="1" stop-color="#7a2e57" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7a59"/><stop offset=".5" stop-color="#ff5c8a"/><stop offset="1" stop-color="#c94b8c"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="28"/></filter></defs>
+    <rect width="${W}" height="${H}" fill="url(#ground)"/>
+    <rect width="${W}" height="${H}" fill="url(#low)"/>
+    <rect width="${W}" height="${H}" fill="url(#glow)"/>
+    <rect x="${px + 10}" y="${PIC_TOP - RING + 26}" width="${PIC + RING * 2 - 20}" height="${PIC + RING * 2 - 10}" rx="${44 + RING}" fill="#0b0608" fill-opacity=".55" filter="url(#soft)"/>
+    <rect x="${px}" y="${PIC_TOP - RING}" width="${PIC + RING * 2}" height="${PIC + RING * 2}" rx="${44 + RING}" fill="url(#ring)"/>
     <rect x="${PANEL.x}" y="${PANEL.y}" width="${PANEL.w}" height="${PANEL.h}" rx="${PANEL.r}" fill="${PANEL.fill}" fill-opacity="${PANEL.opacity}"/>
+    <rect x="${PANEL.x + 1}" y="${PANEL.y + 1}" width="${PANEL.w - 2}" height="${PANEL.h - 2}" rx="${PANEL.r - 1}" fill="none" stroke="#ffd6c4" stroke-opacity=".14" stroke-width="2"/>
   </svg>`);
 }
 
@@ -221,9 +242,9 @@ export async function renderCard({ image, symbol, name, username, publicUrl }) {
   const handle = visible(username).replace(/^@/, '');
   const [pic, ticker, creator, claim] = await Promise.all([
     picture(image),
-    fitLine([[`$${visible(symbol)}`, WHITE]], BOLD, { max: 132, min: 64 }),
-    fitLine([['for ', SOFT], [`@${handle}`, WHITE]], SEMI, { max: 42, min: 28, step: 2 }),
-    fitLine([['Claim at ', SOFT], [`${host}/u/${handle}`, GOLD]], SEMI, { max: 36, min: 22, step: 2 }),
+    fitLine([[`$${visible(symbol)}`, INK]], BOLD, { max: 132, min: 64 }),
+    fitLine([['for ', INK2], [`@${handle}`, INK2]], SEMI, { max: 42, min: 28, step: 2 }),
+    fitLine([['Claim at ', INK2], [`${host}/u/${handle}`, LINK]], SEMI, { max: 36, min: 22, step: 2 }),
   ]);
 
   // Top to bottom inside the panel; the claim line sits on the panel's foot, and the name gets
@@ -234,7 +255,7 @@ export async function renderCard({ image, symbol, name, username, publicUrl }) {
   const room = claimY - 8 - top;
   const text = drawableName(name);
   const title = text
-    ? await fitLine([[text, WHITE]], NAME, { max: 54, min: 38, step: 2, maxHeight: room - (ticker.height - 6) - creator.height })
+    ? await fitLine([[text, INK]], NAME, { max: 54, min: 38, step: 2, maxHeight: room - (ticker.height - 6) - creator.height })
     : null;
   const block = ticker.height - 6 + (title?.height ?? 0) + creator.height;
   let y = top + Math.max(0, Math.floor((room - block) / 2)); // a smaller ticker leaves room: centre the block
