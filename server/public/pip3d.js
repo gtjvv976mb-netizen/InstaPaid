@@ -2,10 +2,11 @@
 // Auto-riggers expect human proportions and refuse Pip's big head, so the skeleton is placed by
 // hand from the mesh's own landmarks and every vertex is weighted to it on load. Everything he does
 // is procedural: he breathes, sways his tail, wiggles his gills, turns his head and his eyes to the
-// pointer, blinks, waves when he arrives, jumps when tapped and dances every third tap.
+// pointer, blinks, waves when he arrives, jumps, spins and dances in turn when tapped, and does a
+// happy wiggle when someone points at a "Launch a coin" button.
 //
-// mountPip3D(el, state) → Promise<boolean>. `el` is the .pip element (its click, pip:jump and
-// pip:wave events drive the actions); state() → {cx, cy, near, vel}, the pointer relative to Pip
+// mountPip3D(el, state) → Promise<boolean>. `el` is the .pip element (its pip:jump, pip:wave and
+// pip:excite events drive the actions); state() → {cx, cy, near, vel}, the pointer relative to Pip
 // (-1..1, y down) as mascot.js already smooths it. Resolves false when anything is missing, so the
 // drawn Pip stays.
 import * as T from '/vendor/three-pip.js?v=75d23c54';
@@ -237,7 +238,14 @@ export async function mountPip3D(el, state) {
   let action = null, taps = 0, nextBlink = 1.5, blinkUntil = 0;
   const start = (name, dur) => { action = { name, t0: clock, dur }; };
   el.addEventListener('pip:wave', () => start('wave', 1.8));
-  el.addEventListener('pip:jump', () => { taps += 1; if (taps % 3 === 0) start('dance', 3.2); else start('jump', 0.9); });
+  el.addEventListener('pip:jump', () => { const n = taps++ % 3; if (n === 0) start('jump', 0.9); else if (n === 1) start('spin', 1.1); else start('dance', 3.2); });
+  // A happy wiggle when a launch button is pointed at; not over another action, at most every 2.5 s.
+  let lastExcite = -9;
+  el.addEventListener('pip:excite', () => {
+    if ((action && action.name !== 'fidget') || clock - lastExcite < 2.5) return;
+    lastExcite = clock;
+    start('wiggle', 1.3);
+  });
 
   let visible = true;
   new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); }).observe(el);
@@ -306,6 +314,28 @@ export async function mountPip3D(el, state) {
         bones.legN.rotation.z = Math.max(0, Math.sin(beat / 2)) * -0.2 * env;
         bones.legP.rotation.z = Math.max(0, -Math.sin(beat / 2)) * 0.2 * env;
         bones.tail.rotation.y += Math.sin(beat) * 0.3 * env;
+      } else if (action.name === 'spin') {
+        // A full turn on the spot with a little hop; the head keeps finding the pointer at the end.
+        const turn = ease(u) * Math.PI * 2;
+        bones.root.rotation.y = turn;
+        const hop = Math.sin(Math.min(1, u / 0.8) * Math.PI);
+        bones.root.position.y += hop * 0.12;
+        bones.armN.rotation.z -= hop * 0.9; bones.armP.rotation.z += hop * 0.9;
+        bones.head.rotation.y *= 1 - hop;
+        bones.tail.rotation.y += hop * 0.5;
+        bones.gillN.rotation.z -= hop * 0.3; bones.gillP.rotation.z += hop * 0.3;
+      } else if (action.name === 'wiggle') {
+        // Excited: a quick shimmy, arms flapping, gills flared, a bounce.
+        const env = Math.sin(u * Math.PI);
+        const f = Math.sin(t * 22);
+        bones.hips.rotation.z = f * 0.12 * env;
+        bones.spine.rotation.z -= f * 0.1 * env;
+        bones.head.rotation.z += Math.sin(t * 22 + 1) * 0.1 * env;
+        bones.root.position.y += Math.abs(Math.sin(t * 11)) * 0.05 * env;
+        bones.armN.rotation.z -= (0.5 + f * 0.35) * env;
+        bones.armP.rotation.z += (0.5 - f * 0.35) * env;
+        bones.gillN.rotation.z -= 0.3 * env; bones.gillP.rotation.z += 0.3 * env;
+        bones.tail.rotation.y += Math.sin(t * 16) * 0.5 * env;
       } else if (action.name === 'fidget') {
         const env = Math.sin(u * Math.PI);
         bones.head.rotation.z += env * 0.22;

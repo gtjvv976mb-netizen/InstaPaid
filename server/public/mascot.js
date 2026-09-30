@@ -180,6 +180,12 @@
 
     // A wave when he arrives on screen.
     const wave = () => { el.dispatchEvent(new Event('pip:wave')); el.classList.add('is-wave'); setTimeout(() => el.classList.remove('is-wave'), 900); };
+    // Pointing at a "Launch a coin" button makes him happy: the 3D Pip wiggles, the drawn one waves.
+    const excite = () => { el.dispatchEvent(new Event('pip:excite')); el.classList.add('is-wave'); setTimeout(() => el.classList.remove('is-wave'), 700); };
+    document.querySelectorAll('a[href="/launch"]').forEach((a) => {
+      a.addEventListener('pointerenter', excite);
+      a.addEventListener('focus', excite);
+    });
     if ('IntersectionObserver' in window) {
       const io = new IntersectionObserver((es) => { if (es.some((x) => x.isIntersecting)) { setTimeout(wave, 500); io.disconnect(); } });
       io.observe(el);
@@ -239,7 +245,7 @@
   }
 
   function mount3d(el, state) {
-    import('/pip3d.js?v=f4931b79')
+    import('/pip3d.js?v=21028c3f')
       .then((m) => m.mountPip3D(el, state))
       .then((ok) => { if (ok) el.classList.add('has-3d'); })
       .catch(() => { /* the SVG Pip stays */ });
