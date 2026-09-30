@@ -1,45 +1,59 @@
-// Pip, 2D and free: an HD cartoon axolotl (drawn with Nano Banana Pro, animated with Kling on a green
-// screen, keyed into sprite sheets: media/pip-*.webp) who lives on the whole page. He walks about,
-// goes up to buttons and presses them (a squish and a sparkle only: he never follows a link or
-// submits anything), waves at the pointer, looks around, jumps, dances and cheers, says things,
-// can be tapped, and can be picked up and dropped anywhere. A × on hover sends him off for the
-// visit. Nothing here stops the page working: only Pip himself takes the pointer.
+// Pip lives in the site: an HD 2D axolotl (drawn with Nano Banana Pro, animated with Kling on a green
+// screen and keyed into sprite sheets, media/pip-*.webp) who stands on the page itself. The top edges
+// of headings, cards, buttons and pictures are his ground: he walks along them and leaps from one to
+// another, so he scrolls with the page like part of it. Every move is staged: he crouches before a
+// leap, stretches in the air, squashes and kicks up dust on landing, and his shadow sits on whatever
+// is under him. He hops onto buttons and stomps them (a dip, a glow, sparkles: never a real click),
+// tells you what they do, waves, looks around, dances and cheers. Scroll away and he drops in from
+// above onto something you can see. Tap him, drag him (he falls onto whatever is below when let go),
+// or send him off for the visit with the ×. Only Pip himself takes the pointer.
 //
-// startPip2D(from) → Promise<boolean>: `from` is the slot he starts in (the drawn Pip's spot). It
-// resolves once the sprites are in; false (and nothing changes) if they cannot load.
+// startPip2D(from) → Promise<boolean>: `from` is the drawn Pip's slot, where he first appears.
 
 const SPRITES = '/media/pip-sprites.json?v=68b35fca';
 const LINES = {
-  hello: ['Hi! I’m Pip 👋', 'Welcome to InstaPaid!', 'Psst, over here!'],
-  tap: ['Hehe, that tickles!', 'Comment. Coin. Claim!', 'Only the creator gets the fees.', 'Tag @instapaid.official under any post.', 'I name coins after the post!', 'Wheee!'],
-  launch: ['This one launches a coin! 🚀', 'Pick a creator, name the coin, done!', 'Launch a coin for your favourite creator!'],
+  hello: ['Hi! I’m Pip 👋', 'Welcome to InstaPaid!', 'Come explore with me!'],
+  tap: ['Hehe, that tickles!', 'Comment. Coin. Claim!', 'Only the creator gets the fees.', 'Tag @instapaid.official under any post.', 'I name coins after the post!'],
+  launch: ['This one launches a coin! 🚀', 'Pick a creator, name the coin, done!'],
   claim: ['Creators claim their fees here 💰', 'One DM and the fees are yours!'],
-  copy: ['Copy this and comment it on any post!', 'That’s the magic comment ✨'],
-  other: ['Ooh, what does this do?', 'Boop!', 'Click click!'],
-  drop: ['Whoa! Put me down! 😆', 'I can fly!', 'Wheee!'],
+  copy: ['Copy this, comment it on any post!', 'That’s the magic comment ✨'],
+  other: ['Ooh, what does this do?', 'Boop!'],
+  drop: ['Whoa, put me down! 😆', 'Wheee!'],
+  arrive: ['Found you!', 'Wait for me!', 'I’m here!', 'Hi again!'],
   bye: ['Bye for now! 👋'],
 };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const easeInOut = (u) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
+const frameWait = () => new Promise((r) => requestAnimationFrame(r));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Elements whose top edge can be ground. Measured when a move is chosen, so they are always current.
+const GROUND = 'main h1, main h2, main h3, main .btn, main button.copy, main img, main video, main figure, main .card, main .coin-card, main article, main li, main pre, main blockquote, main .phone, main .step, main [class*="card"], main [class*="box"], main [class*="panel"], main details, main form, footer .foot-brand';
 
 const CSS = `
-.pip2d{position:fixed;left:0;top:0;z-index:60;width:var(--pw);height:var(--ph);pointer-events:none;will-change:transform}
-.pip2d-body{position:absolute;inset:0;pointer-events:auto;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;outline:none;border-radius:40%}
+.pip2d{position:absolute;left:0;top:0;z-index:15;width:var(--pw);height:var(--ph);pointer-events:none;will-change:transform;transition:opacity .4s}
+.pip2d-body{position:absolute;inset:8% 14% 0;pointer-events:auto;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;outline:none;border-radius:40%}
 .pip2d-body:focus-visible{box-shadow:0 0 0 3px rgba(255,122,89,.7)}
 .pip2d.is-held .pip2d-body{cursor:grabbing}
-.pip2d-sprite{position:absolute;left:50%;bottom:0;background-repeat:no-repeat;transform-origin:50% 100%;image-rendering:auto;pointer-events:none;filter:drop-shadow(0 10px 12px rgba(0,0,0,.35))}
-.pip2d-shadow{position:absolute;left:50%;bottom:-4px;width:58%;height:12px;margin-left:-29%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.35),transparent);pointer-events:none;transition:opacity .2s,transform .2s}
-.pip2d.is-air .pip2d-shadow{opacity:.35;transform:scale(.6)}
-.pip2d-say{position:absolute;left:50%;bottom:calc(100% + 4px);transform:translate(-50%,6px) scale(.9);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:8px 12px;border-radius:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);width:max-content;max-width:min(240px,70vw);text-align:center;transition:transform .22s cubic-bezier(.2,.9,.3,1.3),opacity .18s}
-.pip2d-say::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
+.pip2d-squash{position:absolute;inset:0;transform-origin:50% 100%;will-change:transform}
+.pip2d-sprite{position:absolute;left:50%;bottom:0;background-repeat:no-repeat;transform-origin:50% 100%;pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+.pip2d-shadow{position:absolute;left:0;top:0;z-index:14;width:var(--sw);height:14px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.38),rgba(0,0,0,.12) 60%,transparent);pointer-events:none;will-change:transform,opacity}
+.pip2d-say{position:absolute;left:50%;bottom:calc(100% + 2px);transform:translate(-50%,8px) scale(.85);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.35 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:9px 13px;border-radius:16px;box-shadow:0 14px 34px -12px rgba(0,0,0,.55);width:max-content;max-width:min(230px,70vw);text-align:center;transition:transform .35s cubic-bezier(.2,1.2,.3,1),opacity .25s ease}
+.pip2d-say::after{content:"";position:absolute;left:calc(50% - var(--nudge,0px));top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
 .pip2d.is-say .pip2d-say{opacity:1;transform:translate(-50%,0) scale(1)}
-.pip2d-x{position:absolute;right:2px;top:6px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(26,17,20,.85);color:#fff3ea;font:700 15px/26px system-ui,sans-serif;cursor:pointer;opacity:0;pointer-events:auto;transition:opacity .2s;padding:0}
+.pip2d-x{position:absolute;right:6%;top:4%;width:26px;height:26px;border-radius:50%;border:0;background:rgba(26,17,20,.85);color:#fff3ea;font:700 15px/26px system-ui,sans-serif;cursor:pointer;opacity:0;pointer-events:auto;transition:opacity .25s;padding:0}
 .pip2d:hover .pip2d-x,.pip2d-x:focus-visible{opacity:1}
-@media (hover:none){.pip2d-x{opacity:.8;width:24px;height:24px}}
-.pip2d-pressed{transition:transform .12s ease,box-shadow .2s ease!important;transform:scale(.94)!important;box-shadow:0 0 0 4px rgba(255,122,89,.45),0 0 28px rgba(255,122,89,.55)!important}
-.pip2d-spark{position:fixed;z-index:59;width:10px;height:10px;border-radius:50%;background:#ffd2b0;pointer-events:none;animation:pip2d-spark .6s ease-out forwards}
-@keyframes pip2d-spark{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}
+@media (hover:none){.pip2d-x{opacity:.75;width:24px;height:24px}}
+.pip2d-stomped{transition:transform .08s ease-out,box-shadow .35s ease!important;transform:translateY(3px) scale(.97)!important;box-shadow:0 0 0 4px rgba(255,122,89,.45),0 0 34px rgba(255,122,89,.6)!important}
+.pip2d-fx{position:absolute;z-index:16;pointer-events:none;border-radius:50%}
+.pip2d-dust{width:14px;height:10px;background:rgba(255,236,226,.55);animation:pip2d-dust .55s ease-out forwards}
+@keyframes pip2d-dust{0%{opacity:.9;transform:translate(0,0) scale(.5)}100%{opacity:0;transform:translate(var(--dx),-10px) scale(1.6)}}
+.pip2d-spark{width:9px;height:9px;background:#ffd2b0;box-shadow:0 0 8px #ff9a7e;animation:pip2d-spark .7s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes pip2d-spark{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.2)}}
+.pip2d-pop{width:10px;height:10px;border:3px solid #ffd2b0;background:transparent;animation:pip2d-pop .6s ease-out forwards}
+@keyframes pip2d-pop{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(12)}}
 `;
 
 export async function startPip2D(from) {
@@ -53,8 +67,8 @@ export async function startPip2D(from) {
   });
   try {
     meta = await (await fetch(SPRITES)).json();
-    // He appears once he can stand, walk and wave; the other moves arrive in the background and
-    // join in as they land. Every sheet is decoded first, so a move never starts on a blank frame.
+    // He appears once he can stand, walk and wave; the other moves join as they arrive. Every sheet
+    // is decoded first, so a move never starts on a blank frame.
     await Promise.all(['idle', 'walk', 'wave'].map(load));
   } catch { return false; }
   Object.keys(meta.clips).filter((n) => !ready.has(n)).reduce((p, n) => p.then(() => load(n)).catch(() => {}), Promise.resolve());
@@ -65,7 +79,7 @@ export async function startPip2D(from) {
   document.head.appendChild(style);
 
   const small = matchMedia('(max-width: 640px)').matches;
-  const PH = small ? 118 : 168; // on-screen height of a front-facing frame
+  const PH = small ? 112 : 156;
   const front = meta.clips.idle;
   const PW = Math.round((front.w / front.h) * PH);
 
@@ -73,15 +87,17 @@ export async function startPip2D(from) {
   el.className = 'pip2d';
   el.style.setProperty('--pw', `${PW}px`);
   el.style.setProperty('--ph', `${PH}px`);
-  el.innerHTML = `<div class="pip2d-shadow"></div><div class="pip2d-body" role="img" tabindex="0" aria-label="Pip, the InstaPaid axolotl. Press Enter to make him jump; drag him anywhere."><div class="pip2d-sprite"></div></div><div class="pip2d-say" aria-live="polite"></div><button class="pip2d-x" type="button" aria-label="Send Pip away for this visit">×</button>`;
-  document.body.appendChild(el);
-  const body = el.querySelector('.pip2d-body'), sprite = el.querySelector('.pip2d-sprite'), say = el.querySelector('.pip2d-say');
+  el.innerHTML = `<div class="pip2d-squash"><div class="pip2d-sprite"></div></div><div class="pip2d-body" role="img" tabindex="0" aria-label="Pip, the InstaPaid axolotl, exploring the page. Press Enter to make him jump; drag him anywhere."></div><div class="pip2d-say" aria-live="polite"></div><button class="pip2d-x" type="button" aria-label="Send Pip away for this visit">×</button>`;
+  const shadow = document.createElement('div');
+  shadow.className = 'pip2d-shadow';
+  shadow.style.setProperty('--sw', `${Math.round(PW * 0.62)}px`);
+  document.body.append(shadow, el);
+  const body = el.querySelector('.pip2d-body'), squash = el.querySelector('.pip2d-squash'), sprite = el.querySelector('.pip2d-sprite'), say = el.querySelector('.pip2d-say');
 
-  // ---- Sprite player: one clip at a time, frame by frame, facing left or right.
-  let clip = 'idle', frame = 0, frameT = 0, loop = true, onEnd = null, face = 1;
+  // ---- Sprite player.
+  let clip = 'idle', frame = 0, frameT = 0, loop = true, onEnd = null, face = 1, rate = 1.3;
   const show = () => {
     const c = meta.clips[clip];
-    // Same size in every clip: a sheet pixel is c.src/c.h source pixels, and PH shows front.src.
     const h = Math.round(PH * (c.src / front.src)), w = Math.round(h * (c.w / c.h));
     sprite.style.width = `${w}px`;
     sprite.style.height = `${h}px`;
@@ -91,103 +107,240 @@ export async function startPip2D(from) {
     sprite.style.backgroundPosition = `${-(frame % c.cols) * w}px ${-Math.floor(frame / c.cols) * h}px`;
     sprite.style.transform = `scaleX(${face})`;
   };
-  const play = (name, { once = false } = {}) => new Promise((done) => {
-    if (!ready.has(name)) name = once ? 'wave' : 'idle'; // not arrived yet: something he can do
+  const play = (name, { once = false, speed = 1.3 } = {}) => new Promise((done) => {
+    if (!ready.has(name)) name = once ? 'wave' : 'idle';
     if (onEnd) { const f = onEnd; onEnd = null; f(); }
-    clip = name; frame = 0; frameT = 0; loop = !once;
+    clip = name; frame = 0; frameT = 0; loop = !once; rate = speed;
     onEnd = once ? done : null;
     if (!once) done();
     show();
   });
 
-  // ---- Where he is (viewport px, bottom-centre of his feet), and moving him.
-  const vw = () => document.documentElement.clientWidth, vh = () => window.innerHeight;
-  const start = from?.getBoundingClientRect();
-  let x = start && start.width ? start.left + start.width / 2 : vw() - PW;
-  let y = start && start.height ? start.bottom : vh() - 12;
-  if (y > vh() - 8 || y < PH + 40) y = vh() - 12;
-  const place = () => { el.style.transform = `translate(${Math.round(x - PW / 2)}px, ${Math.round(y - PH)}px)`; };
-  const floor = () => vh() - 10;
-  const inView = () => { x = clamp(x, PW / 2 + 4, vw() - PW / 2 - 4); y = clamp(y, PH + 50, floor()); };
+  // Squash and stretch: a scale the frame clock springs back to 1.
+  let sq = { x: 1, y: 1 };
+  const squish = (sx, sy) => { sq = { x: sx, y: sy }; };
 
-  let busy = false, held = false, stopped = false;
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  let sayT = 0;
-  const talk = (text, ms = 2600) => {
-    say.textContent = text;
-    el.classList.add('is-say');
-    // Keep the bubble on screen.
-    requestAnimationFrame(() => {
-      const r = say.getBoundingClientRect();
-      const dx = r.left < 8 ? 8 - r.left : r.right > vw() - 8 ? vw() - 8 - r.right : 0;
-      say.style.marginLeft = `${dx}px`;
-    });
-    clearTimeout(sayT);
-    sayT = setTimeout(() => el.classList.remove('is-say'), ms);
+  // ---- Where he is: document coordinates of the bottom-centre of his feet.
+  const docW = () => document.documentElement.clientWidth;
+  let x = 0, y = 0, lift = 0, shadowY = 0; // lift: his height above the ground under him
+  let ground = null, groundDX = 0; // the element he stands on, and his offset from its left edge
+  const place = () => {
+    el.style.transform = `translate(${Math.round(x - PW / 2)}px, ${Math.round(y - PH)}px)`;
+    const k = clamp(1 - lift / 360, 0.35, 1);
+    shadow.style.transform = `translate(${Math.round(x - PW * 0.31)}px, ${Math.round(shadowY - 7)}px) scale(${k.toFixed(3)})`;
+    shadow.style.opacity = (0.25 + 0.75 * k).toFixed(3);
   };
 
-  // Walk to (tx, ty) at his own pace, the walk cycle facing the way he goes.
-  const walkTo = async (tx, ty) => {
-    tx = clamp(tx, PW / 2 + 4, vw() - PW / 2 - 4);
-    ty = clamp(ty, PH + 50, floor());
-    const dist = Math.hypot(tx - x, ty - y);
-    if (dist < 8) return;
-    face = tx >= x ? 1 : -1;
-    await play('walk');
-    const speed = small ? 120 : 170; // px per second
-    const x0 = x, y0 = y, dur = dist / speed;
-    const t0 = performance.now();
-    while (!stopped && !held) {
-      const u = Math.min(1, (performance.now() - t0) / 1000 / dur);
-      x = x0 + (tx - x0) * u;
-      y = y0 + (ty - y0) * u;
-      place();
-      if (u >= 1) break;
-      await new Promise((r) => requestAnimationFrame(r));
+  // ---- The ground: top edges of real elements, with room above them.
+  const rectDoc = (e) => { const r = e.getBoundingClientRect(); return { l: r.left + scrollX, r: r.right + scrollX, t: r.top + scrollY, b: r.bottom + scrollY, w: r.width, h: r.height, vt: r.top }; };
+  // Something he would bump into: words, a picture, a control. Plain layout boxes (a section, a
+  // grid, a list) are open air to him, however much of the page they cover.
+  const SOLID = 'img, video, svg, canvas, button, a, input, select, textarea, label, h1, h2, h3, h4, p, pre, code, blockquote, .btn, .card, [class*="card"]';
+  const solid = (n) => {
+    if (n.matches(SOLID)) return true;
+    for (const c of n.childNodes) if (c.nodeType === 3 && c.textContent.trim()) return true;
+    return false;
+  };
+  const openAbove = (e, r) => {
+    // The element must be the thing actually showing at its top edge (not covered by something),
+    // and just above that edge nothing solid may sit but what it lies in. His body may stand in
+    // front of the words above: he is a character on the page, not in its flow.
+    const was = el.style.visibility;
+    el.style.visibility = 'hidden';
+    try {
+      const button = e.matches('.btn, button');
+      for (const fx of [0.35, 0.5, 0.65]) {
+        const px = r.l - scrollX + r.w * fx;
+        const own = document.elementFromPoint(px, r.vt + Math.min(4, r.h / 2));
+        if (!own || !(own === e || e.contains(own))) return false;
+        if (button) continue;
+        const py = r.vt - 6;
+        if (py < 64) return false; // under the sticky header
+        const hit = document.elementFromPoint(px, py);
+        if (!hit || hit === e || hit.contains(e) || el.contains(hit)) continue;
+        if (hit.closest('header') || solid(hit)) return false;
+      }
+      return true;
+    } finally { el.style.visibility = was; }
+  };
+  const grounds = () => {
+    const vh = innerHeight, out = [];
+    for (const e of document.querySelectorAll(GROUND)) {
+      const r = rectDoc(e);
+      if (r.w < PW * 0.9 || r.h < 20) continue;
+      if (r.vt < 60 + PH * 0.7 || r.vt > vh - 20) continue; // his head clear of the sticky header
+      const cs = getComputedStyle(e);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+      if (!openAbove(e, r)) continue;
+      out.push({ e, r });
     }
-    face = 1;
+    return out;
+  };
+  // When nothing in view qualifies: the top of any wide block in view (a section, the footer).
+  const fallbackGrounds = () => {
+    const vh = innerHeight, out = [];
+    for (const e of document.querySelectorAll('main section, main > *, main .wrap, footer')) {
+      const r = rectDoc(e);
+      if (r.w < PW * 1.5 || r.vt < 60 + PH * 0.7 || r.vt > vh - 40) continue;
+      out.push({ e, r });
+    }
+    return out;
+  };
+  const standOn = (e, px) => {
+    ground = e;
+    const r = rectDoc(e);
+    groundDX = clamp(px - r.l, Math.min(PW * 0.35, r.w / 2), Math.max(r.w - PW * 0.35, r.w / 2));
+  };
+  // Follow the ground as the page shifts (images load, sections open): he stays on his element.
+  let held = false, stopped = false, airborne = false;
+  const stick = () => {
+    if (!ground || held || airborne) return;
+    if (!ground.isConnected) { ground = null; return; }
+    const r = rectDoc(ground);
+    if (r.w === 0) { ground = null; return; }
+    x = r.l + groundDX; y = r.t; shadowY = y; lift = 0;
+  };
+
+  // ---- Speech: a bubble that types itself out, kept on screen.
+  let sayT = 0, typeT = 0;
+  const talk = (text, ms = 2600) => {
+    clearInterval(typeT);
+    say.textContent = '';
+    el.classList.add('is-say');
+    let i = 0;
+    typeT = setInterval(() => { say.textContent = text.slice(0, ++i); if (i >= text.length) clearInterval(typeT); }, 22);
+    requestAnimationFrame(() => {
+      const r = el.getBoundingClientRect();
+      const half = Math.min(230, docW() * 0.7) / 2;
+      const c = r.left + r.width / 2;
+      const dx = c - half < 8 ? 8 - (c - half) : c + half > docW() - 8 ? docW() - 8 - (c + half) : 0;
+      say.style.marginLeft = `${dx}px`;
+      say.style.setProperty('--nudge', `${dx}px`);
+    });
+    clearTimeout(sayT);
+    sayT = setTimeout(() => el.classList.remove('is-say'), ms + text.length * 22);
+  };
+
+  // ---- Effects.
+  const fx = (cls, px, py, vars = {}, ms = 700) => {
+    const d = document.createElement('i');
+    d.className = `pip2d-fx ${cls}`;
+    d.style.left = `${px}px`; d.style.top = `${py}px`;
+    for (const [k, v] of Object.entries(vars)) d.style.setProperty(k, v);
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), ms);
+  };
+  const dust = (px, py, n = 6) => { for (let i = 0; i < n; i++) fx('pip2d-dust', px - 7 + rand(-PW * 0.2, PW * 0.2), py - 8, { '--dx': `${(i % 2 ? 1 : -1) * rand(18, 46)}px` }, 600); };
+  const sparkle = (px, py, n = 12) => {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rand(-0.2, 0.2);
+      fx('pip2d-spark', px - 4, py - 4, { '--dx': `${Math.cos(a) * rand(34, 70)}px`, '--dy': `${Math.sin(a) * rand(34, 70)}px` });
+    }
+  };
+
+  // ---- Moves. Each one is staged and returns when it is over.
+  const alive = () => !stopped && !held;
+
+  // Walk along the ground to px, easing in and out, the cycle facing the way he goes.
+  const walkTo = async (px) => {
+    if (!ground) return;
+    const r = rectDoc(ground);
+    const target = clamp(px - r.l, Math.min(PW * 0.35, r.w / 2), Math.max(r.w - PW * 0.35, r.w / 2));
+    const d = target - groundDX;
+    if (Math.abs(d) < 6) return;
+    face = d > 0 ? 1 : -1;
+    await play('walk', { speed: 1.15 });
+    const dur = Math.abs(d) / (small ? 95 : 120) + 0.35;
+    const g0 = groundDX, t0 = performance.now();
+    while (alive() && ground) {
+      const u = Math.min(1, (performance.now() - t0) / 1000 / dur);
+      groundDX = g0 + d * easeInOut(u);
+      if (u >= 1) break;
+      await frameWait();
+    }
     await play('idle');
   };
 
-  // A hop in an arc to (tx, ty): arms up in the air, straight into idle on landing.
-  const hopTo = async (tx, ty) => {
-    const x0 = x, y0 = y, t0 = performance.now(), dur = 1000;
+  // Leap in an arc to (tx, ty): anticipation, stretch on the way up, squash and dust on landing.
+  const leapTo = async (tx, ty, onto) => {
     face = tx >= x ? 1 : -1;
-    play('cheer');
-    el.classList.add('is-air');
+    squish(1.14, 0.84);
+    await sleep(170);
+    if (!alive()) return;
+    airborne = true;
+    ground = null;
+    play('cheer', { speed: 1.6 });
+    const x0 = x, y0 = y, dist = Math.hypot(tx - x0, ty - y0);
+    const top = Math.min(y0, ty) - Math.max(70, 70 + dist * 0.12);
+    const dur = clamp(0.55 + dist / 1100, 0.6, 1.3) * 1000;
+    const a = y0 - top, b = ty - top, k = Math.sqrt(a) / (Math.sqrt(a) + Math.sqrt(b));
+    const t0 = performance.now();
+    squish(0.9, 1.12);
     while (!stopped) {
+      if (held) { airborne = false; return; }
       const u = Math.min(1, (performance.now() - t0) / dur);
+      // A true arc under gravity: up from y0 to the top, down to ty.
       x = x0 + (tx - x0) * u;
-      y = y0 + (ty - y0) * u - Math.sin(u * Math.PI) * 130;
-      place();
+      y = u < k ? top + a * Math.pow(1 - u / k, 2) : top + b * Math.pow((u - k) / (1 - k), 2);
+      shadowY = y0 + (ty - y0) * u;
+      lift = Math.max(0, shadowY - y);
       if (u >= 1) break;
-      await new Promise((r) => requestAnimationFrame(r));
+      await frameWait();
     }
-    el.classList.remove('is-air');
-    face = 1;
+    airborne = false;
+    x = tx; y = ty; shadowY = ty; lift = 0;
+    if (onto) standOn(onto, tx);
+    squish(1.2, 0.78);
+    dust(x, y);
     play('idle');
+    await sleep(260);
   };
 
-  const sparkle = (cx, cy) => {
-    for (let i = 0; i < 10; i++) {
-      const s = document.createElement('i');
-      s.className = 'pip2d-spark';
-      const a = (i / 10) * Math.PI * 2;
-      s.style.left = `${cx}px`; s.style.top = `${cy}px`;
-      s.style.setProperty('--dx', `${Math.cos(a) * rand(30, 60)}px`);
-      s.style.setProperty('--dy', `${Math.sin(a) * rand(30, 60)}px`);
-      document.body.appendChild(s);
-      setTimeout(() => s.remove(), 700);
+  // Drop in from above the screen onto something in view (when he has been scrolled away).
+  const dropIn = async () => {
+    let list = grounds();
+    if (!list.length) list = fallbackGrounds();
+    if (!list.length) return false;
+    const vcx = scrollX + docW() / 2;
+    list.sort((p, q) => Math.abs((p.r.l + p.r.r) / 2 - vcx) - Math.abs((q.r.l + q.r.r) / 2 - vcx));
+    const g = list[Math.floor(rand(0, Math.min(3, list.length)))];
+    const tx = clamp(rand(g.r.l + PW * 0.4, g.r.r - PW * 0.4), g.r.l + 10, g.r.r - 10);
+    const ty = g.r.t;
+    airborne = true; ground = null;
+    x = tx; y = scrollY - 10; shadowY = ty; lift = ty - y;
+    play('cheer', { speed: 1.6 });
+    squish(0.88, 1.16);
+    const t0 = performance.now(), y0 = y, dur = clamp(Math.sqrt((ty - y0) / 900), 0.45, 1.1) * 1000;
+    while (!stopped && !held) {
+      const u = Math.min(1, (performance.now() - t0) / dur);
+      y = y0 + (ty - y0) * u * u; // falling
+      lift = ty - y;
+      if (u >= 1) break;
+      await frameWait();
     }
+    airborne = false;
+    y = ty; lift = 0;
+    standOn(g.e, tx);
+    squish(1.24, 0.74);
+    dust(x, y, 9);
+    await play('idle');
+    talk(pick(LINES.arrive), 1800);
+    await sleep(350);
+    return true;
   };
 
-  // Buttons worth visiting: on screen (at least their top), below the header bar, not tiny.
-  const buttons = () => [...document.querySelectorAll('a.btn, button.btn, button.copy, button.replay, .nav a, .foot-links a')]
-    .filter((b) => {
-      const r = b.getBoundingClientRect();
-      return r.width > 30 && r.height > 18 && r.top > 64 && r.top < vh() - 30 && r.left > 0 && r.right < vw() && getComputedStyle(b).visibility !== 'hidden';
-    });
+  // Leap to another piece of ground in view: near ones mostly.
+  const explore = async () => {
+    const list = grounds().filter((g) => g.e !== ground);
+    const scored = list.map((g) => ({ g, d: Math.hypot((g.r.l + g.r.r) / 2 - x, g.r.t - y) }))
+      .filter((s) => s.d > PW * 0.8 && s.d < (small ? 520 : 780)).sort((p, q) => p.d - q.d);
+    if (!scored.length) return false;
+    const { g } = scored[Math.floor(rand(0, Math.min(4, scored.length)))];
+    const tx = clamp(x, g.r.l + PW * 0.4, g.r.r - PW * 0.4);
+    await leapTo(tx, g.r.t, g.e);
+    return true;
+  };
+
   const lineFor = (b) => {
     const href = b.getAttribute('href') || '';
     if (href.includes('/launch')) return pick(LINES.launch);
@@ -195,83 +348,108 @@ export async function startPip2D(from) {
     if (b.matches('.copy, [data-copy]')) return pick(LINES.copy);
     return pick(LINES.other);
   };
-
+  // Hop onto a button and stomp it: it dips, glows and sparkles. Never a real click.
   const recent = [];
-  // Walk up to a button, stand beside it and press it: the button squishes and sparkles. Pip never
-  // clicks it for real.
-  const visitButton = async () => {
-    const all = buttons();
-    if (!all.length) return false;
-    const fresh = all.filter((x) => !recent.includes(x)); // a button he has not just pressed, when there is one
-    const b = pick(fresh.length ? fresh : all);
-    recent.push(b); if (recent.length > 3) recent.shift();
-    const r = b.getBoundingClientRect();
-    const side = r.left - PW / 2 > 10 ? -1 : 1;
-    const tx = side < 0 ? r.left - PW * 0.32 : r.right + PW * 0.32;
-    await walkTo(tx, r.bottom + 6);
-    if (stopped || held || !b.isConnected) return true;
-    face = side < 0 ? 1 : -1; // turn toward the button
-    const pressing = play('press', { once: true });
-    await sleep(900);
-    const rr = b.getBoundingClientRect();
-    b.classList.add('pip2d-pressed');
-    sparkle(rr.left + rr.width / 2, rr.top + rr.height / 2);
-    talk(lineFor(b));
-    await sleep(260);
-    b.classList.remove('pip2d-pressed');
-    await pressing;
-    face = 1;
+  const stompButton = async () => {
+    const list = grounds().filter((g) => g.e.matches('.btn, button.copy') && !recent.includes(g.e));
+    if (!list.length) return false;
+    const dist = (g) => Math.hypot((g.r.l + g.r.r) / 2 - x, g.r.t - y);
+    const g = list.sort((p, q) => dist(p) - dist(q))[0];
+    recent.push(g.e); if (recent.length > 3) recent.shift();
+    await leapTo((g.r.l + g.r.r) / 2, g.r.t, g.e);
+    if (!alive()) return true;
+    for (let i = 0; i < 2 && alive(); i++) {
+      squish(1.08, 0.9);
+      await sleep(120);
+      const t0 = performance.now();
+      airborne = true;
+      while (alive()) {
+        const u = Math.min(1, (performance.now() - t0) / 260);
+        const r = rectDoc(g.e);
+        y = r.t - Math.sin(u * Math.PI) * 26; shadowY = r.t; lift = r.t - y;
+        if (u >= 1) break;
+        await frameWait();
+      }
+      airborne = false;
+      squish(1.18, 0.8);
+      g.e.classList.add('pip2d-stomped');
+      const r = rectDoc(g.e);
+      sparkle((r.l + r.r) / 2, (r.t + r.b) / 2, i ? 8 : 14);
+      if (i === 0) talk(lineFor(g.e), 2400);
+      await sleep(180);
+      g.e.classList.remove('pip2d-stomped');
+      await sleep(160);
+    }
+    await play('cheer', { once: true, speed: 1.8 });
     return true;
   };
 
-  // ---- What he does next, forever.
-  const pointer = { x: -1, y: -1, t: 0 };
-  window.addEventListener('pointermove', (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.t = performance.now(); }, { passive: true });
-  let lastMove = '', bag = [], sinceButton = 0;
   const moves = {
-    button: [6, visitButton],
-    wander: [3, () => walkTo(rand(PW, vw() - PW), rand(Math.max(PH + 80, vh() * 0.35), floor()))],
-    wave: [2, () => { talk(pick(LINES.hello)); return play('wave', { once: true }); }],
-    look: [2, () => play('look', { once: true })],
-    dance: [2, () => play('dance', { once: true })],
-    cheer: [1.5, () => play('cheer', { once: true })],
-    hop: [1.5, () => hopTo(clamp(x + rand(-260, 260), PW, vw() - PW), clamp(y + rand(-40, 40), PH + 80, floor()))],
-    chase: [2, async () => {
-      if (performance.now() - pointer.t > 4000 || pointer.x < 0) return;
-      await walkTo(pointer.x + (pointer.x > x ? -PW * 0.7 : PW * 0.7), clamp(pointer.y + PH * 0.6, PH + 50, floor()));
-      if (!stopped && !held) { talk(pick(LINES.hello)); await play('wave', { once: true }); }
-    }],
-    rest: [1, () => play('idle').then(() => sleep(rand(800, 1600)))],
+    explore: () => explore(),
+    explore2: () => explore(),
+    stroll: async () => { if (!ground) return; const r = rectDoc(ground); await walkTo(rand(r.l + PW * 0.4, r.r - PW * 0.4)); },
+    wave: () => { talk(pick(LINES.hello)); return play('wave', { once: true, speed: 1.4 }); },
+    look: () => play('look', { once: true, speed: 1.4 }),
+    dance: () => play('dance', { once: true, speed: 1.4 }),
+    cheer: () => play('cheer', { once: true, speed: 1.5 }),
+    rest: () => play('idle').then(() => sleep(rand(900, 1800))),
   };
+
+  // ---- His life: an entrance, then a shuffled bag of moves with a button stomp every third.
+  let bag = [], since = 0, last = '';
+  const offScreen = () => { const r = el.getBoundingClientRect(); return r.bottom < 60 || r.top > innerHeight; };
   const life = async () => {
-    await sleep(500);
-    talk(pick(LINES.hello), 3000);
-    await play('wave', { once: true });
-    // His best trick first: off to press a button.
-    busy = true;
-    try { await visitButton(); } catch { /* nothing to press */ }
-    busy = false;
-    lastMove = 'button';
+    // Entrance: out of his slot with a pop and a spring, a wave, then a leap onto the page.
+    const s = from?.getBoundingClientRect();
+    if (from) from.style.visibility = 'hidden';
+    if (!s || !s.height || s.top < 0 || s.bottom > innerHeight) {
+      // His slot is out of sight: he makes his entrance from the sky instead.
+      el.style.opacity = '1';
+      if (!(await dropIn())) { x = scrollX + docW() * 0.8; y = scrollY + innerHeight - 40; shadowY = y; }
+      talk(pick(LINES.hello), 2600);
+      await play('wave', { once: true, speed: 1.4 });
+    } else await slotEntrance(s);
+    return liveOn();
+  };
+  const slotEntrance = async (s) => {
+    x = s && s.width ? s.left + scrollX + s.width / 2 : scrollX + docW() * 0.8;
+    y = s && s.height ? s.bottom + scrollY - s.height * 0.08 : scrollY + innerHeight - 40;
+    shadowY = y; lift = 0;
+    fx('pip2d-pop', x - 5, y - PH / 2, {}, 600);
+    sparkle(x, y - PH / 2, 10);
+    squish(0.4, 0.4);
+    el.style.opacity = '1';
+    await sleep(40);
+    squish(1.12, 1.12);
+    await sleep(260);
+    talk(pick(LINES.hello), 2600);
+    await play('wave', { once: true, speed: 1.4 });
+    if (!(await explore())) await dropIn();
+  };
+  const liveOn = async () => {
     while (!stopped) {
-      if (held || busy) { await sleep(200); continue; }
-      // A shuffled bag: every move once, in a new order each round, never the same twice in a
-      // row, and a button visit after every two moves.
-      if (!bag.length) {
-        bag = Object.keys(moves).filter((k) => k !== 'button').sort(() => Math.random() - 0.5);
-        if (bag[0] === lastMove) bag.push(bag.shift());
+      if (held) { await sleep(200); continue; }
+      if (!ground || offScreen()) {
+        await sleep(900);
+        if (!held && !stopped && (!ground || offScreen())) await dropIn();
+        continue;
       }
-      const name = sinceButton >= 2 ? 'button' : bag.shift();
-      sinceButton = name === 'button' ? 0 : sinceButton + 1;
-      lastMove = name;
-      busy = true;
-      try { await moves[name][1](); } catch { /* a move that could not finish just ends */ }
-      busy = false;
-      if (!held) await play('idle');
-      await sleep(rand(400, 1400));
+      if (!bag.length) {
+        bag = Object.keys(moves).sort(() => Math.random() - 0.5);
+        if (bag[0] === last) bag.push(bag.shift());
+      }
+      const name = since >= 2 ? 'button' : bag.shift();
+      since = name === 'button' ? 0 : since + 1;
+      last = name;
+      try {
+        if (name === 'button') { if (!(await stompButton())) await explore(); } else await moves[name]();
+      } catch { /* a move that could not finish just ends */ }
+      if (!held && !stopped) await play('idle');
+      await sleep(rand(500, 1300));
     }
   };
 
-  // ---- Tap: jump and say something. Drag: pick him up and drop him anywhere.
+  // ---- Tap: jump and say something. Drag: pick him up; let go and he falls onto what is below.
   let drag = null;
   body.addEventListener('pointerdown', (e) => {
     drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: x, oy: y, moved: false };
@@ -281,9 +459,8 @@ export async function startPip2D(from) {
     if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
     if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-    if (!drag.moved) { drag.moved = true; held = true; el.classList.add('is-held', 'is-air'); play('cheer'); }
-    x = drag.ox + dx; y = drag.oy + dy;
-    place();
+    if (!drag.moved) { drag.moved = true; held = true; ground = null; el.classList.add('is-held'); play('cheer', { speed: 1.6 }); talk(pick(LINES.drop), 1600); }
+    x = drag.ox + dx; y = drag.oy + dy; lift = 40; shadowY = y + 40;
   });
   const release = async (e) => {
     if (!drag || e.pointerId !== drag.id) return;
@@ -291,47 +468,58 @@ export async function startPip2D(from) {
     drag = null;
     if (!moved) { tapped(); return; }
     el.classList.remove('is-held');
-    // Falls to where he was dropped (or the floor if dropped too high), then carries on.
-    const land = clamp(y + 40, PH + 50, floor());
-    const x0 = x;
-    inView();
-    talk(pick(LINES.drop), 1800);
-    await hopTo(x0, land);
-    el.classList.remove('is-air');
-    held = false;
+    // Fall onto the ground below the drop point; with none, the life loop drops him in somewhere.
+    const below = grounds().filter((g) => g.r.l < x && g.r.r > x && g.r.t >= y - 10).sort((p, q) => p.r.t - q.r.t)[0];
+    if (below) {
+      airborne = true;
+      held = false;
+      const t0 = performance.now(), y0 = y, ty = below.r.t, dur = clamp(Math.sqrt(Math.max(1, ty - y0) / 900), 0.25, 0.9) * 1000;
+      while (!stopped) {
+        const u = Math.min(1, (performance.now() - t0) / dur);
+        y = y0 + (ty - y0) * u * u; shadowY = ty; lift = ty - y;
+        if (u >= 1) break;
+        await frameWait();
+      }
+      airborne = false;
+      standOn(below.e, x);
+      squish(1.22, 0.76);
+      dust(x, ty, 8);
+      play('idle');
+    } else {
+      ground = null;
+      held = false;
+    }
   };
   body.addEventListener('pointerup', release);
   body.addEventListener('pointercancel', release);
-  // A tap plays over whatever he is doing (he keeps walking if he was); the next move carries on.
   const tapped = () => {
-    if (clip === 'jump' && !loop) return;
+    if (!loop) return;
     talk(pick(LINES.tap));
-    play(pick(['jump', 'cheer', 'dance']), { once: true });
+    squish(1.1, 0.9);
+    play(pick(['jump', 'cheer', 'dance']), { once: true, speed: 1.5 });
   };
   body.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tapped(); } });
 
   el.querySelector('.pip2d-x').addEventListener('click', async () => {
     stopped = true;
-    talk(pick(LINES.bye), 1200);
-    await play('wave', { once: true });
-    el.style.transition = 'opacity .4s';
+    talk(pick(LINES.bye), 1000);
+    await play('wave', { once: true, speed: 1.6 });
     el.style.opacity = '0';
-    setTimeout(() => { el.remove(); style.remove(); }, 450);
+    shadow.style.opacity = '0';
+    setTimeout(() => { el.remove(); shadow.remove(); style.remove(); }, 550);
     try { sessionStorage.setItem('pip2d.away', '1'); } catch { /* nothing to remember with */ }
   });
 
-  window.addEventListener('resize', () => { inView(); place(); });
-
-  // ---- The frame clock: advances whichever clip is playing.
-  let last = performance.now();
+  // ---- The frame clock: sprite frames, squash springing back, staying on his ground.
+  let lastT = performance.now();
   const tick = (now) => {
     if (!el.isConnected) return;
     requestAnimationFrame(tick);
-    frameT += (now - last) / 1000;
-    last = now;
+    const dt = Math.max(0, Math.min(0.05, (now - lastT) / 1000));
+    lastT = now;
+    frameT += dt;
     const c = meta.clips[clip];
-    // The clips are 5 s; played a little brisker he feels alive rather than slow.
-    const step = 1 / (meta.fps * (clip === 'walk' ? 1.2 : 1.5));
+    const step = 1 / (meta.fps * rate);
     let changed = false;
     while (frameT >= step) {
       frameT -= step;
@@ -343,12 +531,17 @@ export async function startPip2D(from) {
       }
     }
     if (changed) show();
+    const k = 1 - Math.pow(0.0005, dt);
+    sq.x += (1 - sq.x) * k; sq.y += (1 - sq.y) * k;
+    squash.style.transform = `scale(${sq.x.toFixed(3)}, ${sq.y.toFixed(3)})`;
+    stick();
+    place();
   };
 
-  inView();
-  place();
+  if (window.PIP_DEBUG) window.__pip = { grounds, rectDoc, openAbove, GROUND };
+  el.style.opacity = '0';
   show();
-  if (from) from.style.visibility = 'hidden'; // the drawn Pip steps out of his slot
+  place();
   requestAnimationFrame(tick);
   life();
   return true;
