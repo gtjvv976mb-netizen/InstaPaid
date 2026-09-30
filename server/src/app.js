@@ -22,6 +22,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const VERIFY_TTL = 15 * 60_000;
 const CLAIM_TTL = 30 * 60_000;
+// A post that shares no picture gets the InstaPaid coin: public/coin-default.png, drawn by
+// scripts/make-default-coin.js (npm run default-coin). It becomes the coin's picture on IPFS for good.
 const DEFAULT_IMAGE = () => ({ buf: readFileSync(join(here, '..', 'public', 'coin-default.png')), type: 'image/png' });
 
 const isPubkey = (s) => { try { return PublicKey.isOnCurve(new PublicKey(s).toBytes()); } catch { return false; } };

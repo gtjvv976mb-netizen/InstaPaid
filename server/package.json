@@ -7,7 +7,8 @@
     "test": "node --test test/*.test.js",
     "block": "node scripts/block-creator.js",
     "unblock": "node scripts/block-creator.js --unblock",
-    "sample-card": "node scripts/sample-card.js"
+    "sample-card": "node scripts/sample-card.js",
+    "default-coin": "node scripts/make-default-coin.js"
   },
   "license": "UNLICENSED",
   "dependencies": {

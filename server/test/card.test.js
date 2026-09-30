@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { renderCard, coinCard, drawableName, fitLine, fontCoverage, FALLBACK_FONTS, W, H } from '../src/card.js';
+import { renderCard, coinCard, drawableName, fitLine, fontCoverage, FALLBACK_FONTS, COLOURS, W, H } from '../src/card.js';
+import { sniffImage } from '../src/metadata.js';
 
 const lum = (r, g, b) => {
   const f = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
@@ -80,13 +81,27 @@ test('every line passes 4.5:1 against the panel pixels behind it (white, yellow 
         for (let x = panel.x + 48; x < panel.x + panel.w - 48; x += 2) if (!inText(x, y)) bg = Math.max(bg, lum(...px.at(x, y)));
       }
       assert.ok(bg < 0.1, `the panel is dark (${bg.toFixed(3)})`);
-      for (const l of lines) {
+      // the words' colour: the brightest 1% of a box. Lines in two colours are measured part by part:
+      // the start of the line ("fo" of "for", "Clai" of "Claim at") and its right half (the handle, the link).
+      const ink = (l, x0, x1) => {
         const ls = [];
-        for (let y = l.y; y < l.y + l.h; y++) for (let x = l.x; x < l.x + l.w; x++) ls.push(lum(...px.at(x, y)));
+        for (let y = l.y; y < l.y + l.h; y++) for (let x = Math.round(x0); x < Math.round(x1); x++) ls.push(lum(...px.at(x, y)));
         ls.sort((a, b) => b - a);
-        const ink = ls[Math.floor(ls.length * 0.01)]; // the words' colour: the brightest 1% of the box
-        const ratio = contrast(ink, bg);
-        assert.ok(ratio >= 4.5, `${l.role}: ${ratio.toFixed(2)}:1`);
+        return ls[Math.floor(ls.length * 0.01)];
+      };
+      for (const l of lines) {
+        const parts = [['whole', l.x, l.x + l.w]];
+        if (l.role === 'creator') parts.push(['"for"', l.x, l.x + 0.9 * l.size], ['handle', l.x + l.w / 2, l.x + l.w]);
+        if (l.role === 'claim') parts.push(['"Claim at"', l.x, l.x + 2.5 * l.size], ['link', l.x + l.w / 2, l.x + l.w]);
+        for (const [part, x0, x1] of parts) {
+          const ratio = contrast(ink(l, x0, x1), bg);
+          assert.ok(ratio >= 4.5, `${l.role} (${part}): ${ratio.toFixed(2)}:1`);
+        }
+        if (l.role === 'creator') {
+          // two colours, as COLOURS says: "for" in blush, the handle in cream (brighter)
+          const forInk = ink(l, l.x, l.x + 0.9 * l.size), handleInk = ink(l, l.x + l.w / 2, l.x + l.w);
+          assert.ok(handleInk > forInk + 0.05, `the handle (${handleInk.toFixed(3)}) is brighter than "for" (${forInk.toFixed(3)})`);
+        }
       }
     }
   }
@@ -196,4 +211,52 @@ test('font coverage is read from the font files themselves', () => {
   const jp = fontCoverage(readFileSync(new URL('../assets/fonts/NotoSansJP_600SemiBold-subset.ttf', import.meta.url)));
   for (const ch of '東京のカ夕焼') assert.ok(jp.has(ch.codePointAt(0)), ch);
   assert.ok(FALLBACK_FONTS.every((f) => fontCoverage(readFileSync(f.file)).size > 30), 'every fallback font is there and readable');
+});
+
+// Hue 38-70°, saturated and bright: yellow and gold. The old card (the Instagram rainbow and a gold
+// claim link) measured about 1% of its pixels here; the site's palette (coral 11°, peach 24°) none.
+const hsv = (r, g, b) => {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, mx ? d / mx : 0, mx / 255];
+};
+const isGold = ([r, g, b]) => { const [h, s, v] = hsv(r, g, b); return h >= 38 && h <= 70 && s > 0.35 && v > 0.45; };
+
+test('the card is the site\'s warm dark palette: nothing yellow or gold outside the picture', async () => {
+  for (const c of Object.values(COLOURS)) assert.ok(!isGold([1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16))), c);
+  for (const image of [undefined, await solid('#ffffff'), await solid('#fde047')]) {
+    const { jpeg, layout } = await renderCard({ image, ...LONG });
+    const px = await pixels(jpeg);
+    const { picture: p } = layout;
+    let gold = 0, n = 0;
+    for (let y = 0; y < H; y += 2) {
+      for (let x = 0; x < W; x += 2) {
+        if (x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h) continue; // the post's own picture may be anything
+        n++;
+        if (isGold(px.at(x, y))) gold++;
+      }
+    }
+    assert.equal(gold, 0, `${gold} of ${n} pixels outside the picture are yellow or gold`);
+  }
+});
+
+test('the default coin: a square, opaque 1024 PNG on the warm dark ground, with no gold, readable at 64px', async () => {
+  const buf = readFileSync(new URL('../public/coin-default.png', import.meta.url));
+  assert.equal(sniffImage(buf), 'image/png');
+  assert.ok(buf.length < 1024 * 1024, `well under the 4 MB an image may be (${buf.length} bytes)`);
+  const m = await sharp(buf).metadata();
+  assert.deepEqual([m.width, m.height, m.hasAlpha], [1024, 1024, false]);
+  const { data } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+  let gold = 0;
+  for (let i = 0; i < data.length; i += 3) if (isGold([data[i], data[i + 1], data[i + 2]])) gold++;
+  assert.equal(gold, 0, 'no yellow or gold pixels');
+  // the corners are the site's espresso; the glowing @ in the middle still stands out at 64px
+  const small = await pixels(await sharp(buf).resize(64).png().toBuffer());
+  for (const [x, y] of [[1, 1], [62, 1], [1, 62], [62, 62]]) assert.ok(lum(...small.at(x, y)) < 0.03, `corner ${x},${y} is dark`);
+  let bright = 0, face = 1;
+  for (let y = 20; y < 44; y++) {
+    for (let x = 20; x < 44; x++) { const l = lum(...small.at(x, y)); bright = Math.max(bright, l); face = Math.min(face, l); }
+  }
+  assert.ok(contrast(bright, face) > 7, `the @ against the coin's face at 64px: ${contrast(bright, face).toFixed(1)}:1`);
 });
