@@ -66,23 +66,24 @@ test('a trailing slash on a real page redirects (301) to the page; never to anot
   } finally { t.close(); }
 });
 
-test('caching: HTML revalidated, media a day, the versioned 3D engine 30 days', async () => {
+test('caching: HTML revalidated, media a day, the Pip sprites versioned by hash', async () => {
   const t = await start();
   try {
     for (const p of ['/', '/launch', '/claim', '/privacy', '/u/nat.geo']) {
       assert.equal((await t.get(p)).headers.get('cache-control'), 'no-cache', p);
     }
     assert.equal((await t.get('/media/coin-400.webp')).headers.get('cache-control'), 'public, max-age=86400');
-    assert.equal((await t.get('/media/pip.glb')).headers.get('cache-control'), 'public, max-age=86400');
-    const engine = await t.get('/vendor/three-pip.js');
-    assert.equal(engine.headers.get('cache-control'), 'public, max-age=2592000');
-    // Kept 30 days (a day for media) under one name, so each file is asked for with its hash: a new
-    // file is a new URL. mascot.js loads pip3d.js, which loads the engine and the model.
+    assert.equal((await t.get('/media/pip-idle.webp')).headers.get('cache-control'), 'public, max-age=86400');
+    // Media is kept a day under one name, so each file is asked for with its hash: a new file is a
+    // new URL. mascot.js loads pip2d.js, which loads the sprite list, which names the sheets' hash.
     const hash = (f) => createHash('sha256').update(readFileSync(new URL(`../public/${f}`, import.meta.url))).digest('hex').slice(0, 8);
     const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8');
-    assert.ok(read('mascot.js').includes(`/pip3d.js?v=${hash('pip3d.js')}`), 'pip3d.js ?v= is its hash');
-    assert.ok(read('pip3d.js').includes(`/vendor/three-pip.js?v=${hash('vendor/three-pip.js')}`), 'three-pip.js ?v= is its hash');
-    assert.ok(read('pip3d.js').includes(`/media/pip.glb?v=${hash('media/pip.glb')}`), 'pip.glb ?v= is its hash');
+    assert.ok(read('mascot.js').includes(`/pip2d.js?v=${hash('pip2d.js')}`), 'pip2d.js ?v= is its hash');
+    assert.ok(read('pip2d.js').includes(`/media/pip-sprites.json?v=${hash('media/pip-sprites.json')}`), 'pip-sprites.json ?v= is its hash');
+    const meta = JSON.parse(read('media/pip-sprites.json'));
+    const sheets = createHash('sha256');
+    for (const n of Object.keys(meta.clips)) sheets.update(readFileSync(new URL(`../public/media/pip-${n}.webp`, import.meta.url)));
+    assert.equal(meta.v, sheets.digest('hex').slice(0, 8), 'the sheets ?v= is their hash');
   } finally { t.close(); }
 });
 

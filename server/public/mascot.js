@@ -35,9 +35,6 @@
 .pip .pip-spark{opacity:0;transform-box:fill-box;transform-origin:center}
 .pip.is-jump .pip-spark{animation:pip-spark .7s ease-out 1}
 .pip.is-jump .pip-spark:nth-child(2){animation-delay:.06s}.pip.is-jump .pip-spark:nth-child(3){animation-delay:.12s}.pip.is-jump .pip-spark:nth-child(4){animation-delay:.03s}.pip.is-jump .pip-spark:nth-child(5){animation-delay:.1s}
-.pip-3d{position:absolute;z-index:1;inset:-12% -18% -6%;width:136%;height:118%;opacity:0;transition:opacity .6s;pointer-events:none;background:transparent}
-.pip.has-3d .pip-3d{opacity:1;pointer-events:auto}
-.pip.has-3d>svg{opacity:0;transition:opacity .4s}
 .pip-say{position:absolute;z-index:3;left:50%;bottom:calc(100% - 4%);transform:translate(-50%,8px) scale(.9);opacity:0;pointer-events:none;background:#fff3ea;color:#2a1215;font:600 14px/1.3 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:9px 13px;border-radius:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);white-space:nowrap;max-width:min(260px,80vw);white-space:normal;text-align:center;width:max-content;transition:transform .25s cubic-bezier(.2,.9,.3,1.3),opacity .2s}
 .pip-say::after{content:"";position:absolute;left:50%;top:100%;margin-left:calc(-7px + var(--tail,0px));border:7px solid transparent;border-top-color:#fff3ea;border-bottom:0}
 .pip.is-say .pip-say{opacity:1;transform:translate(-50%,-6px) scale(1)}
@@ -228,11 +225,10 @@
     el.addEventListener('click', jump);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jump(); } });
 
-    // The HD figure: Pip in 3D (pip3d.js: the Meshy 7 model made with Higgsfield, rigged in code),
-    // in the big slot only. He breathes, looks at the pointer with his head and eyes, blinks, waves,
-    // jumps and dances. The SVG Pip stands in until he has loaded, and stays if WebGL or a file is
-    // missing. Not on a data saver or a slow line: the engine and the model are 2.8 MB.
-    if (slot.dataset.size === 'lg' && !slot.hasAttribute('data-flat') && !lightLine() && hasWebGL()) mount3d(el, () => ({ cx, cy, near, vel }));
+    // The HD Pip (pip2d.js: drawn with Nano Banana Pro, animated with Kling, keyed into sprite
+    // sheets) steps out of the first slot on the page and roams it. This drawn Pip stays in his
+    // slot until then, and for good on a data saver or a slow line (the sheets are 4.6 MB).
+    if (!roaming && !lightLine()) { roaming = true; mount2d(slot); }
   }
 
   function lightLine() {
@@ -240,15 +236,10 @@
     return !!c && (c.saveData === true || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''));
   }
 
-  function hasWebGL() {
-    try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
-  }
-
-  function mount3d(el, state) {
-    import('/pip3d.js?v=1536f35d')
-      .then((m) => m.mountPip3D(el, state))
-      .then((ok) => { if (ok) el.classList.add('has-3d'); })
-      .catch(() => { /* the SVG Pip stays */ });
+  let roaming = false;
+  function mount2d(slot) {
+    const go = () => import('/pip2d.js?v=60319cb0').then((m) => m.startPip2D(slot)).catch(() => { /* the drawn Pip stays */ });
+    if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
   }
 
   const style = document.createElement('style');
