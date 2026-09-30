@@ -137,6 +137,10 @@ export function openDb(path) {
 const ADDED_COLUMNS = [
   ['token', 'post_permalink', 'text'],
   ['token', 'last_valid_height', 'integer'],
+  // The auto-poster's photo tag: tagged = the container was made with the creator tagged; untagged
+  // = Instagram refused the tag for this coin, so its post goes with the caption mention only.
+  ['post_job', 'tagged', 'integer'],
+  ['post_job', 'untagged', 'integer'],
 ];
 
 export function migrate(db) {
