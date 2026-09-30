@@ -10,6 +10,7 @@ import { nameCoin } from './lore.js';
 import { createPoster } from './poster.js';
 import { createTokenKeeper } from './igtoken.js';
 import { createMintPool } from './mintpool.js';
+import { createScout } from './scout.js';
 
 assertConfig(config);
 for (const note of configNotes(config)) console.warn(`config: ${note}`);
@@ -22,6 +23,9 @@ igToken.load();
 const poster = createPoster({ db, cfg: config, fetchImpl: fetch });
 // Coin addresses ending in "pump", searched for in the background at the lowest CPU priority.
 const mintPool = createMintPool({ db, masterKey: config.vaultMasterKey, size: config.mintPoolSize });
+// The launcher bot's scout: reads public Instagram profiles to find trending creators, only while
+// Scouting is on in /admin (off until the owner turns it on).
+const scout = createScout({ db, cfg: config, fetchImpl: fetch });
 const app = createApp({
   db,
   cfg: config,
@@ -33,6 +37,7 @@ const app = createApp({
   nameCoin,
   poster,
   mintPool,
+  scout,
   feePayer: pump.parseSecretKey(config.feePayerSecret),
   fetchImpl: fetch,
 });
@@ -41,6 +46,7 @@ app.listen(config.port, () => {
   poster.start();
   igToken.start();
   mintPool.start();
+  scout.start();
   announceInstagram().catch((e) => console.error('instagram: start-up check failed', e));
 });
 
@@ -72,10 +78,18 @@ async function announceInstagram() {
 const settle = setInterval(() => app.locals.settlePending().catch((e) => console.error('settle failed', e)), 2 * 60_000);
 settle.unref();
 
+// The launcher bot: every SCOUT_LAUNCH_EVERY_MIN minutes, one coin for the top trending creator,
+// only while Auto-launch is on in /admin and within its daily cap and SOL floor (app.js autoLaunch).
+const bot = setInterval(() => app.locals.autoLaunch()
+  .then((r) => { if (r && r.outcome !== 'off') console.log(`bot: ${r.outcome}${r.username ? ` @${r.username}` : ''}`); })
+  .catch((e) => console.error('bot failed', e)), Math.max(5, config.scout.everyMin) * 60_000);
+bot.unref();
+
 // On a deploy the host sends SIGTERM: let a post that is under way finish (up to 20 s) so it is
 // recorded here rather than recovered after the restart.
 process.once('SIGTERM', async () => {
   mintPool.stop();
+  scout.stop();
   await Promise.race([poster.stop(), new Promise((r) => setTimeout(r, 20_000))]);
   process.exit(0);
 });

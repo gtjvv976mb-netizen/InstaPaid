@@ -93,10 +93,10 @@ export function messagePage({ title, text, action = { href: '/admin', label: 'Ba
 }
 
 /**
- * deps: { db, cfg, fetchImpl, pub (the public folder), log }.
+ * deps: { db, cfg, fetchImpl, pub (the public folder), log, bot? ({ scout, locals }: the launcher bot) }.
  * Returns an express Router mounted at the site's root (its paths all start with /admin).
  */
-export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console }) {
+export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, bot = null }) {
   const r = express.Router();
   const loginLimit = limiter(20, 10 * 60_000);
   const writeLimit = limiter(60, 10 * 60_000);
@@ -344,6 +344,44 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console }) 
         order by c.created_at desc, c.rowid desc limit 25`
     ).all();
     res.json({ requests: rows });
+  });
+
+  // The launcher bot: its two switches (Scouting, Auto-launch; both start off), its limits, the
+  // shortlist and what it launched. Only the signed-in @instapaid.official reaches these.
+  const botState = async () => ({
+    ...bot.scout.status(),
+    launching: bot.locals.botLaunching(),
+    limits: await bot.locals.botLimits(),
+    shortlist: bot.scout.candidates({ limit: 15 }).map((c) => ({
+      username: c.username, followers: c.followers, score: c.score, recentPosts: c.recent_posts, checkedAt: c.checked_at,
+    })),
+    launched: db.prepare(
+      `select s.username, s.score, s.launched_at, t.symbol, t.mint, t.status from scout_profile s
+         left join token t on t.mint = s.launched_mint
+        where s.launched_mint is not null order by s.launched_at desc limit 15`
+    ).all(),
+  });
+  r.get('/admin/api/bot', async (req, res) => {
+    if (!bot) return res.status(503).json({ error: 'The launcher bot is not set up on this server.' });
+    res.json(await botState());
+  });
+  r.post('/admin/api/bot', async (req, res) => {
+    if (!bot) return res.status(503).json({ error: 'The launcher bot is not set up on this server.' });
+    const { scouting, launching, seeds } = req.body ?? {};
+    if (typeof scouting === 'boolean') {
+      bot.scout.setCrawling(scouting);
+      log.log(`admin: @${req.admin.u} turned scouting ${scouting ? 'on' : 'off'}`);
+    }
+    if (typeof launching === 'boolean') {
+      bot.locals.setBotLaunching(launching);
+      log.log(`admin: @${req.admin.u} turned auto-launch ${launching ? 'on' : 'off'}`);
+    }
+    let added = 0;
+    if (typeof seeds === 'string' && seeds.trim()) {
+      if (seeds.length > 4000) return res.status(400).json({ error: 'At most 4000 characters of usernames.' });
+      added = bot.scout.addSeeds(seeds.split(/[\s,]+/).filter(Boolean).slice(0, 200));
+    }
+    res.json({ ...(await botState()), added });
   });
 
   r.post('/admin/api/logout', (req, res) => {

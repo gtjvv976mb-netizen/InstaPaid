@@ -838,7 +838,7 @@ function card(t, i) {
     ...(about ? [about] : []),
     el('p', { className: 'cc-meta' },
       el('span', { className: `status ${t.claimed ? 'claimed' : 'open'}`, textContent: t.claimed ? 'Claimed' : 'Not claimed yet' }),
-      el('span', { className: 'fan-made', textContent: 'Fan-made' })),
+      el('span', { className: 'fan-made', textContent: t.origin === 'bot' ? 'Made by InstaPaid' : 'Fan-made' })),
     el('p', { className: 'cc-when', textContent: 'Launched ' + ago(t.created_at) }),
     links);
 }

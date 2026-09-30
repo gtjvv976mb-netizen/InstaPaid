@@ -46,6 +46,12 @@ export async function loadImage({ imageUrl, imageBase64 }, fetchImpl = fetch) {
   return { buf, type: real };
 }
 
+/** A launcher-bot coin says whose fees these are, that the bot made it, and that the account did not. */
+export function botDescription(username, publicUrl) {
+  return `Creator fees go to Instagram @${username}, claimable only by that account after it verifies at ${publicUrl}/u/${username}. `
+    + `Launched by the InstaPaid bot because @${username}'s posts are trending, not by @${username}, unless they say so themselves.`;
+}
+
 /** Every coin says whose fees these are and that the account did not make it. */
 export function tokenDescription(username, userText, publicUrl) {
   const head = `Creator fees go to Instagram @${username}, claimable only by that account after it verifies at ${publicUrl}/u/${username}. `
