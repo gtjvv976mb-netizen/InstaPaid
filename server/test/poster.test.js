@@ -210,6 +210,33 @@ test('pacing: at least POST_MIN_GAP_MIN apart, at most POST_MAX_PER_DAY in any 2
   } finally { ctx.done(); }
 });
 
+test('coins that went live while posting was off are queued when it starts, if fresh; each once, with the usual checks', async () => {
+  const ctx = setup();
+  try {
+    const old = ctx.coin('old.one');
+    ctx.advance(25 * HOUR);
+    const web = ctx.coin('gungunthepanda', { source: 'web' });
+    const comment = ctx.coin('nat.geo');
+    const already = ctx.coin('posted.one');
+    await ctx.poster.enqueue(already);
+    ctx.db.prepare(`insert into token (mint, username, name, symbol, launcher, status, created_at)
+                    values ('pending-mint', 'nat.geo', 'P', 'P', 'L', 'prepared', ?)`).run(ctx.clock.t);
+    ctx.advance(5 * HOUR);
+
+    await Promise.all(ctx.poster.catchUp());
+    assert.equal(ctx.job(web).status, 'queued', 'a website launch from 5 h ago');
+    assert.equal(ctx.reviews.length, 1, 'checked like any website launch');
+    assert.equal(ctx.job(comment).status, 'queued');
+    assert.equal(ctx.job(old), undefined, 'older than POST_MAX_AGE_H: left alone');
+    assert.equal(ctx.job('pending-mint'), undefined, 'not live: left alone');
+    assert.ok(ctx.logs.some((l) => /queueing 2 coin\(s\)/.test(l)));
+
+    assert.deepEqual(ctx.poster.catchUp(), [], 'nothing twice');
+    const off = setup({ config: { autoPost: false } });
+    try { off.coin(); assert.deepEqual(off.poster.catchUp(), [], 'posting off: nothing'); } finally { off.done(); }
+  } finally { ctx.done(); }
+});
+
 test('a coin not posted within POST_MAX_AGE_H is skipped', async () => {
   const ctx = setup({ graph: fakeGraph({ quota: { usage: 100, total: 100 } }) });
   try {

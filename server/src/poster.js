@@ -127,7 +127,7 @@ function graphClient(cfg, fetchImpl) {
 /**
  * deps: { db, cfg, fetchImpl, now, sleep, log, pollMs, maxPolls, render, review }
  * review({username, name, symbol, image}) → {nameOk, pictureOk} | null checks website launches.
- * Returns { enabled, off, keepSource, enqueue, settled, tick, start, stop, kick }.
+ * Returns { enabled, off, keepSource, enqueue, settled, tick, start, stop, kick, catchUp }.
  */
 export function createPoster({
   db, cfg, fetchImpl = fetch, now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
@@ -454,12 +454,30 @@ export function createPoster({
     soon = setTimeout(tick, ms);
     soon.unref?.();
   }
+  /**
+   * Coins that went live while posting was off (AUTO_POST=0, or before a restart finished queueing
+   * them) and are still fresh: queued now, with the same checks as any other. Fresh = within
+   * POST_MAX_AGE_H (24 h when that is 0), so switching posting on never floods old coins.
+   */
+  function catchUp() {
+    if (!enabled()) return [];
+    const hours = cfg.postMaxAgeH > 0 ? cfg.postMaxAgeH : 24;
+    const missed = db.prepare(
+      `select mint from token where status = 'live' and created_at > ?
+         and not exists (select 1 from post_job j where j.mint = token.mint)
+       order by created_at`
+    ).all(now() - hours * 60 * 60_000).map((r) => r.mint);
+    if (missed.length) log.log(`auto-poster: queueing ${missed.length} coin(s) that went live while posting was off`);
+    return missed.map((mint) => enqueue(mint));
+  }
+
   function start() {
     if (timer) return;
     const why = off();
     log.log(why ? `auto-poster off: ${why}` : `auto-poster on: at most ${dailyCap()} a day, ${cfg.postMinGapMin} min apart, via ${call.via}`);
     timer = setInterval(tick, TICK_MS);
     timer.unref?.();
+    catchUp();
     kick(5000);
   }
   function stop() {
@@ -468,5 +486,5 @@ export function createPoster({
     return Promise.all([running, settled()]);
   }
 
-  return { enabled, off, keepSource, enqueue, settled, tick, start, stop, kick };
+  return { enabled, off, keepSource, enqueue, settled, tick, start, stop, kick, catchUp };
 }
