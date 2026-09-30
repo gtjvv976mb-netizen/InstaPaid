@@ -2,11 +2,41 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Keypair } from '@solana/web3.js';
+import { ComputeBudgetProgram, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { openDb } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { createPoster } from '../src/poster.js';
-import { getOrCreateAccount, vaultKeypair } from '../src/pump.js';
+import { getOrCreateAccount, vaultKeypair, cosignLaunch } from '../src/pump.js';
+
+export const PUMP_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+const BLOCKHASH = '11111111111111111111111111111111';
+
+/** The fake launch's create instruction: the coin address signs, the vault is the creator. */
+export function fakeCreate({ launcher, mint, vault, name = 'Coin' }) {
+  return new TransactionInstruction({
+    programId: PUMP_PROGRAM,
+    keys: [
+      { pubkey: new PublicKey(mint), isSigner: true, isWritable: true },
+      { pubkey: new PublicKey(vault), isSigner: false, isWritable: false },
+      { pubkey: new PublicKey(launcher), isSigner: true, isWritable: true },
+    ],
+    data: Buffer.from(`create:${name}`),
+  });
+}
+
+/** An unsigned launch as buildLaunchTx makes it: compute budget first, then the create. */
+export function fakeLaunchTx({ launcher, mint, vault, name, extra = [], budget = 200_000 }) {
+  const msg = new TransactionMessage({
+    payerKey: new PublicKey(launcher), recentBlockhash: BLOCKHASH,
+    instructions: [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 350_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: budget }),
+      fakeCreate({ launcher, mint, vault, name }),
+      ...extra,
+    ],
+  }).compileToV0Message();
+  return new VersionedTransaction(msg);
+}
 
 export const cfg = {
   publicUrl: 'https://instapaid.test',
@@ -53,16 +83,28 @@ export async function start({
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
   const coinsDir = mkdtempSync(join(tmpdir(), 'instapaid-coins-'));
   const c = { ...cfg, postsDir, coinsDir, ...config };
-  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [] };
+  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [], sent: [] };
   const chain = { outcome: 'pending', launchFails };
   const live = new Set();
   const pump = {
     getOrCreateAccount, vaultKeypair,
-    async buildLaunchTx(conn, { vault, mint: mintKey }) {
+    // A real v0 transaction shaped like a launch: the launcher pays, and one "create" instruction to
+    // pump.fun's program takes the coin address (signer), the vault and the launcher, with the name
+    // in its data. So the real cosignLaunch checks it exactly as it checks a mainnet launch.
+    async buildLaunchTx(conn, { launcher, vault, name, mint: mintKey, signMint = true }) {
       calls.mints.push(mintKey);
-      const mint = (mintKey ?? Keypair.generate()).publicKey.toBase58();
+      const kp = mintKey ?? Keypair.generate();
+      const mint = kp.publicKey.toBase58();
       live.add(`${mint}:${vault}`);
-      return { mint, tx: 'AAAA' };
+      const tx = fakeLaunchTx({ launcher, mint: kp.publicKey, vault, name });
+      if (signMint) tx.sign([kp]);
+      return { mint, tx: Buffer.from(tx.serialize()).toString('base64'), ...(signMint ? {} : { mintKey: kp }) };
+    },
+    cosignLaunch,
+    async sendLaunch(conn, tx) {
+      if (chain.sendFails) throw new Error(chain.sendFails);
+      calls.sent.push(tx);
+      return `websig${calls.sent.length}`;
     },
     async confirmLaunch(conn, mint, vault) { return live.has(`${mint}:${vault}`); },
     async pendingFees() { return 1_500_000_000n; },
