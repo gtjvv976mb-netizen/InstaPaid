@@ -56,15 +56,19 @@ export function tokenDescription(username, userText, publicUrl) {
 
 /**
  * Upload image + metadata to pump.fun's IPFS endpoint; returns the metadata URI.
- * `website` defaults to the creator's page here; comment launches pass the Instagram post's link.
+ * `website` defaults to the creator's Instagram profile; comment launches pass the Instagram post's link.
+ * (pump.fun has no Instagram field: its website button is where people look for the creator.)
  */
+/** The creator's Instagram profile, the coin's link when it has no post. */
+export const instagramProfile = (username) => `https://www.instagram.com/${encodeURIComponent(username)}/`;
+
 export async function uploadMetadata(cfg, { name, symbol, description, username, image, website }, fetchImpl = fetch) {
   const form = new FormData();
   form.append('file', new Blob([image.buf], { type: image.type }), 'image');
   form.append('name', name);
   form.append('symbol', symbol);
   form.append('description', description ?? '');
-  form.append('website', website || `${cfg.publicUrl}/u/${username}`);
+  form.append('website', website || instagramProfile(username));
   form.append('twitter', '');
   form.append('telegram', '');
   form.append('showName', 'true');

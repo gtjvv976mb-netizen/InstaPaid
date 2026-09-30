@@ -100,7 +100,7 @@ test('the fan\'s lore becomes the description when Claude passes it, and is quot
   } finally { refused.close(); }
 });
 
-test('a permalink that is not an Instagram https address falls back to the creator\'s page', async () => {
+test('a permalink that is not an Instagram https address falls back to the creator\'s Instagram profile', async () => {
   const t = await start({ mentions: {
     a: ask('alice', undefined, { permalink: 'https://evil.example/p/x' }),
     b: ask('bob', undefined, { permalink: undefined }),
@@ -108,8 +108,8 @@ test('a permalink that is not an Instagram https address falls back to the creat
   try {
     await hook(t, 'a');
     await hook(t, 'b');
-    assert.equal(t.calls.uploads[0].website, 'https://instapaid.test/u/alice');
-    assert.equal(t.calls.uploads[1].website, 'https://instapaid.test/u/bob');
+    assert.equal(t.calls.uploads[0].website, 'https://www.instagram.com/alice/');
+    assert.equal(t.calls.uploads[1].website, 'https://www.instagram.com/bob/');
     assert.deepEqual(t.db.prepare('select post_permalink from token').all().map((r) => r.post_permalink), [null, null]);
   } finally { t.close(); }
 });
@@ -352,4 +352,13 @@ test('the reply promises a post only when one was queued', async () => {
     assert.match(t.calls.mentionReplies[0].message, /^🎉 Done!/);
     assert.doesNotMatch(t.calls.mentionReplies[0].message, /on our feed/);
   } finally { t.close(); }
+});
+
+test('a website launch links the coin to the creator\'s Instagram profile', async () => {
+  const { uploadMetadata } = await import('../src/metadata.js');
+  let sent;
+  const fetchImpl = async (url, opts) => { sent = opts.body; return { ok: true, json: async () => ({ metadataUri: 'ipfs://x' }) }; };
+  await uploadMetadata({ publicUrl: 'https://instapaid.test', ipfsUploadUrl: 'https://ipfs.test' },
+    { name: 'N', symbol: 'S', description: 'd', username: 'gungunthepanda', image: { buf: Buffer.from('x'), type: 'image/png' } }, fetchImpl);
+  assert.equal(sent.get('website'), 'https://www.instagram.com/gungunthepanda/');
 });

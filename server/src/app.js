@@ -13,7 +13,7 @@ import {
   mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink, welcomeDm,
   commentLaunchesOff, skipMention,
 } from './comments.js';
-import { loadImage, tokenDescription } from './metadata.js';
+import { instagramProfile, loadImage, tokenDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
 import { createPoster, MINT_FILE_RE } from './poster.js';
 import { adminRouter } from './admin.js';
@@ -216,7 +216,7 @@ export function createApp(deps) {
       const uri = await uploadMetadata(cfg, {
         name: coin.name, symbol: coin.symbol, username, image,
         description: coin.lore ?? '',
-        website: permalink ?? `${cfg.publicUrl}/u/${username}`,
+        website: permalink ?? instagramProfile(username),
       }, deps.fetchImpl);
       const { mint, signature } = await pump.launchPaidByServer(connection, {
         feePayer, vault: acct.vault_pubkey, name: coin.name, symbol: coin.symbol, uri,
