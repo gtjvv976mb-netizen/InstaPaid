@@ -219,6 +219,28 @@ test('a failed launch replies once and records why; carousel posts use the defau
   } finally { c.close(); }
 });
 
+test('a comment under a video or Reel launches a coin: its cover frame is the picture, or the default when Meta sends none', async () => {
+  const urls = [];
+  const fetchImpl = async (url) => { urls.push(String(url)); return new Response(POST_PNG, { headers: { 'content-type': 'image/png' } }); };
+  const reel = { media_type: 'VIDEO', media_url: 'https://scontent.cdninstagram.com/v.mp4', thumbnail_url: 'https://scontent.cdninstagram.com/cover.jpg',
+    permalink: 'https://www.instagram.com/reel/DAbc123xyz/' };
+  const t = await start({ fetchImpl, mentions: { a: ask('reelmaker', undefined, reel), b: ask('nocover', undefined, { ...reel, thumbnail_url: undefined }) } });
+  try {
+    await hook(t, 'a');
+    assert.equal(t.calls.serverLaunches.length, 1);
+    assert.ok(urls.includes(reel.thumbnail_url), 'the cover frame is fetched');
+    assert.ok(!urls.includes(reel.media_url), 'never the video file');
+    assert.equal(t.calls.uploads[0].image.buf.compare(POST_PNG), 0);
+    assert.equal(t.calls.uploads[0].website, reel.permalink, 'the coin links to the Reel');
+    assert.match(t.calls.mentionReplies[0].message, /wears the post's photo/);
+
+    await hook(t, 'b');
+    assert.equal(t.calls.serverLaunches.length, 2, 'no cover frame: still launched');
+    assert.equal(t.calls.uploads[1].image.buf.compare(DEFAULT_COIN), 0);
+    assert.doesNotMatch(t.calls.mentionReplies[1].message, /wears the post's photo/);
+  } finally { t.close(); }
+});
+
 test('reply fits in an Instagram comment', () => {
   const m = launchedReply({ username: 'a'.repeat(30), name: 'N'.repeat(32), symbol: 'ABCDEFGHIJ', mint: 'x'.repeat(44), lore: 'l'.repeat(400),
     postPermalink: 'https://www.instagram.com/p/x/', posted: true, publicUrl: 'https://instapaid.fun' });
