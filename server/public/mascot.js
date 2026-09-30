@@ -245,7 +245,7 @@
   }
 
   function mount3d(el, state) {
-    import('/pip3d.js?v=21028c3f')
+    import('/pip3d.js?v=1536f35d')
       .then((m) => m.mountPip3D(el, state))
       .then((ok) => { if (ok) el.classList.add('has-3d'); })
       .catch(() => { /* the SVG Pip stays */ });
