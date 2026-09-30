@@ -2,10 +2,12 @@
 // Auto-riggers expect human proportions and refuse Pip's big head, so the skeleton is placed by
 // hand from the mesh's own landmarks and every vertex is weighted to it on load. Everything he does
 // is procedural: he breathes, sways his tail, wiggles his gills, turns his head and his eyes to the
-// pointer, blinks, waves when he arrives, jumps when tapped and dances every third tap.
+// pointer, blinks, bounces from foot to foot, and every few seconds does something on his own: a
+// wave, a look around, a hop, a spin, a wiggle or a dance. Tapped, he jumps, spins and dances in
+// turn; pointing at a "Launch a coin" button gets a happy wiggle.
 //
-// mountPip3D(el, state) → Promise<boolean>. `el` is the .pip element (its click, pip:jump and
-// pip:wave events drive the actions); state() → {cx, cy, near, vel}, the pointer relative to Pip
+// mountPip3D(el, state) → Promise<boolean>. `el` is the .pip element (its pip:jump, pip:wave and
+// pip:excite events drive the actions); state() → {cx, cy, near, vel}, the pointer relative to Pip
 // (-1..1, y down) as mascot.js already smooths it. Resolves false when anything is missing, so the
 // drawn Pip stays.
 import * as T from '/vendor/three-pip.js?v=75d23c54';
@@ -237,12 +239,19 @@ export async function mountPip3D(el, state) {
   let action = null, taps = 0, nextBlink = 1.5, blinkUntil = 0;
   const start = (name, dur) => { action = { name, t0: clock, dur }; };
   el.addEventListener('pip:wave', () => start('wave', 1.8));
-  el.addEventListener('pip:jump', () => { taps += 1; if (taps % 3 === 0) start('dance', 3.2); else start('jump', 0.9); });
+  el.addEventListener('pip:jump', () => { const n = taps++ % 3; if (n === 0) start('jump', 0.9); else if (n === 1) start('spin', 1.1); else start('dance', 3.2); });
+  // A happy wiggle when a launch button is pointed at; not over another action, at most every 2.5 s.
+  let lastExcite = -9;
+  el.addEventListener('pip:excite', () => {
+    if ((action && action.name !== 'look') || clock - lastExcite < 2.5) return;
+    lastExcite = clock;
+    start('wiggle', 1.3);
+  });
 
   let visible = true;
   new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); }).observe(el);
 
-  let clock = 0, last = performance.now(), idleFidget = 7;
+  let clock = 0, last = performance.now(), idleFidget = 3, lastIdle = '';
   const frame = (now) => {
     if (!el.isConnected) { renderer.dispose(); return; }
     requestAnimationFrame(frame);
@@ -256,24 +265,41 @@ export async function mountPip3D(el, state) {
     for (const b of Object.values(bones)) { b.rotation.set(0, 0, 0); b.scale.set(1, 1, 1); }
     bones.root.position.set(...BONES.root[0]);
 
-    // Always: breathing, a soft bob, gills and tail alive, head and body turned to the pointer.
-    const br = Math.sin(t * 2.2);
-    bones.spine.scale.set(1 + br * 0.012, 1 + br * 0.02, 1 + br * 0.012);
-    bones.root.position.y += (br * 0.5 + 0.5) * 0.012;
-    const yaw = cx * 0.5, pitch = cy * 0.32;
-    bones.head.rotation.set(pitch + Math.sin(t * 1.3) * 0.03, yaw, -cx * 0.1 + Math.sin(t * 0.9) * 0.025);
-    bones.spine.rotation.set(pitch * 0.2, yaw * 0.28, Math.sin(t * 1.1) * 0.02);
-    const gw = Math.sin(t * 2.6) * 0.08 + vel * 0.12 + (near ? Math.sin(t * 9) * 0.05 : 0);
+    // Always, and big enough to see: breathing, a bouncy step from foot to foot, head bobbing to it,
+    // arms swinging, tail wagging and gills fluttering; head and body turned to the pointer.
+    const br = Math.sin(t * 2.4);
+    bones.spine.scale.set(1 + br * 0.025, 1 + br * 0.04, 1 + br * 0.025);
+    const step = Math.sin(t * 3.2);
+    bones.root.position.y += Math.abs(step) * 0.045;
+    bones.hips.rotation.z = step * 0.07;
+    bones.spine.rotation.set(0, 0, -step * 0.05);
+    bones.legN.rotation.x = Math.max(0, step) * -0.18;
+    bones.legP.rotation.x = Math.max(0, -step) * -0.18;
+    const yaw = cx * 0.55, pitch = cy * 0.34;
+    bones.head.rotation.set(pitch + Math.sin(t * 6.4) * 0.05, yaw, -cx * 0.1 + step * 0.06);
+    bones.spine.rotation.x += pitch * 0.2;
+    bones.spine.rotation.y += yaw * 0.3;
+    const gw = Math.sin(t * 4.2) * 0.16 + vel * 0.2 + (near ? Math.sin(t * 12) * 0.08 : 0);
     bones.gillN.rotation.z = -gw; bones.gillP.rotation.z = gw;
-    bones.gillN.rotation.y = Math.sin(t * 1.9) * 0.05; bones.gillP.rotation.y = -Math.sin(t * 1.9) * 0.05;
-    bones.tail.rotation.y = Math.sin(t * 1.7) * 0.26 - cx * 0.2 - vel * 0.2;
-    bones.tail2.rotation.y = Math.sin(t * 1.7 - 0.9) * 0.34;
-    bones.armN.rotation.z = -Math.sin(t * 1.5) * 0.05;
-    bones.armP.rotation.z = Math.sin(t * 1.5 + 1) * 0.05;
+    bones.gillN.rotation.y = Math.sin(t * 2.3) * 0.1; bones.gillP.rotation.y = -Math.sin(t * 2.3) * 0.1;
+    bones.tail.rotation.y = Math.sin(t * 3.2) * 0.45 - cx * 0.2 - vel * 0.3;
+    bones.tail2.rotation.y = Math.sin(t * 3.2 - 1) * 0.55;
+    bones.armN.rotation.z = -0.1 - Math.sin(t * 3.2) * 0.22;
+    bones.armP.rotation.z = 0.1 - Math.sin(t * 3.2) * 0.22;
+    bones.armN.rotation.x = Math.sin(t * 3.2) * 0.2;
+    bones.armP.rotation.x = -Math.sin(t * 3.2) * 0.2;
 
-    // Now and then, left alone, he tilts his head and looks around.
+    // On his own every few seconds, whether or not anyone is there: a wave, a look around, a hop,
+    // a spin, a wiggle or a dance. Never the same one twice in a row.
     idleFidget -= dt;
-    if (!action && idleFidget < 0) { start('fidget', 2.2); idleFidget = 8 + Math.random() * 6; }
+    if (!action && idleFidget < 0) {
+      const moves = [['wave', 1.8], ['look', 2.4], ['hop', 0.9], ['spin', 1.1], ['wiggle', 1.3], ['dance', 3.2]]
+        .filter(([m]) => m !== lastIdle);
+      const [m, d] = moves[Math.floor(Math.random() * moves.length)];
+      lastIdle = m;
+      start(m === 'hop' ? 'jump' : m, d);
+      idleFidget = 2.5 + Math.random() * 2.5;
+    }
 
     if (action) {
       const u = (t - action.t0) / action.dur;
@@ -306,11 +332,34 @@ export async function mountPip3D(el, state) {
         bones.legN.rotation.z = Math.max(0, Math.sin(beat / 2)) * -0.2 * env;
         bones.legP.rotation.z = Math.max(0, -Math.sin(beat / 2)) * 0.2 * env;
         bones.tail.rotation.y += Math.sin(beat) * 0.3 * env;
-      } else if (action.name === 'fidget') {
+      } else if (action.name === 'spin') {
+        // A full turn on the spot with a little hop; the head keeps finding the pointer at the end.
+        const turn = ease(u) * Math.PI * 2;
+        bones.root.rotation.y = turn;
+        const hop = Math.sin(Math.min(1, u / 0.8) * Math.PI);
+        bones.root.position.y += hop * 0.12;
+        bones.armN.rotation.z -= hop * 0.9; bones.armP.rotation.z += hop * 0.9;
+        bones.head.rotation.y *= 1 - hop;
+        bones.tail.rotation.y += hop * 0.5;
+        bones.gillN.rotation.z -= hop * 0.3; bones.gillP.rotation.z += hop * 0.3;
+      } else if (action.name === 'wiggle') {
+        // Excited: a quick shimmy, arms flapping, gills flared, a bounce.
         const env = Math.sin(u * Math.PI);
-        bones.head.rotation.z += env * 0.22;
-        bones.head.rotation.x -= env * 0.08;
-        bones.armN.rotation.z -= env * 0.25;
+        const f = Math.sin(t * 22);
+        bones.hips.rotation.z = f * 0.12 * env;
+        bones.spine.rotation.z -= f * 0.1 * env;
+        bones.head.rotation.z += Math.sin(t * 22 + 1) * 0.1 * env;
+        bones.root.position.y += Math.abs(Math.sin(t * 11)) * 0.05 * env;
+        bones.armN.rotation.z -= (0.5 + f * 0.35) * env;
+        bones.armP.rotation.z += (0.5 - f * 0.35) * env;
+        bones.gillN.rotation.z -= 0.3 * env; bones.gillP.rotation.z += 0.3 * env;
+        bones.tail.rotation.y += Math.sin(t * 16) * 0.5 * env;
+      } else if (action.name === 'look') {
+        // Looks one way, then the other, then back: curious.
+        const env = Math.sin(u * Math.PI);
+        bones.head.rotation.y += Math.sin(u * Math.PI * 2) * 0.7 * env;
+        bones.head.rotation.z += env * 0.15;
+        bones.spine.rotation.y += Math.sin(u * Math.PI * 2) * 0.2 * env;
       }
     }
 
