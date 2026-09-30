@@ -1,0 +1,322 @@
+/* instapaid.fun home page: the app shell. A rail on the left holds the page's sections as tabs, the two
+   actions and the small print; beside it, one section at a time fills the screen, so the page itself never
+   scrolls (home.js switches them, and the address keeps the one showing: #how, #faq …).
+   Without scripts it is the same page, stacked, with the rail beside it. Loaded after home.css. */
+
+body.app { --rail-w: 244px; display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); min-height: 100dvh; }
+body.app > main { min-width: 0; }
+
+/* ---------- the rail ---------- */
+.rail {
+  position: sticky; top: 0; z-index: 20; height: 100dvh; min-height: 0;
+  display: flex; flex-direction: column; gap: 22px; padding: 22px 16px 18px;
+  background:
+    radial-gradient(120% 40% at 0% 0%, rgba(255, 122, 89, .12), transparent 70%),
+    radial-gradient(120% 40% at 100% 100%, rgba(163, 52, 95, .22), transparent 70%),
+    linear-gradient(180deg, #221419, #170e12);
+  border-right: 1px solid var(--line);
+  overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+.rail-brand { align-self: flex-start; padding: 0 8px; }
+
+.rail-nav { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.rail-tab {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: 13px;
+  min-height: 50px; padding: 0 14px; border-radius: 16px;
+  color: var(--ink-2); font-size: 16px; font-weight: 700; letter-spacing: -.01em; text-decoration: none;
+  transition: color .25s ease, background-color .25s ease;
+}
+.rail-tab svg { flex: none; width: 21px; height: 21px; color: var(--muted); transition: color .25s ease, transform .45s cubic-bezier(.3, 1.6, .5, 1); }
+.rail-tab:hover { color: var(--ink); background: rgba(255, 214, 196, .05); }
+.rail-tab:hover svg { transform: scale(1.12) rotate(-6deg); }
+.rail-tab[aria-current="true"] { color: var(--ink); background: none; }
+.rail-tab[aria-current="true"] svg { color: var(--accent); transform: scale(1.08); }
+.rail-tab .short, .rail-act .short { display: none; }
+/* The chosen tab's pill: one piece that glides from tab to tab (home.js sets --y and --h). */
+.rail-ind {
+  position: absolute; z-index: 0; left: 0; right: 0; top: 0; height: var(--h, 50px); border-radius: 16px;
+  transform: translateY(var(--y, 0px)); opacity: 0;
+  background: linear-gradient(100deg, rgba(255, 122, 89, .22), rgba(255, 92, 138, .1));
+  box-shadow: inset 0 0 0 1px rgba(255, 122, 89, .38), 0 10px 30px -14px rgba(255, 92, 138, .6);
+  transition: transform .5s cubic-bezier(.3, 1.25, .45, 1), height .3s ease, opacity .3s ease;
+}
+.rail-ind::before { /* a bright edge on the left, like a lit groove */
+  content: ""; position: absolute; left: 0; top: 11px; bottom: 11px; width: 4px; border-radius: 0 4px 4px 0; background: var(--btn-grad);
+}
+.rail-ind.on { opacity: 1; }
+
+.rail-actions { display: grid; gap: 10px; margin-top: auto; }
+.rail-act {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; padding: 0 16px; border-radius: 999px;
+  font-size: 16px; font-weight: 800; letter-spacing: -.01em; text-decoration: none; white-space: nowrap;
+  transition: transform .18s ease, box-shadow .25s ease, border-color .2s ease, background-color .2s ease;
+}
+.rail-act svg { flex: none; width: 19px; height: 19px; }
+.rail-act:active { transform: scale(.97); }
+.rail-launch { background: var(--btn-grad); color: var(--btn-ink); box-shadow: 0 12px 30px -12px rgba(255, 122, 89, .75), inset 0 1px 0 rgba(255, 255, 255, .28); }
+.rail-launch:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -12px rgba(255, 92, 138, .8), inset 0 1px 0 rgba(255, 255, 255, .28); }
+.rail-claim { color: var(--ink); background: rgba(255, 214, 196, .06); border: 1.5px solid var(--line-2); }
+.rail-claim:hover { border-color: var(--peach); background: rgba(255, 214, 196, .1); transform: translateY(-2px); }
+
+.rail-foot { display: grid; gap: 8px; padding: 14px 8px 0; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.rail-foot b { color: var(--ink-2); font-weight: 750; }
+.rail-links { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.rail-links a, .faq-links a { display: inline-flex; align-items: center; min-height: 26px; color: var(--ink-2); font-weight: 650; text-decoration: none; }
+.rail-links a:hover, .faq-links a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---------- the FAQ, in two columns, with the small print under it ---------- */
+.faq { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 10px 14px; }
+.faq-col { display: grid; gap: 10px; min-width: 0; }
+.faq-sec .wrap-narrow { max-width: 1160px; }
+.faq-small { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.faq-small svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--accent); }
+.faq-small b { color: var(--ink); }
+.faq-links { display: none; flex-wrap: wrap; align-items: center; gap: 0 14px; margin-top: 8px; font-size: 13.5px; color: var(--muted); }
+
+/* ================= one section at a time (scripts on) ================= */
+html.js body.app { height: 100dvh; overflow: hidden; }
+html.js body.app > main { position: relative; height: 100dvh; overflow: hidden; }
+html.js body.app [data-panel] {
+  position: absolute; inset: 0; min-height: 0;
+  display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 214, 196, .2) transparent;
+  padding: clamp(18px, 4.2vh, 46px) 0;
+}
+html.js body.app [data-panel][hidden] { display: none !important; }
+html.js body.app [data-panel] > * { flex-shrink: 0; } /* a tall section scrolls; its rows never squash */
+/* Centred when it fits; from the top when a small screen must scroll inside it. */
+html.js body.app [data-panel] > .wrap, html.js body.app .hero > .hero-grid { margin-block: auto; }
+html.js body.app [data-panel] > .recent-scatter + .wrap { margin-top: auto; }
+html.js body.app [data-panel] > .wrap:last-child { margin-bottom: auto; }
+html.js body.app .recent > .wrap:last-child { margin-top: 0; }
+
+/* The way in: the section rises out of a soft blur, from the side of the tab it came from (--dir). */
+html.js body.app [data-panel].enter { animation: panel-in .7s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(calc(var(--dir, 1) * 34px)) scale(.985); filter: blur(8px); }
+  60% { filter: blur(0); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* Sections drawn for a long page sit tighter on one screen. */
+html.js body.app .section, html.js body.app .band { padding-top: clamp(18px, 4.2vh, 46px); padding-bottom: clamp(18px, 4.2vh, 46px); border-block: 0; }
+html.js body.app .sec-head { margin-bottom: clamp(14px, 2.6vh, 28px); }
+html.js body.app .sec-head .pill { margin-bottom: 10px; }
+html.js body.app .sec-title { font-size: clamp(28px, min(3.6vw, 6vh), 50px); max-width: none; }
+html.js body.app .sec-lead { margin-top: 10px; font-size: 17px; max-width: 48em; }
+html.js body.app .note-line { margin-top: clamp(12px, 2vh, 20px); }
+
+/* Home: the film fills the section; the words, the phone and the trust line fit one screen. */
+html.js body.app .hero { min-height: 0; flex-direction: column; align-items: stretch; padding: clamp(18px, 3.6vh, 40px) 0 0; }
+html.js body.app .hero .mascot-slot { display: none; } /* Pip drops onto the page from above instead */
+html.js body.app .hero-stage { grid-row: 1; align-self: center; padding-top: 30px; }
+html.js body.app .hero h1 { margin-top: clamp(10px, 2vh, 20px); font-size: clamp(36px, min(5vw, 8.2vh), 76px); }
+html.js body.app .hero .lead { margin-top: clamp(10px, 1.8vh, 18px); font-size: clamp(16px, 2.2vh, 19px); }
+html.js body.app .hero .cmd { margin-top: clamp(12px, 2.4vh, 26px); }
+html.js body.app .hero .cta-row { margin-top: clamp(12px, 2.2vh, 24px); }
+html.js body.app .hero .ticks { margin-top: clamp(10px, 1.8vh, 20px); }
+html.js body.app .hero .trust { margin-top: clamp(14px, 2.6vh, 28px); background: rgba(26, 17, 20, .72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 0; }
+html.js body.app .hero .trust-row { padding-top: 12px; padding-bottom: 12px; }
+
+/* How it works: the four steps, lighter. */
+html.js body.app .step { padding: 14px 18px 18px; row-gap: 8px; }
+html.js body.app .step-art img { width: clamp(84px, 13vh, 140px); height: clamp(84px, 13vh, 140px); }
+
+/* Coins: two rows of three. */
+html.js body.app .recent { padding-bottom: clamp(18px, 4.2vh, 46px); }
+html.js body.app .recent-sub { margin: 10px 0 14px; }
+
+/* Creators: the claim page beside the words, the crown on its corner. */
+html.js body.app .band-grid { gap: 40px; align-items: center; }
+html.js body.app .band-lead { margin-top: 12px; font-size: 17px; }
+html.js body.app .reasons { grid-template-columns: 1fr 1fr; gap: 12px 18px; margin: 18px 0 20px; font-size: 15px; line-height: 1.45; }
+html.js body.app .band-side { padding-top: 0; }
+html.js body.app .band-crown { width: 130px; top: -64px; right: -8px; }
+html.js body.app .band .lookup-dark { margin-top: 18px; padding-top: 16px; }
+html.js body.app .band .takedown { margin-top: 14px; font-size: 14.5px; }
+html.js body.app .claim-mock { padding: 16px; }
+html.js body.app .cm-steps li { padding: 11px 12px; margin-top: 8px; }
+html.js body.app .band .scam { margin-top: 12px; padding: 14px 16px; }
+html.js body.app .band .scam p { font-size: 14px; }
+html.js body.app .band .scam p + p { margin-top: 4px; }
+
+/* Fans. */
+html.js body.app .fans-art { width: 150px; margin: -40px 0 -30px auto; }
+html.js body.app .way-art { min-height: clamp(120px, 19vh, 190px); padding: 16px; }
+html.js body.app .way-copy { padding: 18px 22px 20px; }
+
+/* FAQ. */
+html.js body.app .faq-sec { padding-top: clamp(18px, 4.2vh, 46px); }
+html.js body.app .faq summary { min-height: 52px; padding: 6px 18px; }
+html.js body.app .q { font-size: 16.5px; }
+html.js body.app .faq .a { margin: 0 16px 14px 16px; font-size: 15px; }
+
+/* Home's phone: sized to the screen's height too (1em = 1 mm on it), so its buttons stay on screen. */
+html.js body.app .p3 { --u: min(3.2px, calc(100cqw / 117.8), calc((100vh - 310px) / 157.8)); }
+
+/* How it works: four across on any wide screen, the art in a shorter box. */
+@media (min-width: 981px) {
+  html.js body.app .how-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 14px; }
+  html.js body.app .step:nth-child(2)::after { display: block; }
+}
+html.js body.app .step-art { height: clamp(92px, 15vh, 160px); }
+
+/* Coins: one row that slides sideways at every width (the arrows under it, or a swipe). */
+html.js body.app .shelf { overflow-x: auto; overflow-y: visible; padding: 6px max(24px, calc((100% - 1160px) / 2 + 24px)) 14px; scroll-padding-inline: max(24px, calc((100% - 1160px) / 2 + 24px)); scrollbar-width: none; }
+html.js body.app .shelf::-webkit-scrollbar { display: none; }
+html.js body.app .shelf-row { display: flex; width: max-content; max-width: none; margin: 0; padding: 0; align-items: stretch; }
+html.js body.app .shelf-row > li { display: flex !important; }
+html.js body.app .coin-card { width: 300px; }
+html.js body.app .more { display: none !important; }
+.shelf-nav { display: flex; gap: 10px; float: right; margin: 0 0 0 16px; }
+.shelf-nav[hidden] { display: none; }
+.shelf-btn { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; border: 1.5px solid var(--line-2); background: rgba(255, 214, 196, .06); color: var(--ink); cursor: pointer; transition: border-color .2s ease, background-color .2s ease, transform .15s ease; }
+.shelf-btn svg { width: 20px; height: 20px; }
+.shelf-btn[data-shelf="-1"] svg { transform: scaleX(-1); }
+.shelf-btn:hover:not(:disabled) { border-color: var(--peach); background: rgba(255, 214, 196, .1); }
+.shelf-btn:active:not(:disabled) { transform: scale(.94); }
+.shelf-btn:disabled { opacity: .35; cursor: default; }
+html.js body.app .recent-foot { margin-top: 12px; align-items: center; min-height: 48px; }
+
+/* Fans: three across on any wide screen. */
+@media (min-width: 981px) {
+  html.js body.app .ways { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html.js body.app .ways .way:first-child { grid-column: auto; flex-direction: column; }
+  html.js body.app .ways .way:first-child .way-art { flex: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  html.js body.app .ways .way:first-child .way-copy { justify-content: flex-start; }
+}
+
+/* Creators: the crown on the claim page's top-left corner, clear of its tag. */
+html.js body.app .band-crown { width: 118px; top: -70px; left: -38px; right: auto; }
+
+/* A short screen (a laptop at 768, a browser with its bars): trimmed further. */
+@media (max-height: 820px) {
+  html.js body.app .hero .trust, html.js body.app .faq-small { display: none; }
+  html.js body.app .hero .ticks, html.js body.app .hero .cmd-hint, html.js body.app .hero .kicker { display: none; }
+  html.js body.app .hero h1 { margin-top: 0; font-size: clamp(34px, min(5vw, 7.4vh), 64px); }
+  html.js body.app .faq-sec .sec-head .pill { display: none; }
+  html.js body.app .faq summary { min-height: 46px; }
+  html.js body.app .faq-col, html.js body.app .faq { gap: 8px; }
+  html.js body.app .faq .a { font-size: 14.5px; padding: 10px 14px; }
+  html.js body.app .faq .a p + p { margin-top: 6px; }
+  html.js body.app .coin-card { padding: 14px 16px; }
+  html.js body.app .recent-sub { display: none; }
+  html.js body.app .way-art { min-height: 0; padding: 12px 14px; }
+  html.js body.app .way-copy p { font-size: 15px; line-height: 1.5; }
+  html.js body.app .fans-art { width: 110px; }
+  html.js body.app .sec-lead { font-size: 16px; }
+  html.js body.app .step .mini { display: none; }
+  html.js body.app .band .takedown { display: none; }
+  html.js body.app .cm-foot { display: none; }
+}
+
+/* ================= a narrower rail: icons over words ================= */
+@media (max-width: 1100px) {
+  body.app { --rail-w: 96px; }
+  .rail { padding: 16px 8px 14px; gap: 16px; align-items: stretch; }
+  .rail-brand { align-self: center; padding: 0; }
+  .rail-brand .wordmark { display: none; }
+  .rail-tab, .rail-act { flex-direction: column; justify-content: center; gap: 5px; min-height: 62px; padding: 6px 4px; font-size: 12.5px; font-weight: 750; text-align: center; line-height: 1.15; }
+  .rail-act { border-radius: 18px; }
+  .rail-tab .long, .rail-act .long { display: none; }
+  .rail-tab .short, .rail-act .short { display: inline; }
+  .rail-ind::before { top: 14px; bottom: 14px; }
+  .rail-foot { display: none; }
+  .faq-links { display: flex; }
+  html.js body.app .reasons { grid-template-columns: 1fr; }
+}
+@media (max-width: 980px) {
+  html.js body.app .band-grid { grid-template-columns: 1fr; }
+  html.js body.app .band-side { display: none; }
+  html.js body.app .hero-grid { grid-template-columns: minmax(0, 1fr); }
+  html.js body.app .hero-stage { display: none; } /* the folding phone needs a wide screen; How it works shows the same */
+  html.js body.app .hero-copy { max-width: 640px; }
+  .faq { grid-template-columns: 1fr; }
+  /* Rows that no longer fit side by side slide sideways instead. */
+  html.js body.app .how-steps, html.js body.app .ways {
+    display: flex; grid-template-columns: none; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+    margin-inline: -24px; padding: 4px 24px 10px; scroll-padding-inline: 24px; scrollbar-width: none;
+  }
+  html.js body.app .how-steps::-webkit-scrollbar, html.js body.app .ways::-webkit-scrollbar { display: none; }
+  html.js body.app .how-steps > .step, html.js body.app .ways > .way { flex: 0 0 min(78%, 340px); scroll-snap-align: start; }
+  html.js body.app .ways .way:first-child { flex-direction: column; }
+  html.js body.app .ways .way:first-child .way-art { border-right: 0; border-bottom: 1px solid var(--line); }
+  html.js body.app .step:not(:last-child)::after { display: none; }
+  html.js body.app .swipe-hint { display: flex; }
+}
+.swipe-hint { display: none; align-items: center; gap: 8px; margin-top: 4px; font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
+.swipe-hint svg { width: 16px; height: 16px; color: var(--accent); animation: swipe-nudge 1.8s ease-in-out infinite; }
+@keyframes swipe-nudge { 0%, 100% { transform: none; } 50% { transform: translateX(5px); } }
+
+/* ================= a phone ================= */
+@media (max-width: 640px) {
+  body.app { --rail-w: 74px; }
+  .rail { padding: 12px 6px 10px; gap: 10px; }
+  .rail-brand img { width: 34px; height: 34px; }
+  .rail-tab, .rail-act { min-height: 56px; font-size: 11.5px; gap: 4px; }
+  .rail-tab svg, .rail-act svg { width: 20px; height: 20px; }
+  .rail-actions { gap: 8px; }
+  html.js body.app .wrap { padding: 0 16px; }
+  html.js body.app .hero .kicker, html.js body.app .hero .ticks, html.js body.app .hero .cmd-hint { display: none; }
+  html.js body.app .sec-head .pill { display: none; }
+  html.js body.app .hero .cmd { padding: 10px 10px 10px 14px; }
+  html.js body.app .hero .cmd-text { font-size: 15.5px; }
+  html.js body.app .hero h1 { margin-top: 0; font-size: clamp(30px, min(9.4vw, 5.2vh), 40px); }
+  html.js body.app .hero .lead { font-size: 15.5px; line-height: 1.5; }
+  html.js body.app .cta-row { flex-wrap: nowrap; gap: 8px; }
+  html.js body.app .cta-row .btn { flex: 1 1 0; min-width: 0; min-height: 50px; padding: 0 10px; font-size: 15px; gap: 6px; }
+  html.js body.app .cta-row .btn-primary { flex-grow: 1.35; }
+  html.js body.app .shelf-nav { display: none; }
+  html.js body.app .hero .trust-row { grid-template-columns: 1fr; gap: 6px; font-size: 13px; }
+  html.js body.app .hero .trust-row li:nth-child(n+3) { display: none; }
+  html.js body.app .sec-title { font-size: clamp(26px, 7.6vw, 34px); }
+  html.js body.app .sec-lead { font-size: 15px; }
+  html.js body.app .how-steps, html.js body.app .ways { margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+  html.js body.app .how-steps > .step, html.js body.app .ways > .way { flex-basis: 86%; }
+  html.js body.app .step { grid-template-columns: minmax(0, 1fr) 84px; }
+  html.js body.app .step-art { width: 84px; height: 84px; }
+  html.js body.app .step-art img { width: 80px; height: 80px; }
+  html.js body.app .shelf { margin-inline: 0; padding-inline: 16px; }
+  html.js body.app .coin-card { width: min(74vw, 260px); }
+  html.js body.app .recent-head { gap: 12px; }
+  html.js body.app .lookup-field span { display: none; }
+  html.js body.app .band-lead { font-size: 15.5px; }
+  html.js body.app .reasons { gap: 8px; margin: 14px 0 16px; font-size: 14.5px; }
+  html.js body.app .reasons svg { width: 22px; height: 22px; padding: 4px; }
+  html.js body.app .band .btn-primary { width: 100%; }
+  html.js body.app .band .lookup-dark, html.js body.app .band .takedown { display: none; } /* Coins has the look-up; FAQ has the opt-out */
+  html.js body.app .fans-art { display: none; }
+  html.js body.app .faq summary { min-height: 48px; padding: 4px 14px; gap: 10px; }
+  html.js body.app .faq summary .ava { display: none; }
+  html.js body.app .q { font-size: 15.5px; }
+  html.js body.app .faq .a { margin: 0 10px 12px; padding: 10px 12px; font-size: 14.5px; }
+  html.js body.app .faq .a > .ava { display: none; }
+  html.js body.app .faq-col, html.js body.app .faq { gap: 8px; }
+  html.js body.app .faq-sec .sec-head .pill { display: none; }
+  html.js body.app .faq-small { display: none; } /* "Is this official?" and "Is it financial advice?" say it; the links stay */
+  html.js body.app .faq-links { margin-top: 14px; font-size: 13px; }
+  html.js body.app .q { font-size: 15px; line-height: 1.25; }
+}
+@media (max-height: 740px) {
+  html.js body.app .hero .trust { display: none; }
+  html.js body.app .band .lookup-dark { display: none; } /* Coins has the same look-up */
+  html.js body.app .faq-small { display: none; } /* the rail's foot says it on a wide screen; the FAQ's own answers too */
+  html.js body.app .sec-head .pill { display: none; }
+  html.js body.app .sec-lead { display: none; }
+  html.js body.app .how .note-line, html.js body.app .fans .note-line { display: none; }
+  html.js body.app .claim-mock .cm-head { padding-bottom: 10px; }
+}
+@media (max-width: 640px) and (max-height: 760px) {
+  html.js body.app .reasons .why { display: none; } /* the claim page says each of these again */
+  html.js body.app .hero .lead { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+}
+
+/* Before home.js has chosen: only the section the address names (the inline script in the head sets data-tab). */
+html.js body.app:not(.tabs-ready) [data-panel] { display: none; }
+html.js[data-tab="home"] body.app:not(.tabs-ready) #home,
+html.js[data-tab="how"] body.app:not(.tabs-ready) #how,
+html.js[data-tab="recent"] body.app:not(.tabs-ready) #recent,
+html.js[data-tab="creators"] body.app:not(.tabs-ready) #creators,
+html.js[data-tab="fans"] body.app:not(.tabs-ready) #fans,
+html.js[data-tab="faq"] body.app:not(.tabs-ready) #faq { display: flex; }

@@ -238,7 +238,7 @@
 
   let roaming = false;
   function mount2d(slot) {
-    const go = () => import('/pip2d.js?v=20880e36').then((m) => m.startPip2D(slot)).catch(() => { /* the drawn Pip stays */ });
+    const go = () => import('/pip2d.js?v=e415599c').then((m) => m.startPip2D(slot)).catch(() => { /* the drawn Pip stays */ });
     if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
   }
 
