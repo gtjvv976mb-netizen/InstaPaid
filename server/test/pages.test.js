@@ -96,8 +96,8 @@ test('favicon.ico (32 and 16), robots.txt and the sitemap; a canonical link on e
     assert.match(robots, /^Sitemap: https:\/\/instapaid\.fun\/sitemap\.xml$/m);
     const map = await (await t.get('/sitemap.xml')).text();
     const locs = [...map.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    assert.deepEqual(locs, ['/', '/launch', '/claim', '/privacy', '/data-deletion'].map((p) => 'https://instapaid.fun' + p));
-    for (const [p, canon] of [['/', '/'], ['/launch', '/launch'], ['/claim', '/claim'], ['/privacy', '/privacy'], ['/data-deletion', '/data-deletion']]) {
+    assert.deepEqual(locs, ['/', '/launch', '/claim', '/terms', '/privacy', '/data-deletion'].map((p) => 'https://instapaid.fun' + p));
+    for (const [p, canon] of [['/', '/'], ['/launch', '/launch'], ['/claim', '/claim'], ['/terms', '/terms'], ['/privacy', '/privacy'], ['/data-deletion', '/data-deletion']]) {
       const html = await (await t.get(p)).text();
       assert.ok(html.includes(`<link rel="canonical" href="https://instapaid.fun${canon}">`), p);
     }
