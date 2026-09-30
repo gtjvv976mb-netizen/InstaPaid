@@ -22,7 +22,7 @@ const DAY_MS = 24 * HOUR;
  * status, publishing, the feed, the quota.
  */
 function fakeGraph({ statuses = ['FINISHED'], quota = { usage: 0, total: 100 }, origin = 'https://graph.facebook.com', token = 'fb' } = {}) {
-  const g = { calls: [], containers: new Map(), feed: [], quota, statuses, fail: { create: 0, publish: 0, lost: 0, quota: 0, status: 0 } };
+  const g = { calls: [], containers: new Map(), feed: [], quota, statuses, fail: { create: 0, publish: 0, lost: 0, quota: 0, status: 0, tag: 0, tagStatus: false } };
   let n = 0;
   const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
   const err = (message, status = 400) => json({ error: { message, type: 'OAuthException', code: 9004 } }, status);
@@ -41,8 +41,12 @@ function fakeGraph({ statuses = ['FINISHED'], quota = { usage: 0, total: 100 }, 
     }
     if (path === `${IG}/media` && method === 'POST') {
       if (g.fail.create-- > 0) return err('Media upload failed', 400);
+      if (params.get('user_tags') && g.fail.tag-- > 0) return err('Invalid user id', 400);
       const id = `c${++n}`;
-      g.containers.set(id, { seq: [...g.statuses], caption: params.get('caption'), imageUrl: params.get('image_url'), published: false });
+      g.containers.set(id, {
+        seq: g.fail.tagStatus && params.get('user_tags') ? ['ERROR'] : [...g.statuses],
+        caption: params.get('caption'), imageUrl: params.get('image_url'), userTags: params.get('user_tags'), published: false,
+      });
       return json({ id });
     }
     if (path === `${IG}/media` && method === 'GET') return json({ data: [...g.feed].reverse() });
@@ -252,12 +256,55 @@ test('a coin not posted within POST_MAX_AGE_H is skipped', async () => {
   } finally { ctx.done(); }
 });
 
+test('the creator is tagged on the photo; a refused tag posts with the caption mention only, and is not tried again', async () => {
+  const ctx = setup();
+  try {
+    const mint = ctx.coin('nat.geo');
+    await ctx.poster.enqueue(mint);
+    assert.equal(await ctx.poster.tick(), 'posted');
+    const [c] = [...ctx.graph.containers.values()];
+    assert.deepEqual(JSON.parse(c.userTags), [{ username: 'nat.geo', x: 0.5, y: 0.5 }]);
+    assert.match(c.caption, /@nat\.geo/, 'the caption mention stays');
+    assert.equal(ctx.job(mint).tagged, 1);
+  } finally { ctx.done(); }
+
+  const refused = setup();
+  try {
+    const mint = refused.coin('private.person');
+    await refused.poster.enqueue(mint);
+    refused.graph.fail.tag = 1;
+    assert.equal(await refused.poster.tick(), 'posted');
+    const [c] = [...refused.graph.containers.values()];
+    assert.equal(c.userTags, null, 'posted without the tag');
+    assert.match(c.caption, /@private\.person/);
+    assert.equal(refused.job(mint).untagged, 1);
+    assert.equal(refused.job(mint).tagged, 0);
+    assert.ok(refused.logs.some((l) => /tagging @private\.person was refused/.test(l)));
+  } finally { refused.done(); }
+
+  // Instagram took the tagged container but it ended in ERROR: the next container goes untagged.
+  const late = setup();
+  try {
+    const mint = late.coin('late.tag');
+    await late.poster.enqueue(mint);
+    late.graph.fail.tagStatus = true;
+    assert.equal(await late.poster.tick(), 'failed');
+    assert.equal(late.job(mint).tagged, 1);
+    late.advance(5 * MIN);
+    assert.equal(await late.poster.tick(), 'posted');
+    const cs = [...late.graph.containers.values()];
+    assert.equal(cs.length, 2);
+    assert.equal(cs[1].userTags, null);
+    assert.equal(late.job(mint).untagged, 1);
+  } finally { late.done(); }
+});
+
 test('retries: 5 min, 30 min, 2 h, then failed; a failure then a success posts once', async () => {
   const ctx = setup();
   try {
     const mint = ctx.coin();
     await ctx.poster.enqueue(mint);
-    ctx.graph.fail.create = 1;
+    ctx.graph.fail.create = 2; // refused with the photo tag, and again without it: a real failure
     assert.equal(await ctx.poster.tick(), 'failed');
     let j = ctx.job(mint);
     assert.equal(j.status, 'queued');
@@ -299,7 +346,7 @@ test('circuit breaker: 3 failures in a row pause posting for an hour, and it is 
   try {
     const mints = [ctx.coin('u1'), ctx.coin('u2'), ctx.coin('u3')];
     for (const m of mints) await ctx.poster.enqueue(m);
-    ctx.graph.fail.create = 2;
+    ctx.graph.fail.create = 4; // two posts, each refused with the tag and without it
     ctx.graph.fail.quota = 0;
     assert.equal(await ctx.poster.tick(), 'failed');
     assert.equal(await ctx.poster.tick(), 'failed'); // u2 (u1 waits 5 min)
@@ -308,7 +355,7 @@ test('circuit breaker: 3 failures in a row pause posting for an hour, and it is 
     assert.ok(ctx.logs.some((l) => /3 failures in a row; posting paused for an hour/.test(l)));
     ctx.advance(10 * MIN);
     assert.equal(await ctx.poster.tick(), 'paused');
-    assert.equal(ctx.graph.calls.length, 5, 'nothing is called while paused');
+    assert.equal(ctx.graph.calls.length, 7, 'nothing is called while paused');
     // survives a restart: the pause is in the database
     ctx.restart();
     assert.equal(await ctx.poster.tick(), 'paused');

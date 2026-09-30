@@ -12,7 +12,8 @@
 // (IG_ACCESS_TOKEN, needs instagram_business_content_publish) on graph.instagram.com, the bot's
 // IG_ID read from GET /me?fields=user_id,username. Only when IG_USER_ID and IG_FB_ACCESS_TOKEN are
 // both set, with that Facebook-Login token on graph.facebook.com instead (instagram_content_publish).
-//   POST /{ig-user-id}/media {image_url, caption}  → a container
+//   POST /{ig-user-id}/media {image_url, caption, user_tags}  → a container (the creator tagged on
+//        the photo; without user_tags if Instagram refuses the tag)
 //   GET  /{container-id}?fields=status_code         → until FINISHED
 //   POST /{ig-user-id}/media_publish {creation_id}  → the post (media id)
 //   GET  /{media-id}?fields=permalink
@@ -84,8 +85,12 @@ export function postCaption({ username, symbol, mint, lore, post_permalink }, pu
 }
 
 export class GraphError extends Error {
-  constructor(message, { dead = false } = {}) { super(message); this.dead = dead; }
+  // api: Instagram answered with an error (as opposed to no answer at all).
+  constructor(message, { dead = false, api = false } = {}) { super(message); this.dead = dead; this.api = api; }
 }
+
+/** The creator's photo tag for the post: one tag, at the card's centre. */
+export const photoTags = (username) => JSON.stringify([{ username, x: 0.5, y: 0.5 }]);
 class Skip extends Error {}
 
 /**
@@ -113,7 +118,7 @@ function graphClient(cfg, fetchImpl) {
       throw new GraphError(`${what}: ${e.message}`);
     }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || j?.error) throw new GraphError(`${what}: ${r.status} ${j?.error ? describeError(j) : ''}`.trim());
+    if (!r.ok || j?.error) throw new GraphError(`${what}: ${r.status} ${j?.error ? describeError(j) : ''}`.trim(), { api: true });
     return j;
   }
   call.via = viaFb ? 'Facebook Login (graph.facebook.com)' : 'Instagram Login (graph.instagram.com)';
@@ -320,7 +325,10 @@ export function createPoster({
       if (st.code === 'PUBLISHED') return recover(j.mint);
       if (st.code === 'ERROR' || st.code === 'EXPIRED') {
         containerId = null;
-        db.prepare('update post_job set container_id = null where mint = ?').run(j.mint);
+        // A tagged container that failed may have failed on the tag: the next one goes without it.
+        const untag = st.code === 'ERROR' && j.tagged ? 1 : (j.untagged ?? 0);
+        db.prepare('update post_job set container_id = null, untagged = ? where mint = ?').run(untag, j.mint);
+        j.untagged = untag;
       }
     }
     if (isBlocked(db, token.username)) throw new Skip('creator opted out');
@@ -330,13 +338,34 @@ export function createPoster({
         await writeCard(token, src);
         if (src) rm(src.path);
       }
-      const c = await call('POST', `${await call.igId()}/media`, {
-        image_url: `${cfg.publicUrl}/posts/${token.mint}.jpg`,
-        caption: postCaption(token, cfg.publicUrl),
-      });
+      const media = { image_url: `${cfg.publicUrl}/posts/${token.mint}.jpg`, caption: postCaption(token, cfg.publicUrl) };
+      // The creator is tagged on the photo: a "tagged you" notification, and the post in their
+      // profile's Tagged tab. If Instagram turns the tag down (their settings, a renamed account),
+      // the post goes out with the caption mention alone, and this job never tries the tag again.
+      let tagged = j.untagged ? 0 : 1;
+      let c;
+      if (tagged) {
+        try {
+          c = await call('POST', `${await call.igId()}/media`, { ...media, user_tags: photoTags(token.username) });
+        } catch (e) {
+          if (!e.api) throw e; // no answer at all: retried later, still with the tag
+          log.log(`poster: ${token.mint}: tagging @${token.username} was refused (${e.message}); posting with the caption mention only`);
+          tagged = 0;
+          db.prepare('update post_job set untagged = 1 where mint = ?').run(j.mint);
+        }
+      }
+      if (!tagged) {
+        try {
+          c = await call('POST', `${await call.igId()}/media`, media);
+        } catch (e) {
+          // Refused without the tag too: the tag was not the problem, so the next try tags again.
+          if (!j.untagged) db.prepare('update post_job set untagged = null where mint = ?').run(j.mint);
+          throw e;
+        }
+      }
       if (!c.id) throw new GraphError('media: no container id');
       containerId = String(c.id);
-      db.prepare('update post_job set container_id = ? where mint = ?').run(containerId, j.mint);
+      db.prepare('update post_job set container_id = ?, tagged = ? where mint = ?').run(containerId, tagged, j.mint);
     }
     if (await waitReady(containerId) === 'PUBLISHED') return recover(j.mint);
     const p = await call('POST', `${await call.igId()}/media_publish`, { creation_id: containerId });
@@ -426,12 +455,15 @@ export function createPoster({
         return 'skipped';
       }
       const final = j.attempts >= MAX_ATTEMPTS;
+      // A dead container is dropped; if it carried the photo tag, the tag may be why, so the next
+      // container goes without it.
       db.prepare(
         `update post_job set status = ?, next_attempt_at = ?, last_error = ?,
+                untagged = case when ? and container_id is not null and tagged = 1 then 1 else untagged end,
                 container_id = case when ? then null else container_id end
           where mint = ? and status = 'posting'`
       ).run(final ? 'failed' : 'queued', now() + BACKOFF[Math.min(j.attempts, BACKOFF.length) - 1],
-        String(e.message).slice(0, 300), e.dead ? 1 : 0, j.mint);
+        String(e.message).slice(0, 300), e.dead ? 1 : 0, e.dead ? 1 : 0, j.mint);
       failure(`${j.mint}: ${e.message}`);
       return 'failed';
     }
