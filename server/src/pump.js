@@ -40,11 +40,12 @@ export function vaultKeypair(account, masterKey) {
  * Build the launch transaction. The launcher's wallet pays and signs; the creator — who alone can
  * ever collect the coin's creator fees — is the Instagram account's vault. The mint keypair signs
  * here, so the launcher can sign and send this exact message or nothing: changing the creator
- * would break the mint's signature.
+ * would break the mint's signature. `mint` is the coin's address keypair (one from the stock that
+ * ends in "pump", src/mintpool.js); without it the coin gets a random address.
  */
-export async function buildLaunchTx(connection, { launcher, vault, name, symbol, uri, devBuySol }) {
+export async function buildLaunchTx(connection, { launcher, vault, name, symbol, uri, devBuySol, mint: mintKey }) {
   const online = new OnlinePumpSdk(connection);
-  const mint = Keypair.generate();
+  const mint = mintKey ?? Keypair.generate();
   const user = new PublicKey(launcher);
   const creator = new PublicKey(vault);
 
@@ -164,9 +165,9 @@ export async function payOut(connection, { vault, feePayer, destination, platfor
  * confirmation fails may still have landed. Returns once the coin is confirmed on-chain; throws
  * LaunchSent when it was sent but not confirmed (ask launchStatus what happened).
  */
-export async function launchPaidByServer(connection, { feePayer, vault, name, symbol, uri, onSigned }) {
+export async function launchPaidByServer(connection, { feePayer, vault, name, symbol, uri, mint, onSigned }) {
   const built = await buildLaunchTx(connection, {
-    launcher: feePayer.publicKey.toBase58(), vault, name, symbol, uri, devBuySol: 0,
+    launcher: feePayer.publicKey.toBase58(), vault, name, symbol, uri, devBuySol: 0, mint,
   });
   const tx = VersionedTransaction.deserialize(Buffer.from(built.tx, 'base64'));
   tx.sign([feePayer]); // adds the payer's signature beside the mint's

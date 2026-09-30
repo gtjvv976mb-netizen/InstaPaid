@@ -85,3 +85,7 @@ services:
         value: "30"          # one post per creator a month
       - key: POST_WEB_LAUNCHES
         value: "1"           # 0 = never post website/extension launches
+      # Coin addresses ending in "pump", like pump.fun's own: found in the background (~20 min each
+      # on this plan, lowest CPU priority) and kept ready. 0 = off, every coin gets a random address.
+      - key: MINT_POOL_SIZE
+        value: "10"

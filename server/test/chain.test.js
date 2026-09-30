@@ -70,3 +70,17 @@ test('server-paid launch: the fee payer pays and signs, the vault is still the c
     assert.ok(nacl.sign.detached.verify(msg, tx.signatures[i], k.toBytes()), `signature ${i} valid`));
   assert.equal(tx.message.staticAccountKeys[0].toBase58(), feePayer.publicKey.toBase58());
 });
+
+test('launch tx: a coin address from the stock is the mint, and it signed', { skip: !reachable && 'no RPC' }, async () => {
+  let mint;
+  do mint = Keypair.generate(); while (!mint.publicKey.toBase58().endsWith('p'));
+  const out = await buildLaunchTx(conn, {
+    launcher: Keypair.generate().publicKey.toBase58(), vault: Keypair.generate().publicKey.toBase58(),
+    name: 'Test', symbol: 'TEST', uri: 'https://ipfs.io/ipfs/x', devBuySol: 0, mint,
+  });
+  assert.equal(out.mint, mint.publicKey.toBase58());
+  const tx = VersionedTransaction.deserialize(Buffer.from(out.tx, 'base64'));
+  const idx = tx.message.staticAccountKeys.findIndex((k) => k.equals(mint.publicKey));
+  const { default: nacl } = await import('tweetnacl');
+  assert.ok(nacl.sign.detached.verify(tx.message.serialize(), tx.signatures[idx], mint.publicKey.toBytes()));
+});

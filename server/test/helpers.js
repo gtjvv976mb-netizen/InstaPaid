@@ -47,18 +47,19 @@ export const DEFAULT_COIN = readFileSync(new URL('../public/coin-default.png', i
 export async function start({
   usernames = {}, mentions = {}, feePayerLamports = 10n ** 9n, launchFails = false,
   config = {}, graph, naming = {}, review = { nameOk: true, pictureOk: true }, now,
-  comments: commentsImpl, fetchImpl: fetchOverride, dmSent,
+  comments: commentsImpl, fetchImpl: fetchOverride, dmSent, mintPool,
 } = {}) {
   const db = openDb(':memory:');
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
   const c = { ...cfg, postsDir, ...config };
-  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [] };
+  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [] };
   const chain = { outcome: 'pending', launchFails };
   const live = new Set();
   const pump = {
     getOrCreateAccount, vaultKeypair,
-    async buildLaunchTx(conn, { vault }) {
-      const mint = Keypair.generate().publicKey.toBase58();
+    async buildLaunchTx(conn, { vault, mint: mintKey }) {
+      calls.mints.push(mintKey);
+      const mint = (mintKey ?? Keypair.generate()).publicKey.toBase58();
       live.add(`${mint}:${vault}`);
       return { mint, tx: 'AAAA' };
     },
@@ -67,7 +68,8 @@ export async function start({
     async launchPaidByServer(conn, args) {
       if (chain.launchFails === true) throw new Error('rpc down');
       calls.serverLaunches.push(args);
-      const sent = { mint: Keypair.generate().publicKey.toBase58(), signature: `sig${calls.serverLaunches.length}`, lastValidBlockHeight: 1000 };
+      calls.mints.push(args.mint);
+      const sent = { mint: (args.mint ?? Keypair.generate()).publicKey.toBase58(), signature: `sig${calls.serverLaunches.length}`, lastValidBlockHeight: 1000 };
       await args.onSigned?.(sent);
       if (chain.launchFails === 'refused') throw new Error('launch refused: simulation failed');
       if (chain.launchFails === 'lost') throw Object.assign(new Error('block height exceeded'), { sent });
@@ -105,7 +107,7 @@ export async function start({
     review: async (args) => { calls.reviews.push(args); return typeof review === 'function' ? review(args) : review; },
   });
   const app = createApp({
-    db, cfg: c, connection: null, pump, ig, comments, nameCoin, fetchImpl, feePayer: Keypair.generate(), poster,
+    db, cfg: c, connection: null, pump, ig, comments, nameCoin, fetchImpl, feePayer: Keypair.generate(), poster, mintPool,
     uploadMetadata: async (conf, args) => { calls.uploads.push(args); return 'https://ipfs.test/meta.json'; },
   });
   const server = await new Promise((ok) => { const s = app.listen(0, () => ok(s)); });

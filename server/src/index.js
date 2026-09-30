@@ -9,6 +9,7 @@ import * as comments from './comments.js';
 import { nameCoin } from './lore.js';
 import { createPoster } from './poster.js';
 import { createTokenKeeper } from './igtoken.js';
+import { createMintPool } from './mintpool.js';
 
 assertConfig(config);
 for (const note of configNotes(config)) console.warn(`config: ${note}`);
@@ -19,6 +20,8 @@ const igToken = createTokenKeeper({ db, cfg: config, fetchImpl: fetch });
 igToken.load();
 // @instapaid.official posts the coins that go live (AUTO_POST=1); off otherwise, and says why.
 const poster = createPoster({ db, cfg: config, fetchImpl: fetch });
+// Coin addresses ending in "pump", searched for in the background at the lowest CPU priority.
+const mintPool = createMintPool({ db, masterKey: config.vaultMasterKey, size: config.mintPoolSize });
 const app = createApp({
   db,
   cfg: config,
@@ -29,6 +32,7 @@ const app = createApp({
   comments,
   nameCoin,
   poster,
+  mintPool,
   feePayer: pump.parseSecretKey(config.feePayerSecret),
   fetchImpl: fetch,
 });
@@ -36,6 +40,7 @@ app.listen(config.port, () => {
   console.log(`instapaid on :${config.port} (${config.publicUrl})`);
   poster.start();
   igToken.start();
+  mintPool.start();
   announceInstagram().catch((e) => console.error('instagram: start-up check failed', e));
 });
 
@@ -70,6 +75,7 @@ settle.unref();
 // On a deploy the host sends SIGTERM: let a post that is under way finish (up to 20 s) so it is
 // recorded here rather than recovered after the restart.
 process.once('SIGTERM', async () => {
+  mintPool.stop();
   await Promise.race([poster.stop(), new Promise((r) => setTimeout(r, 20_000))]);
   process.exit(0);
 });

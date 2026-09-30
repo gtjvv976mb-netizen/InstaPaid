@@ -43,11 +43,14 @@ function limiter(limit, windowMs) {
  *         pump: {getOrCreateAccount, vaultKeypair, buildLaunchTx, confirmLaunch, pendingFees, payOut, launchPaidByServer,
  *                launchStatus, balanceOf},
  *         ig: {usernameOf, reply}, comments: {readMention, replyToMention}, nameCoin,
- *         uploadMetadata, feePayer, fetchImpl, poster? (src/poster.js; made here when not given) }
+ *         uploadMetadata, feePayer, fetchImpl, poster? (src/poster.js; made here when not given),
+ *         mintPool? (src/mintpool.js: addresses ending in "pump"; without it, random addresses) }
  */
 export function createApp(deps) {
   const { db, cfg, connection, pump, ig, uploadMetadata, feePayer } = deps;
   const poster = deps.poster ?? createPoster({ db, cfg, fetchImpl: deps.fetchImpl });
+  // A coin's address: the next one from the stock ending in "pump", or a random one when it is empty.
+  const nextMint = () => deps.mintPool?.take() ?? undefined;
 
   const app = express();
   app.set('trust proxy', process.env.TRUST_PROXY === '1');
@@ -219,7 +222,7 @@ export function createApp(deps) {
         website: permalink ?? instagramProfile(username),
       }, deps.fetchImpl);
       const { mint, signature } = await pump.launchPaidByServer(connection, {
-        feePayer, vault: acct.vault_pubkey, name: coin.name, symbol: coin.symbol, uri,
+        feePayer, vault: acct.vault_pubkey, name: coin.name, symbol: coin.symbol, uri, mint: nextMint(),
         // Recorded before it is sent: a send whose confirmation is lost may still land, and this row
         // is what stops a second launch for the creator and counts against the day's budget.
         onSigned: (s) => {
@@ -432,7 +435,7 @@ export function createApp(deps) {
         description: tokenDescription(username, description, cfg.publicUrl),
       }, deps.fetchImpl);
       const built = await pump.buildLaunchTx(connection, {
-        launcher, vault: acct.vault_pubkey, name: cleanName, symbol: cleanSymbol, uri, devBuySol: buy,
+        launcher, vault: acct.vault_pubkey, name: cleanName, symbol: cleanSymbol, uri, devBuySol: buy, mint: nextMint(),
       });
       db.prepare(
         `insert into token (mint, username, name, symbol, launcher, status, created_at) values (?, ?, ?, ?, ?, 'prepared', ?)`

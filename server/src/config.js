@@ -61,6 +61,9 @@ export const config = {
   postCreatorGapDays: Number(env('POST_CREATOR_GAP_DAYS', '30')),
   // Website and extension launches are posted after Claude checks them; 0 never posts them.
   postWebLaunches: env('POST_WEB_LAUNCHES', '1') !== '0',
+  // How many coin addresses ending in "pump" to keep ready (src/mintpool.js); 0 turns the search off
+  // and every coin gets a random address.
+  mintPoolSize: Number(env('MINT_POOL_SIZE', '10')),
 };
 // The cards the poster publishes, served at /posts/<mint>.jpg. Beside the database by default.
 config.postsDir = env('POSTS_DIR') ? resolve(env('POSTS_DIR')) : join(dirname(resolve(config.dbPath)), 'posts');
@@ -94,6 +97,9 @@ export function assertConfig(c = config) {
   }
   if (c.ig?.oauthBaseUrl !== undefined && !graphBaseOk(c.ig.oauthBaseUrl)) {
     problems.push('IG_OAUTH_BASE_URL must be an https address (or http on localhost); leave it unset for api.instagram.com');
+  }
+  if (c.mintPoolSize !== undefined && !(Number.isInteger(c.mintPoolSize) && c.mintPoolSize >= 0 && c.mintPoolSize <= 1000)) {
+    problems.push('MINT_POOL_SIZE must be a whole number 0..1000');
   }
   for (const k of ['postMaxPerDay', 'postMinGapMin', 'postMaxAgeH', 'postCreatorGapDays']) {
     if (c[k] !== undefined && !(Number.isFinite(c[k]) && c[k] >= 0)) problems.push(`${k.replace(/[A-Z]/g, (m) => '_' + m).toUpperCase()} must be a number ≥ 0`);
