@@ -628,11 +628,19 @@ function postUrl(v) {
     return x.protocol === 'https:' && (x.hostname === 'www.instagram.com' || x.hostname === 'instagram.com') ? x.href : null;
   } catch { return null; }
 }
+/** The coin's own picture over its letter; the letter stays when there is no picture. */
+function coinPicture(ava, mint) {
+  const img = el('img', { src: `/coins/${encodeURIComponent(mint)}.webp`, alt: '', loading: 'lazy', decoding: 'async', width: 46, height: 46 });
+  img.addEventListener('error', () => img.remove());
+  ava.append(img);
+}
 function card(t, i) {
   const u = encodeURIComponent(t.username);
   const post = postUrl(t.post_permalink);
+  const ava = el('span', { className: `coin-ava c${(i % 6) + 1}`, textContent: (t.symbol || t.name || '?').slice(0, 1).toUpperCase() });
+  coinPicture(ava, t.mint);
   const top = el('div', { className: 'cc-top' },
-    el('span', { className: `coin-ava c${(i % 6) + 1}`, textContent: (t.symbol || t.name || '?').slice(0, 1).toUpperCase() }),
+    ava,
     el('span', { className: 'cc-name' }, el('b', { textContent: t.name }), el('span', { className: 'tick', textContent: '$' + t.symbol })));
   top.firstChild.setAttribute('aria-hidden', 'true');
   const pump = el('a', { className: 'cc-pump', href: `https://pump.fun/coin/${encodeURIComponent(t.mint)}`, target: '_blank', rel: 'noopener' },

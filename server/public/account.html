@@ -148,6 +148,9 @@ if (a.error) {
     const li = document.createElement('li');
     li.className = 'token';
     const coin = Object.assign(document.createElement('span'), { className: 'coin-ava', textContent: (t.symbol || t.name || '?').slice(0, 1).toUpperCase() });
+    const pic = Object.assign(document.createElement('img'), { src: `/coins/${encodeURIComponent(t.mint)}.webp`, alt: '', loading: 'lazy', decoding: 'async', width: 46, height: 46 });
+    pic.addEventListener('error', () => pic.remove());
+    coin.append(pic);
     coin.setAttribute('aria-hidden', 'true');
     const what = document.createElement('div');
     what.className = 'token-what';

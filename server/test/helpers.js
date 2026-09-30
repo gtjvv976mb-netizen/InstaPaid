@@ -51,7 +51,8 @@ export async function start({
 } = {}) {
   const db = openDb(':memory:');
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
-  const c = { ...cfg, postsDir, ...config };
+  const coinsDir = mkdtempSync(join(tmpdir(), 'instapaid-coins-'));
+  const c = { ...cfg, postsDir, coinsDir, ...config };
   const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [] };
   const chain = { outcome: 'pending', launchFails };
   const live = new Set();
@@ -118,7 +119,7 @@ export async function start({
   return {
     db, calls, base, post, get: (p) => fetch(base + p), usernames, mentions, drain: () => app.locals.drain(),
     poster, cfg: c, postsDir, chain, settlePending: () => app.locals.settlePending(),
-    close: () => { server.close(); rmSync(postsDir, { recursive: true, force: true }); },
+    close: () => { server.close(); rmSync(postsDir, { recursive: true, force: true }); rmSync(coinsDir, { recursive: true, force: true }); },
   };
 }
 

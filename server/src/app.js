@@ -16,6 +16,7 @@ import {
 import { instagramProfile, loadImage, tokenDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
 import { createPoster, MINT_FILE_RE } from './poster.js';
+import { createCoinImages } from './coinimages.js';
 import { adminRouter } from './admin.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,13 @@ function limiter(limit, windowMs) {
 export function createApp(deps) {
   const { db, cfg, connection, pump, ig, uploadMetadata, feePayer } = deps;
   const poster = deps.poster ?? createPoster({ db, cfg, fetchImpl: deps.fetchImpl });
+  // Each coin's picture on the site: kept at launch, or recovered once from its metadata.
+  const coinImages = deps.coinImages ?? createCoinImages({
+    dir: cfg.coinsDir, db, fetchImpl: deps.fetchImpl,
+    readUri: (mint) => (pump.metadataUri ? pump.metadataUri(connection, mint) : null),
+  });
+  const keepPicture = (mint, image) => coinImages.save(mint, image)
+    .catch((e) => console.error('coin picture not kept', mint, e.message));
   // A coin's address: the next one from the stock ending in "pump", or a random one when it is empty.
   const nextMint = () => deps.mintPool?.take() ?? undefined;
 
@@ -232,6 +240,7 @@ export function createApp(deps) {
           ).run(s.mint, username, coin.name, coin.symbol, feePayer.publicKey.toBase58(), coin.lore ?? null, permalink,
             s.signature, s.lastValidBlockHeight ?? null, Date.now());
           sent = s;
+          keepPicture(s.mint, image);
         },
       });
       db.prepare(`update token set status = 'live', signature = ? where mint = ?`).run(signature, mint);
@@ -376,6 +385,14 @@ export function createApp(deps) {
     }, (err) => { if (err && !res.headersSent) res.sendStatus(404); });
   });
 
+  app.get('/coins/:file', async (req, res) => {
+    const m = String(req.params.file).match(/^([1-9A-HJ-NP-Za-km-z]{32,44})\.webp$/);
+    const file = m && await coinImages.get(m[1]).catch(() => null);
+    if (!file) return res.set('Cache-Control', 'public, max-age=300').sendStatus(404);
+    res.sendFile(file, { dotfiles: 'deny', headers: { 'Cache-Control': 'public, max-age=86400' } },
+      (err) => { if (err && !res.headersSent) res.sendStatus(404); });
+  });
+
   app.use('/api', express.json({ limit: '6mb' }));
   app.use('/api/accounts', (req, res, next) => { res.set('Access-Control-Allow-Origin', '*'); next(); });
 
@@ -442,6 +459,7 @@ export function createApp(deps) {
       ).run(built.mint, username, cleanName, cleanSymbol, launcher, Date.now());
       // Kept for the poster's card, drawn when the launch is confirmed.
       await poster.keepSource(built.mint, image).catch((e) => console.error('keep picture failed', e.message));
+      await keepPicture(built.mint, image);
       res.json({ mint: built.mint, tx: built.tx, vault: acct.vault_pubkey });
     } catch (e) {
       console.error('prepare failed', e);
