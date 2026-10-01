@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import {
-  ComputeBudgetProgram, Keypair, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction,
+  AddressLookupTableProgram, ComputeBudgetProgram, Keypair, PublicKey, SendTransactionError, SystemProgram, TransactionMessage,
+  VersionedTransaction,
 } from '@solana/web3.js';
 import BN from 'bn.js';
 import bs58 from 'bs58';
@@ -49,8 +50,13 @@ export function vaultKeypair(account, masterKey) {
  * false: Phantom asks to sign first, so the mint signs after, in cosignLaunch, which checks the
  * wallet changed nothing that matters. The keypair is then returned as mintKey, for the caller to
  * keep (sealed) until the wallet has signed.
+ *
+ * table: the launch lookup table (loadLaunchTable), or null. pump.fun's fixed accounts are then
+ * one byte each instead of 32, which is what lets a launch with a first buy fit in one transaction.
  */
-export async function buildLaunchTx(connection, { launcher, vault, name, symbol, uri, devBuySol, mint: mintKey, signMint = true }) {
+export async function buildLaunchTx(connection, {
+  launcher, vault, name, symbol, uri, devBuySol, mint: mintKey, signMint = true, table = null,
+}) {
   const online = new OnlinePumpSdk(connection);
   const mint = mintKey ?? Keypair.generate();
   const user = new PublicKey(launcher);
@@ -84,10 +90,11 @@ export async function buildLaunchTx(connection, { launcher, vault, name, symbol,
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 200_000 }),
       ...ixs,
     ],
-  }).compileToV0Message();
+  }).compileToV0Message(table ? [table] : []);
   const tx = new VersionedTransaction(msg);
-  // Its signature slots are already there, so this is the size that goes on the wire. A launch with
-  // a first buy is ~1,270 bytes, over Solana's limit: no wallet could send it, so say so here.
+  // Its signature slots are already there, so this is the size that goes on the wire. Without the
+  // lookup table a launch with a first buy is ~1,270 bytes, over Solana's limit: no wallet could
+  // send it, so say so here.
   if (tx.serialize().length > MAX_TX_BYTES) {
     throw new Error(lamports > 0
       ? 'A launch with a first buy is too large for one Solana transaction right now. Set the first buy to 0 and buy on pump.fun after it launches.'
@@ -100,16 +107,87 @@ export async function buildLaunchTx(connection, { launcher, vault, name, symbol,
   };
 }
 
+/**
+ * The addresses for the launch lookup table: every account a launch with a first buy uses whoever
+ * launches it and whatever the coin (pump.fun's program, its global and fee accounts, the token
+ * programs...), plus each of pump.fun's fee recipients, since a buy picks one of them. Worked out
+ * from the SDK (three sample launches with random keys, read only), so it follows pump.fun's
+ * current accounts. Anything a later launch uses that is not in the table just stays a full address.
+ */
+export async function launchTableAddresses(connection) {
+  const online = new OnlinePumpSdk(connection);
+  const [global, feeConfig] = await Promise.all([online.fetchGlobal(), online.fetchFeeConfig()]);
+  const solAmount = new BN(LAMPORTS_PER_SOL / 10);
+  const amount = getBuyTokenAmountFromSolAmount({
+    global, feeConfig, mintSupply: null, bondingCurve: null, amount: solAmount, quoteMint: PublicKey.default,
+  });
+  const runs = [];
+  for (let i = 0; i < 3; i++) {
+    const ixs = await PUMP_SDK.createV2AndBuyInstructions({
+      global, mint: Keypair.generate().publicKey, name: 'Sample', symbol: 'SAMPLE', uri: 'https://example.com/x.json',
+      creator: Keypair.generate().publicKey, user: Keypair.generate().publicKey, amount, solAmount, mayhemMode: false,
+    });
+    runs.push(new Set(ixs.flatMap((ix) => ix.keys.map((k) => k.pubkey.toBase58()))));
+  }
+  const shared = [...runs[0]].filter((k) => runs.every((r) => r.has(k)));
+  const fees = [global.feeRecipient, ...(global.feeRecipients ?? [])].filter(Boolean).map((k) => k.toBase58());
+  return [...new Set([...shared, ...fees])].map((k) => new PublicKey(k));
+}
+
+/** The launch lookup table's account, as launches use it; null if it does not exist (yet). */
+export async function loadLaunchTable(connection, address) {
+  return (await connection.getAddressLookupTable(new PublicKey(address), { commitment: 'confirmed' })).value;
+}
+
+/** The SOL a lookup table holding `count` addresses keeps as rent (56-byte header, 32 per address). */
+export async function launchTableRent(connection, count) {
+  return BigInt(await connection.getMinimumBalanceForRentExemption(56 + 32 * count));
+}
+
+/**
+ * Creates the launch lookup table on mainnet, paid by and owned by `payer` (the server's fee
+ * payer), and fills it with `addresses`. One transaction for up to 20 addresses, one more per
+ * further 20. It costs the rent (launchTableRent, about 0.004 SOL) plus network fees. Returns the
+ * table's address and the signatures. A table only works from the slot after it was last filled.
+ */
+export async function createLaunchTable(connection, { payer, addresses }) {
+  const recentSlot = await connection.getSlot('finalized');
+  const [create, table] = AddressLookupTableProgram.createLookupTable({
+    authority: payer.publicKey, payer: payer.publicKey, recentSlot,
+  });
+  const chunks = [];
+  for (let i = 0; i < addresses.length; i += 20) chunks.push(addresses.slice(i, i + 20));
+  const extend = (chunk) => AddressLookupTableProgram.extendLookupTable({
+    lookupTable: table, authority: payer.publicKey, payer: payer.publicKey, addresses: chunk,
+  });
+  const signatures = [await sendAndConfirm(connection, [create, ...(chunks.length ? [extend(chunks[0])] : [])], payer, [payer])];
+  for (const chunk of chunks.slice(1)) signatures.push(await sendAndConfirm(connection, [extend(chunk)], payer, [payer]));
+  return { table: table.toBase58(), signatures };
+}
+
 const COMPUTE_BUDGET = ComputeBudgetProgram.programId.toBase58();
 // DER header of an Ed25519 public key; the 32 raw key bytes follow it.
 const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
 
-/** A message's instructions with their accounts resolved (static keys only). */
-function resolvedInstructions(message) {
-  const keys = message.staticAccountKeys.map((k) => k.toBase58());
+/**
+ * A message's instructions with their accounts resolved: static keys, and keys loaded from lookup
+ * tables, which must all be in `known` (address → AddressLookupTableAccount). Throws otherwise.
+ */
+function resolvedInstructions(message, known = new Map()) {
+  const tables = message.addressTableLookups.map((l) => {
+    const t = known.get(l.accountKey.toBase58());
+    if (!t) throw new Error('unknown lookup table');
+    return t;
+  });
+  const all = message.getAccountKeys({ addressLookupTableAccounts: tables });
+  const key = (i) => {
+    const k = all.get(i);
+    if (!k) throw new Error('lookup index out of range');
+    return k.toBase58();
+  };
   return message.compiledInstructions.map((ix) => ({
-    program: keys[ix.programIdIndex],
-    accounts: ix.accountKeyIndexes.map((i) => keys[i]),
+    program: key(ix.programIdIndex),
+    accounts: ix.accountKeyIndexes.map(key),
     data: Buffer.from(ix.data).toString('base64'),
   }));
 }
@@ -128,7 +206,8 @@ export async function sendLaunch(connection, tx) {
  * A website launch the launcher's wallet signed first, as Phantom asks (its Lighthouse checks
  * flag a transaction someone else signed before it). Checks what came back against what was
  * prepared, then adds the coin address's signature. Refuses (CosignRefused) when:
- * - the message uses lookup tables (nothing to check it against), or is not the launcher's to pay;
+ * - the message uses a lookup table other than ours (`tables`, nothing else to check it against),
+ *   or is not the launcher's to pay;
  * - the launcher's signature is missing or does not verify;
  * - any signer other than the launcher and the coin address is needed;
  * - the prepared instructions — pump.fun's create with the vault as creator, and any first buy —
@@ -136,13 +215,17 @@ export async function sendLaunch(connection, tx) {
  * - an instruction the wallet added touches the coin address, the only thing our signature allows.
  * Returns the fully signed transaction.
  */
-export function cosignLaunch({ prepared, signed, mint, launcher }) {
+export function cosignLaunch({ prepared, signed, mint, launcher, tables = [] }) {
   let tx;
   try { tx = VersionedTransaction.deserialize(Buffer.from(String(signed), 'base64')); } catch {
     throw new CosignRefused('That is not a signed launch.');
   }
   const msg = tx.message;
-  if (msg.version !== 0 || msg.addressTableLookups.length) throw new CosignRefused('The wallet changed the launch in a way that cannot be checked.');
+  const known = new Map(tables.filter(Boolean).map((t) => [t.key.toBase58(), t]));
+  const uncheckable = () => new CosignRefused('The wallet changed the launch in a way that cannot be checked.');
+  if (msg.version !== 0) throw uncheckable();
+  let got;
+  try { got = resolvedInstructions(msg, known); } catch { throw uncheckable(); }
   const keys = msg.staticAccountKeys.map((k) => k.toBase58());
   const mintAddr = mint.publicKey.toBase58();
   if (keys[0] !== launcher) throw new CosignRefused('The launch must be paid by the wallet that prepared it.');
@@ -155,12 +238,12 @@ export function cosignLaunch({ prepared, signed, mint, launcher }) {
     throw new CosignRefused('The wallet did not sign the launch.');
   }
 
-  const want = resolvedInstructions(VersionedTransaction.deserialize(Buffer.from(prepared, 'base64')).message)
+  const want = resolvedInstructions(VersionedTransaction.deserialize(Buffer.from(prepared, 'base64')).message, known)
     .filter((ix) => ix.program !== COMPUTE_BUDGET);
   const same = (a, b) => a.program === b.program && a.data === b.data
     && a.accounts.length === b.accounts.length && a.accounts.every((k, i) => k === b.accounts[i]);
   let next = 0;
-  for (const ix of resolvedInstructions(msg)) {
+  for (const ix of got) {
     if (next < want.length && same(ix, want[next])) { next++; continue; }
     if (ix.program !== COMPUTE_BUDGET && (ix.program === mintAddr || ix.accounts.includes(mintAddr))) {
       throw new CosignRefused('The wallet added something that uses the coin address.');

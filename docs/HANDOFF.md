@@ -66,6 +66,7 @@ Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder
 4. Upload the new profile picture and app icon (`brand/profile-picture-1080.png`, `brand/app-icon-1024.png`).
 5. Tag the creators on the older posts by hand ($GUNGUN, $BABYDRAGON, $GRIM).
 6. Test one real claim end to end.
+6a. Make the launch lookup table so website first buys work (`docs/LAUNCH.md` step 21a).
 7. A lawyer on SEC rules, the terms and the privacy policy (the bot launching coins nobody asked for raises the
    stakes: the site's disclaimers still say coins are "fan-made"; bot coins are labelled separately).
 
@@ -75,8 +76,12 @@ Waiting on others:
 - **Meta App Review**: keep `instagram_business_basic`, `instagram_business_manage_messages`,
   `instagram_business_content_publish`, `instagram_business_manage_comments`; remove the rest.
 
-Open technical item (needs the owner's go-ahead, it is a mainnet transaction): a launch **with a first buy** is
-1,269 bytes, over Solana's 1,232 limit (`MAX_TX_BYTES` refuses it). The fix is an address lookup table.
+First buys (#29): a launch **with a first buy** was 1,269 bytes, over Solana's 1,232 limit. Website launches
+now use the **launch lookup table** (pump.fun's 21 fixed addresses, 1 byte each instead of 32): a first-buy launch
+is 931 bytes. `cosignLaunch` resolves our table and refuses any other. The owner makes the table once, in
+Render's Shell: `npm run lookup-table` (shows the plan, sends nothing), then `npm run lookup-table -- --create`
+(about 0.005 SOL from the fee payer, saved in kv `launch.lookupTable`, used from the next launch, no restart).
+Docs: `docs/LAUNCH.md` step 21a. Until it is made, first buys stay refused with the old sentence.
 
 ## Rules that hold (from the owner, over many rounds)
 

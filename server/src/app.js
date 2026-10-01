@@ -15,6 +15,7 @@ import {
 } from './comments.js';
 import { instagramProfile, loadImage, tokenDescription, botDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
+import { LAUNCH_TABLE_KV } from './db.js';
 import { createPoster, MINT_FILE_RE } from './poster.js';
 import { createCoinImages } from './coinimages.js';
 import { adminRouter } from './admin.js';
@@ -62,6 +63,23 @@ export function createApp(deps) {
     .catch((e) => console.error('coin picture not kept', mint, e.message));
   // A coin's address: the next one from the stock ending in "pump", or a random one when it is empty.
   const nextMint = () => deps.mintPool?.take() ?? undefined;
+  // The launch lookup table: npm run lookup-table makes it and keeps its address in kv. Without it a
+  // website launch with a first buy is too large for one transaction (buildLaunchTx says so).
+  // Loaded once and again every 10 minutes; a table that fails to load or was closed is not used.
+  let table = { address: null, account: null, at: 0 };
+  const launchTable = async () => {
+    const address = db.prepare('select value from kv where key = ?').get(LAUNCH_TABLE_KV)?.value ?? null;
+    if (!address || !pump.loadLaunchTable) return null;
+    if (table.address === address && Date.now() - table.at < 10 * 60_000) return table.account;
+    try {
+      const account = await pump.loadLaunchTable(connection, address);
+      table = { address, account: account?.isActive() ? account : null, at: Date.now() };
+    } catch (e) {
+      console.error('launch lookup table not loaded', e.message);
+      if (table.address !== address) table = { address, account: null, at: 0 };
+    }
+    return table.account;
+  };
 
   const app = express();
   app.set('trust proxy', process.env.TRUST_PROXY === '1');
@@ -535,7 +553,7 @@ export function createApp(deps) {
       // the coin address's signature. Its key waits here, sealed, for as long as the blockhash lives.
       const built = await pump.buildLaunchTx(connection, {
         launcher, vault: acct.vault_pubkey, name: cleanName, symbol: cleanSymbol, uri, devBuySol: buy, mint: nextMint(),
-        signMint: false,
+        signMint: false, table: await launchTable(),
       });
       const now = Date.now();
       db.prepare('delete from launch_pending where expires_at < ?').run(now);
@@ -565,7 +583,7 @@ export function createApp(deps) {
     let signed;
     try {
       const key = Keypair.fromSecretKey(openSecret(p.secret, cfg.vaultMasterKey, `launch:${mint}`));
-      signed = pump.cosignLaunch({ prepared: p.tx, signed: tx, mint: key, launcher: p.launcher });
+      signed = pump.cosignLaunch({ prepared: p.tx, signed: tx, mint: key, launcher: p.launcher, tables: [await launchTable()] });
     } catch (e) {
       if (e?.refused) return res.status(400).json({ error: e.message });
       console.error('cosign failed', mint, e);

@@ -7,7 +7,7 @@ import {
   AddressLookupTableAccount, ComputeBudgetProgram, Keypair, PublicKey, SystemProgram, TransactionInstruction,
   TransactionMessage, VersionedTransaction,
 } from '@solana/web3.js';
-import { start, fakeCreate, PUMP_PROGRAM } from './helpers.js';
+import { start, fakeCreate, fakeLaunchTable, PUMP_PROGRAM, PUMP_GLOBAL } from './helpers.js';
 
 const SPKI = Buffer.from('302a300506032b6570032100', 'hex');
 const sigOk = (tx, key) => {
@@ -206,5 +206,86 @@ test('expired or unknown launches, junk, and a send Solana refuses', async () =>
     assert.match((await late.json()).error, /expired/);
     await prepare(t, wallet);
     assert.equal(t.db.prepare('select count(*) n from launch_pending where mint = ?').get(prep.mint).n, 0, 'expired rows are swept');
+  } finally { t.close(); }
+});
+
+// The launch lookup table (npm run lookup-table): what lets a launch with a first buy fit.
+const decompiled = (tx, table) => TransactionMessage.decompile(tx.message, { addressLookupTableAccounts: [table] }).instructions;
+const withTable = (tx, instructions, table) => new VersionedTransaction(new TransactionMessage({
+  payerKey: tx.message.staticAccountKeys[0], recentBlockhash: tx.message.recentBlockhash, instructions,
+}).compileToV0Message([table]));
+
+test('no table saved: launches are built without one, as before', async () => {
+  const t = await start();
+  const wallet = Keypair.generate();
+  try {
+    const prep = await prepare(t, wallet);
+    assert.equal(t.calls.tables[0], null);
+    assert.equal(t.calls.tableLoads.length, 0, 'nothing to load');
+    assert.equal(fromB64(prep.tx).message.addressTableLookups.length, 0);
+  } finally { t.close(); }
+});
+
+test('a saved table that is gone from the chain is not used', async () => {
+  const t = await start({ launchTable: fakeLaunchTable() });
+  const wallet = Keypair.generate();
+  try {
+    t.db.prepare(`update kv set value = ? where key = 'launch.lookupTable'`).run(Keypair.generate().publicKey.toBase58());
+    const prep = await prepare(t, wallet);
+    assert.equal(t.calls.tables[0], null);
+    assert.equal(fromB64(prep.tx).message.addressTableLookups.length, 0);
+  } finally { t.close(); }
+});
+
+test('with the table: the launch uses it, the wallet signs, the server checks it through the table and sends it', async () => {
+  const table = fakeLaunchTable();
+  const t = await start({ launchTable: table });
+  const wallet = Keypair.generate();
+  try {
+    const prep = await prepare(t, wallet, { devBuySol: 0.1 });
+    assert.equal(t.calls.tables[0], table);
+    const lookups = fromB64(prep.tx).message.addressTableLookups;
+    assert.equal(lookups.length, 1);
+    assert.ok(lookups[0].accountKey.equals(table.key), "pump.fun's Global comes from the table");
+
+    const r = await submit(t, prep.mint, walletSigns(prep.tx, wallet));
+    assert.equal(r.status, 200, await r.clone().text());
+    const sent = t.calls.sent[0];
+    assert.ok(sigOk(sent, wallet.publicKey), "the wallet's signature");
+    assert.ok(sigOk(sent, new PublicKey(prep.mint)), "the coin address's signature");
+    assert.equal(t.calls.tableLoads.length, 1, 'loaded once, then kept');
+  } finally { t.close(); }
+});
+
+test('with the table: a wallet may add its own checks, rebuilt through the same table', async () => {
+  const table = fakeLaunchTable();
+  const t = await start({ launchTable: table });
+  const wallet = Keypair.generate();
+  try {
+    const prep = await prepare(t, wallet);
+    const check = SystemProgram.transfer({ fromPubkey: wallet.publicKey, toPubkey: Keypair.generate().publicKey, lamports: 1 });
+    const r = await submit(t, prep.mint, walletSigns(prep.tx, wallet, (tx) => withTable(tx, [...decompiled(tx, table), check], table)));
+    assert.equal(r.status, 200, await r.clone().text());
+  } finally { t.close(); }
+});
+
+test('with the table: refused if the wallet swaps in another table, or points the create at another address in ours', async () => {
+  const other = Keypair.generate().publicKey;
+  const table = fakeLaunchTable([PUMP_GLOBAL, other]);
+  const t = await start({ launchTable: table });
+  const wallet = Keypair.generate();
+  try {
+    const prep = await prepare(t, wallet);
+    const lookalike = fakeLaunchTable([PUMP_GLOBAL, other]);
+    const r1 = await submit(t, prep.mint, walletSigns(prep.tx, wallet, (tx) => withTable(tx, decompiled(tx, table), lookalike)));
+    assert.equal(r1.status, 400);
+    assert.match((await r1.json()).error, /cannot be checked/);
+
+    const swapped = (tx) => withTable(tx, decompiled(tx, table).map((ix) => (ix.programId.equals(PUMP_PROGRAM)
+      ? { ...ix, keys: ix.keys.map((k) => (k.pubkey.equals(PUMP_GLOBAL) ? { ...k, pubkey: other } : k)) } : ix)), table);
+    const r2 = await submit(t, prep.mint, walletSigns(prep.tx, wallet, swapped));
+    assert.equal(r2.status, 400, 'the altered create no longer matches: it is an addition that uses the coin address');
+    assert.match((await r2.json()).error, /uses the coin address/);
+    assert.equal(t.calls.sent.length, 0);
   } finally { t.close(); }
 });

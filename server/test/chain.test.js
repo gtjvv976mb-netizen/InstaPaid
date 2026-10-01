@@ -2,7 +2,7 @@
 // fee config, never sends). Skipped when RPC is unreachable. CHAIN_TEST=0 skips it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
+import { AddressLookupTableAccount, Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
 import { buildLaunchTx } from '../src/pump.js';
 
 const rpc = process.env.RPC_URL || 'https://api.mainnet-beta.solana.com';
@@ -93,22 +93,32 @@ test('Phantom order on a real launch: unsigned, the wallet signs, cosignLaunch a
   await assert.rejects(buildLaunchTx(conn, {
     launcher: Keypair.generate().publicKey.toBase58(), vault: Keypair.generate().publicKey.toBase58(), ...real, devBuySol: 0.1, signMint: false,
   }), /too large for one Solana transaction.*first buy to 0/);
-  for (const devBuySol of [0]) {
+  // With the launch lookup table (as npm run lookup-table makes it, held here in memory) it fits.
+  const { launchTableAddresses } = await import('../src/pump.js');
+  const table = new AddressLookupTableAccount({
+    key: Keypair.generate().publicKey,
+    state: { deactivationSlot: 2n ** 64n - 1n, lastExtendedSlot: 0, lastExtendedSlotStartIndex: 0, authority: undefined, addresses: await launchTableAddresses(conn) },
+  });
+  for (const [devBuySol, withTable] of [[0, false], [0, true], [0.1, true], [50, true]]) {
     const wallet = Keypair.generate();
     const out = await buildLaunchTx(conn, {
       launcher: wallet.publicKey.toBase58(), vault: Keypair.generate().publicKey.toBase58(), ...real, devBuySol, signMint: false,
+      table: withTable ? table : null,
     });
     const unsigned = VersionedTransaction.deserialize(Buffer.from(out.tx, 'base64'));
     assert.ok(unsigned.signatures.every((s) => s.every((b) => b === 0)), 'nobody signed before the wallet');
     unsigned.sign([wallet]);
-    const tx = cosignLaunch({ prepared: out.tx, signed: Buffer.from(unsigned.serialize()).toString('base64'), mint: out.mintKey, launcher: wallet.publicKey.toBase58() });
+    const tx = cosignLaunch({
+      prepared: out.tx, signed: Buffer.from(unsigned.serialize()).toString('base64'), mint: out.mintKey,
+      launcher: wallet.publicKey.toBase58(), tables: [table],
+    });
     const msg = tx.message.serialize();
     for (const k of [wallet.publicKey, out.mintKey.publicKey]) {
       const i = tx.message.staticAccountKeys.findIndex((x) => x.equals(k));
       assert.ok(nacl.sign.detached.verify(msg, tx.signatures[i], k.toBytes()));
     }
     const size = tx.serialize().length;
-    console.log(`launch size, first buy ${devBuySol} SOL: ${size} of 1232 bytes (${1232 - size} left)`);
+    console.log(`launch size, first buy ${devBuySol} SOL${withTable ? ', lookup table' : ''}: ${size} of 1232 bytes (${1232 - size} left)`);
     assert.ok(size <= 1232);
   }
 });

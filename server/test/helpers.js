@@ -2,14 +2,24 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ComputeBudgetProgram, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
-import { openDb } from '../src/db.js';
+import { AddressLookupTableAccount, ComputeBudgetProgram, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
+import { openDb, LAUNCH_TABLE_KV } from '../src/db.js';
 import { createApp } from '../src/app.js';
 import { createPoster } from '../src/poster.js';
 import { createScout } from '../src/scout.js';
 import { getOrCreateAccount, vaultKeypair, cosignLaunch } from '../src/pump.js';
 
 export const PUMP_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+/** pump.fun's Global account: the same in every launch, so it is what the launch lookup table holds. */
+export const PUMP_GLOBAL = new PublicKey('4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf');
+
+/** A launch lookup table as loadLaunchTable returns it, holding `addresses` (default: pump.fun's Global). */
+export function fakeLaunchTable(addresses = [PUMP_GLOBAL], key = Keypair.generate().publicKey) {
+  return new AddressLookupTableAccount({
+    key,
+    state: { deactivationSlot: 2n ** 64n - 1n, lastExtendedSlot: 0, lastExtendedSlotStartIndex: 0, authority: undefined, addresses },
+  });
+}
 const BLOCKHASH = '11111111111111111111111111111111';
 
 /** The fake launch's create instruction: the coin address signs, the vault is the creator. */
@@ -20,13 +30,14 @@ export function fakeCreate({ launcher, mint, vault, name = 'Coin' }) {
       { pubkey: new PublicKey(mint), isSigner: true, isWritable: true },
       { pubkey: new PublicKey(vault), isSigner: false, isWritable: false },
       { pubkey: new PublicKey(launcher), isSigner: true, isWritable: true },
+      { pubkey: PUMP_GLOBAL, isSigner: false, isWritable: false },
     ],
     data: Buffer.from(`create:${name}`),
   });
 }
 
 /** An unsigned launch as buildLaunchTx makes it: compute budget first, then the create. */
-export function fakeLaunchTx({ launcher, mint, vault, name, extra = [], budget = 200_000 }) {
+export function fakeLaunchTx({ launcher, mint, vault, name, extra = [], budget = 200_000, table = null }) {
   const msg = new TransactionMessage({
     payerKey: new PublicKey(launcher), recentBlockhash: BLOCKHASH,
     instructions: [
@@ -35,7 +46,7 @@ export function fakeLaunchTx({ launcher, mint, vault, name, extra = [], budget =
       fakeCreate({ launcher, mint, vault, name }),
       ...extra,
     ],
-  }).compileToV0Message();
+  }).compileToV0Message(table ? [table] : []);
   return new VersionedTransaction(msg);
 }
 
@@ -75,17 +86,20 @@ export const DEFAULT_COIN = readFileSync(new URL('../public/coin-default.png', i
  * comments: the real src/comments.js (or another stand-in) instead of the fake readMention/replyToMention;
  * fetchImpl: the app's fetch (a stand-in Graph and CDN) instead of one that serves POST_PNG.
  * dmSent: what the fake ig.reply resolves to (false = Instagram refused the DM).
+ * launchTable: what the fake loadLaunchTable finds on chain (fakeLaunchTable()), for the address in
+ * kv launch.lookupTable; null (default) means no table.
  */
 export async function start({
   usernames = {}, mentions = {}, feePayerLamports = 10n ** 9n, launchFails = false,
   config = {}, graph, naming = {}, review = { nameOk: true, pictureOk: true }, now,
-  comments: commentsImpl, fetchImpl: fetchOverride, dmSent, mintPool, scoutFetch,
+  comments: commentsImpl, fetchImpl: fetchOverride, dmSent, mintPool, scoutFetch, launchTable = null,
 } = {}) {
   const db = openDb(':memory:');
+  if (launchTable) db.prepare('insert into kv (key, value) values (?, ?)').run(LAUNCH_TABLE_KV, launchTable.key.toBase58());
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
   const coinsDir = mkdtempSync(join(tmpdir(), 'instapaid-coins-'));
   const c = { ...cfg, postsDir, coinsDir, ...config };
-  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [], sent: [] };
+  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [], sent: [], tables: [], tableLoads: [] };
   const chain = { outcome: 'pending', launchFails };
   const live = new Set();
   const pump = {
@@ -93,16 +107,21 @@ export async function start({
     // A real v0 transaction shaped like a launch: the launcher pays, and one "create" instruction to
     // pump.fun's program takes the coin address (signer), the vault and the launcher, with the name
     // in its data. So the real cosignLaunch checks it exactly as it checks a mainnet launch.
-    async buildLaunchTx(conn, { launcher, vault, name, mint: mintKey, signMint = true }) {
+    async buildLaunchTx(conn, { launcher, vault, name, mint: mintKey, signMint = true, table = null }) {
       calls.mints.push(mintKey);
+      calls.tables.push(table);
       const kp = mintKey ?? Keypair.generate();
       const mint = kp.publicKey.toBase58();
       live.add(`${mint}:${vault}`);
-      const tx = fakeLaunchTx({ launcher, mint: kp.publicKey, vault, name });
+      const tx = fakeLaunchTx({ launcher, mint: kp.publicKey, vault, name, table });
       if (signMint) tx.sign([kp]);
       return { mint, tx: Buffer.from(tx.serialize()).toString('base64'), ...(signMint ? {} : { mintKey: kp }) };
     },
     cosignLaunch,
+    async loadLaunchTable(conn, address) {
+      calls.tableLoads.push(address);
+      return launchTable && launchTable.key.toBase58() === address ? launchTable : null;
+    },
     async sendLaunch(conn, tx) {
       if (chain.sendFails) throw new Error(chain.sendFails);
       calls.sent.push(tx);
