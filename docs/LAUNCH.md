@@ -328,6 +328,19 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     Remember: posts already on the feed are not removed by blocking — Instagram's API cannot delete
     posts; delete them in the Instagram app (the post's ••• menu → Delete).
 
+21a. [ ] **First buys on the website (one-time, about 0.005 SOL).** A launch with a first buy is too
+    large for one Solana transaction unless the server has its **launch lookup table**: a small
+    account on chain that stores pump.fun's fixed addresses, so each takes 1 byte instead of 32.
+    Until it exists, the launch page refuses a first buy above 0 with a sentence saying so.
+    Render → the service → **Shell** (`cd server` if needed):
+    1. `npm run lookup-table` shows what it would hold (about 21 pump.fun addresses), the rent (about
+       0.0043 SOL) and the fee payer's balance. It sends nothing.
+    2. `npm run lookup-table -- --create` makes it, paid by the fee payer, and saves its address. It
+       prints the Solscan links. The server uses it from the next launch on, no restart.
+    3. Run `npm run lookup-table` again any time: it says whether the table still holds every address
+       pump.fun uses. If pump.fun ever adds one, launches still work, a few bytes larger.
+    The table holds no money and changes no coin. Only the fee payer could ever close it.
+
 ## Part 6 — Open it up
 
 22. [ ] **Decide on the auto-poster.** It stays on (`AUTO_POST=1`) from step 15. The defaults post at

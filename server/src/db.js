@@ -184,3 +184,6 @@ export function migrate(db) {
     }
   })();
 }
+
+/** kv key holding the launch lookup table's address, once npm run lookup-table has made it. */
+export const LAUNCH_TABLE_KV = 'launch.lookupTable';

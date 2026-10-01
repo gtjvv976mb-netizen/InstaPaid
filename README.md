@@ -19,7 +19,8 @@ render.yaml   Render Blueprint: one web service with a disk (docs/LAUNCH.md is t
 
 **Launch.** On a profile, the extension opens `/launch?u=<username>&pic=<profile picture>`. The
 launcher names the coin and signs with their own wallet (Phantom, Solflare). They pay pump.fun's launch
-cost and any first buy. The server builds the transaction with `@pump-fun/pump-sdk` `create_v2`, and
+cost and any first buy (a first buy needs the launch lookup table, `npm run lookup-table`, to fit in one
+transaction). The server builds the transaction with `@pump-fun/pump-sdk` `create_v2`, and
 sets the coin's **creator** to a vault wallet belonging to that Instagram username. The launcher is
 never the creator. The server signs as the new mint before handing the transaction over. If anyone
 edits the transaction (to make themselves creator, say), the mint's signature no longer matches and
