@@ -99,7 +99,7 @@ export async function start({
   const postsDir = mkdtempSync(join(tmpdir(), 'instapaid-posts-'));
   const coinsDir = mkdtempSync(join(tmpdir(), 'instapaid-coins-'));
   const c = { ...cfg, postsDir, coinsDir, ...config };
-  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [], sent: [], tables: [], tableLoads: [] };
+  const calls = { payOut: [], replies: [], mentionReplies: [], serverLaunches: [], lore: [], uploads: [], reviews: [], statusChecks: [], mints: [], sent: [], tables: [], tableLoads: [], launchBuys: [], buys: [] };
   const chain = { outcome: 'pending', launchFails };
   const live = new Set();
   const pump = {
@@ -107,9 +107,10 @@ export async function start({
     // A real v0 transaction shaped like a launch: the launcher pays, and one "create" instruction to
     // pump.fun's program takes the coin address (signer), the vault and the launcher, with the name
     // in its data. So the real cosignLaunch checks it exactly as it checks a mainnet launch.
-    async buildLaunchTx(conn, { launcher, vault, name, mint: mintKey, signMint = true, table = null }) {
+    async buildLaunchTx(conn, { launcher, vault, name, mint: mintKey, signMint = true, table = null, devBuySol = 0 }) {
       calls.mints.push(mintKey);
       calls.tables.push(table);
+      calls.launchBuys.push(devBuySol);
       const kp = mintKey ?? Keypair.generate();
       const mint = kp.publicKey.toBase58();
       live.add(`${mint}:${vault}`);
@@ -118,6 +119,14 @@ export async function start({
       return { mint, tx: Buffer.from(tx.serialize()).toString('base64'), ...(signMint ? {} : { mintKey: kp }) };
     },
     cosignLaunch,
+    async buildBuyTx(conn, args) {
+      calls.buys.push(args);
+      const tx = new VersionedTransaction(new TransactionMessage({
+        payerKey: new PublicKey(args.buyer), recentBlockhash: BLOCKHASH,
+        instructions: [ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 })],
+      }).compileToV0Message());
+      return { tx: Buffer.from(tx.serialize()).toString('base64'), lastValidBlockHeight: 1000 };
+    },
     async loadLaunchTable(conn, address) {
       calls.tableLoads.push(address);
       return launchTable && launchTable.key.toBase58() === address ? launchTable : null;

@@ -60,6 +60,23 @@ function problem() {
   return null;
 }
 const FIELDS = ['username', 'name', 'symbol', 'image', 'buy'];
+
+/**
+ * The launcher's first buy, after the coin is live: a transaction only their wallet signs, which
+ * the wallet signs and sends itself. Returns the sentence to show; the coin is live either way.
+ */
+async function firstBuy(w, mint, launcher, sol) {
+  try {
+    if (!w.signAndSendTransaction) return 'Your wallet cannot send the first buy from here: buy on pump.fun.';
+    note(msg, 'warn', `The coin is live. Approve your first buy of ${sol} SOL in your wallet.`);
+    const { tx } = await api('/api/launch/buy', { mint, launcher, solAmount: sol });
+    const buyTx = solanaWeb3.VersionedTransaction.deserialize(Uint8Array.from(atob(tx), (c) => c.charCodeAt(0)));
+    await w.signAndSendTransaction(buyTx);
+    return `Your first buy of ${sol} SOL is sent.`;
+  } catch (err) {
+    return `Your first buy did not go through (${err.message || err}). You can buy on pump.fun.`;
+  }
+}
 for (const id of FIELDS) $('#' + id).addEventListener('input', (e) => e.target.setCustomValidity(''));
 
 $('#f').addEventListener('submit', async (e) => {
@@ -93,8 +110,10 @@ $('#f').addEventListener('submit', async (e) => {
     });
 
     // The wallet signs first, as Phantom asks; the server then adds the coin address's signature
-    // (after checking the wallet changed nothing that matters) and sends it.
-    note(msg, 'warn', 'Approve the launch in your wallet.');
+    // (after checking the wallet changed nothing that matters) and sends it. Any first buy is a
+    // second transaction, once the coin is live, so each one stays small.
+    const buy = Number($('#buy').value || 0);
+    note(msg, 'warn', buy > 0 ? 'Approve the launch in your wallet. Your first buy comes right after.' : 'Approve the launch in your wallet.');
     const tx = solanaWeb3.VersionedTransaction.deserialize(Uint8Array.from(atob(prep.tx), (c) => c.charCodeAt(0)));
     const walletSigned = await w.signTransaction(tx);
     let bin = '';
@@ -107,14 +126,16 @@ $('#f').addEventListener('submit', async (e) => {
       await new Promise((r) => setTimeout(r, 2000));
       try {
         await api('/api/launch/confirm', { mint: prep.mint, signature });
-        msg.className = 'note ok';
-        msg.innerHTML = '';
-        msg.append('Live on pump.fun. ');
-        const a = Object.assign(document.createElement('a'), { href: `https://pump.fun/coin/${prep.mint}`, target: '_blank', rel: 'noopener', textContent: 'Open the coin' });
-        msg.append(a, ' · ');
-        msg.append(Object.assign(document.createElement('a'), { href: `/u/${$('#username').value}`, textContent: 'See the account page' }));
-        return;
-      } catch (err) { if (err.status !== 409) throw err; }
+      } catch (err) { if (err.status !== 409) throw err; continue; }
+      const bought = buy > 0 ? await firstBuy(w, prep.mint, publicKey.toString(), buy) : null;
+      msg.className = 'note ok';
+      msg.innerHTML = '';
+      msg.append('Live on pump.fun. ');
+      if (bought) msg.append(bought + ' ');
+      const a = Object.assign(document.createElement('a'), { href: `https://pump.fun/coin/${prep.mint}`, target: '_blank', rel: 'noopener', textContent: 'Open the coin' });
+      msg.append(a, ' · ');
+      msg.append(Object.assign(document.createElement('a'), { href: `/u/${$('#username').value}`, textContent: 'See the account page' }));
+      return;
     }
     throw new Error('Solana has not confirmed it yet. Check your wallet; if it went through, the coin appears on the account page shortly.');
   } catch (err) {

@@ -328,10 +328,10 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     Remember: posts already on the feed are not removed by blocking — Instagram's API cannot delete
     posts; delete them in the Instagram app (the post's ••• menu → Delete).
 
-21a. [ ] **First buys on the website (one-time, about 0.005 SOL).** A launch with a first buy is too
-    large for one Solana transaction unless the server has its **launch lookup table**: a small
-    account on chain that stores pump.fun's fixed addresses, so each takes 1 byte instead of 32.
-    Until it exists, the launch page refuses a first buy above 0 with a sentence saying so.
+21a. [ ] **The launch lookup table (one-time, about 0.005 SOL).** A small account on chain that stores
+    pump.fun's fixed addresses, so each takes 1 byte instead of 32 in every website launch and first
+    buy. It leaves Phantom room for its safety checks. (The first buy is its own transaction, signed
+    and sent by the launcher's wallet right after the coin is live.)
     Render → the service → **Shell** (`cd server` if needed):
     1. `npm run lookup-table` shows what it would hold (about 21 pump.fun addresses), the rent (about
        0.0043 SOL) and the fee payer's balance. It sends nothing.
