@@ -120,5 +120,7 @@ test('Phantom order on a real launch: unsigned, the wallet signs, cosignLaunch a
     const size = tx.serialize().length;
     console.log(`launch size, first buy ${devBuySol} SOL${withTable ? ', lookup table' : ''}: ${size} of 1232 bytes (${1232 - size} left)`);
     assert.ok(size <= 1232);
+    // What the website sends now: the launch alone, through the table, with room for Phantom's checks.
+    if (withTable && devBuySol === 0) assert.ok(1232 - size >= 500, 'at least 500 bytes left for the wallet');
   }
 });

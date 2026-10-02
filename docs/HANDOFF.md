@@ -81,7 +81,13 @@ now use the **launch lookup table** (pump.fun's 21 fixed addresses, 1 byte each 
 is 931 bytes. `cosignLaunch` resolves our table and refuses any other. The owner makes the table once, in
 Render's Shell: `npm run lookup-table` (shows the plan, sends nothing), then `npm run lookup-table -- --create`
 (about 0.005 SOL from the fee payer, saved in kv `launch.lookupTable`, used from the next launch, no restart).
-Docs: `docs/LAUNCH.md` step 21a. Until it is made, first buys stay refused with the old sentence.
+Docs: `docs/LAUNCH.md` step 21a. The owner made it on 1 Oct: `9TA9gGkMNxeEDBSqmK28cFMkPCz49jzz4vgKsecPNeeK`.
+
+Phantom (#30): William (ticket 414019) said launches were still too close to 1,232 bytes for Phantom's Lighthouse
+checks and asked to split the transaction and use the table. Website launches now never carry the first buy:
+the launch alone is 680 bytes through the table (552 left for Phantom); once the coin is confirmed, the page
+asks `/api/launch/buy` for a buy only the launcher signs (606 bytes) and hands it to the wallet's
+`signAndSendTransaction`. Both passed mainnet simulation. The buy is no longer atomic with the create.
 
 ## Rules that hold (from the owner, over many rounds)
 

@@ -289,3 +289,32 @@ test('with the table: refused if the wallet swaps in another table, or points th
     assert.equal(t.calls.sent.length, 0);
   } finally { t.close(); }
 });
+
+// The first buy is its own transaction, after the launch (Phantom asked for room for its checks).
+test('first buy: the launch never carries it; once live, the launching wallet gets a buy to sign and send', async () => {
+  const table = fakeLaunchTable();
+  const t = await start({ launchTable: table });
+  const wallet = Keypair.generate();
+  try {
+    const prep = await prepare(t, wallet, { devBuySol: 0.5 });
+    assert.equal(t.calls.launchBuys[0], 0, 'the launch is built without the buy');
+    const buy = (body) => t.post('/api/launch/buy', { mint: prep.mint, launcher: wallet.publicKey.toBase58(), solAmount: 0.5, ...body });
+
+    const early = await buy();
+    assert.equal(early.status, 409, 'not before the coin is live');
+    assert.equal((await submit(t, prep.mint, walletSigns(prep.tx, wallet))).status, 200);
+    assert.equal((await t.post('/api/launch/confirm', { mint: prep.mint, signature: 'websig1' })).status, 200);
+
+    const r = await buy();
+    assert.equal(r.status, 200, await r.clone().text());
+    const tx = fromB64((await r.json()).tx);
+    assert.ok(tx.message.staticAccountKeys[0].equals(wallet.publicKey), 'the launcher pays');
+    assert.equal(tx.message.header.numRequiredSignatures, 1, 'and is the only signer');
+    assert.deepEqual(t.calls.buys[0], { buyer: wallet.publicKey.toBase58(), mint: prep.mint, solAmount: 0.5, table });
+
+    assert.equal((await buy({ launcher: Keypair.generate().publicKey.toBase58() })).status, 403, 'another wallet');
+    assert.equal((await buy({ mint: Keypair.generate().publicKey.toBase58() })).status, 404, 'a coin not launched here');
+    for (const solAmount of [0, -1, 51, 'x']) assert.equal((await buy({ solAmount })).status, 400, `amount ${solAmount}`);
+    assert.equal(t.calls.buys.length, 1);
+  } finally { t.close(); }
+});

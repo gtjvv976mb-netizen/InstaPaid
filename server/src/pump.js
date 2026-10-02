@@ -165,6 +165,45 @@ export async function createLaunchTable(connection, { payer, addresses }) {
   return { table: table.toBase58(), signatures };
 }
 
+/**
+ * A first buy on its own, for a coin that is already live: the buyer's wallet is the only signer,
+ * so the page hands it to the wallet to sign and send itself (Phantom's preferred way, with room
+ * for its safety checks). `solAmount` is in SOL; the price is the curve's now, and the buy fails
+ * rather than pay more than `slippagePct` above it. Built with the launch lookup table when given.
+ */
+export async function buildBuyTx(connection, { buyer, mint, solAmount, table = null, slippagePct = 5 }) {
+  const lamports = Math.round(Number(solAmount) * LAMPORTS_PER_SOL);
+  if (!(lamports > 0 && lamports <= MAX_DEV_BUY_SOL * LAMPORTS_PER_SOL)) throw new Error('bad first buy');
+  const { TOKEN_2022_PROGRAM_ID } = require('@solana/spl-token');
+  const online = new OnlinePumpSdk(connection);
+  const user = new PublicKey(buyer);
+  const mintKey = new PublicKey(mint);
+  const [global, feeConfig, state] = await Promise.all([
+    online.fetchGlobal(), online.fetchFeeConfig(), online.fetchBuyState(mintKey, user, TOKEN_2022_PROGRAM_ID),
+  ]);
+  const solAmountBn = new BN(lamports);
+  const amount = getBuyTokenAmountFromSolAmount({
+    global, feeConfig, mintSupply: state.bondingCurve.tokenTotalSupply, bondingCurve: state.bondingCurve,
+    amount: solAmountBn, quoteMint: state.quoteMint,
+  });
+  const ixs = await PUMP_SDK.buyInstructions({
+    global, bondingCurveAccountInfo: state.bondingCurveAccountInfo, bondingCurve: state.bondingCurve,
+    associatedUserAccountInfo: state.associatedUserAccountInfo, mint: mintKey, user, amount, solAmount: solAmountBn,
+    slippage: slippagePct, tokenProgram: TOKEN_2022_PROGRAM_ID,
+  });
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+  const msg = new TransactionMessage({
+    payerKey: user,
+    recentBlockhash: blockhash,
+    instructions: [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 200_000 }),
+      ...ixs,
+    ],
+  }).compileToV0Message(table ? [table] : []);
+  return { tx: Buffer.from(new VersionedTransaction(msg).serialize()).toString('base64'), lastValidBlockHeight };
+}
+
 const COMPUTE_BUDGET = ComputeBudgetProgram.programId.toBase58();
 // DER header of an Ed25519 public key; the 32 raw key bytes follow it.
 const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');

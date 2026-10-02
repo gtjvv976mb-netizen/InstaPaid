@@ -551,8 +551,10 @@ export function createApp(deps) {
       }, deps.fetchImpl);
       // Unsigned: the launcher's wallet signs first (Phantom's order), then /api/launch/submit adds
       // the coin address's signature. Its key waits here, sealed, for as long as the blockhash lives.
+      // The launch never carries the first buy: that is its own transaction once the coin is live
+      // (/api/launch/buy), so each leaves Phantom room for its safety checks.
       const built = await pump.buildLaunchTx(connection, {
-        launcher, vault: acct.vault_pubkey, name: cleanName, symbol: cleanSymbol, uri, devBuySol: buy, mint: nextMint(),
+        launcher, vault: acct.vault_pubkey, name: cleanName, symbol: cleanSymbol, uri, devBuySol: 0, mint: nextMint(),
         signMint: false, table: await launchTable(),
       });
       const now = Date.now();
@@ -596,6 +598,26 @@ export function createApp(deps) {
     } catch (e) {
       console.error('launch send failed', mint, e.message);
       res.status(400).json({ error: `Solana did not accept the launch: ${String(e.message || e).split('\n')[0]}` });
+    }
+  });
+
+  // The launcher's first buy, once their coin is live: a transaction only their wallet signs, which
+  // the page hands to the wallet to sign and send. Only for the wallet that launched the coin here.
+  app.post('/api/launch/buy', async (req, res) => {
+    if (!submitLimit(req.ip)) return res.status(429).json({ error: 'Too many tries from here. Try again in an hour.' });
+    const { mint, launcher, solAmount } = req.body ?? {};
+    const sol = Number(solAmount);
+    if (!(sol > 0 && sol <= 50)) return res.status(400).json({ error: 'First buy is 0–50 SOL.' });
+    const t = typeof mint === 'string' && db.prepare(`select status, launcher from token where mint = ? and source = 'web'`).get(mint);
+    if (!t) return res.status(404).json({ error: 'Unknown launch.' });
+    if (!isPubkey(launcher) || t.launcher !== launcher) return res.status(403).json({ error: 'Only the wallet that launched this coin can make its first buy here.' });
+    if (t.status !== 'live') return res.status(409).json({ error: 'The coin is not live yet.' });
+    try {
+      const built = await pump.buildBuyTx(connection, { buyer: launcher, mint, solAmount: sol, table: await launchTable() });
+      res.json({ tx: built.tx });
+    } catch (e) {
+      console.error('first buy failed', mint, e.message);
+      res.status(400).json({ error: 'Could not prepare the first buy. Buy on pump.fun instead.' });
     }
   });
 
