@@ -71,8 +71,12 @@ Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder
    stakes: the site's disclaimers still say coins are "fan-made"; bot coins are labelled separately).
 
 Waiting on others:
-- **Phantom** domain review, ticket 414019 (William). Send him the post-#19 transaction:
-  https://solscan.io/tx/4rvcfqRbgPzvDbxdmDfpYHDXR36QjrXNRepNf6oYYUADjqg8SRa5oNTT3SV34UTx1fM2nZYd3Fr97r7iRUAu8hfJ
+- **Phantom** domain review, ticket 414019 (William). On 2 Oct the owner sent him a launch made after #30
+  ($VEEFRIENDS, https://instapaid.fun/u/veefriends): 732 bytes with Phantom's Lighthouse program inside it,
+  500 under the limit, 9 addresses from the launch table.
+  https://solscan.io/tx/3pAUZ7XrRvUpEVcZwgn3fH1Y7pJu886jyWZU2agYEGMoFEPGdeh15uYvDtP2XRLMmPFWydpHsPn8KHdvXYGqbz3a
+  Waiting on his answer. That launch was paid from the fee payer's wallet, which is now below the 0.1 SOL
+  comment-launch floor: comment launches reply "Launches are paused" until it is topped up.
 - **Meta App Review**: keep `instagram_business_basic`, `instagram_business_manage_messages`,
   `instagram_business_content_publish`, `instagram_business_manage_comments`; remove the rest.
 
