@@ -149,6 +149,10 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
     (as Testers), and in the Instagram product add their Instagram accounts as **Instagram testers**;
     each tester accepts the invite in Instagram (Settings → Apps and websites → Tester invites).
     Use **your own test accounts** as "creators" for testing — never a real person's account.
+    **Caution (6 Oct 2026):** Instagram's webhooks page says real comment notifications go only to apps
+    set to **Live**, with no exception for testers, and recent reports agree. The dashboard **Test**
+    button works in Development mode, but a tester's real @mention may send nothing until the app is
+    Live. See `docs/research/instagram-mentions.md`.
 
 14. [ ] **App Review (to open it to everyone).** App → **App Review** → **Permissions and features**:
     request **Advanced Access** for `instagram_business_basic`, `instagram_business_manage_messages`,

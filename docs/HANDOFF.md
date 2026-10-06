@@ -35,6 +35,28 @@ Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder
 `/coins/<mint>.webp` (`coinimages.js`), the `catchUp()` of coins that went live while posting was off,
 `/terms`, the new mark (not Instagram's colours), comment launches under videos too.
 
+## Comment launches: where they stand (6 Oct)
+
+No coin has ever launched from a comment: every live coin has `source = web`. What was found on 6 Oct:
+- **Webhook signature (fixed, #31).** Meta's Test for `comments` was rejected: only `IG_APP_SECRET` was set.
+  The owner added `META_APP_SECRET`; the Test then reached the server and was parsed (`ignored: not a launch
+  request`, as it should be). Both secrets are trimmed now and a rejection names which ones are set.
+- **A real @mention produced no webhook at all** (ken.brillantes.98 under @foxstarhong's video, twice).
+  Research with sources: `docs/research/instagram-mentions.md`. Most likely cause: the Meta app is not
+  **Live**. Instagram's webhooks page says real (non-Test) notifications go only to Live apps, with no
+  exception for testers; the dashboard Test skips that check. Next: App settings → Basic (privacy
+  `https://instapaid.fun/privacy`, terms `/terms`, data deletion `/data-deletion`, icon, category; Business
+  Verification is done) → switch the app to **Live**, then comment again from a public account.
+- **Then the post's owner must be readable.** Under Instagram Login the `comments` payload carries the
+  comment, the commenter and `media.id`, but not who owns the post (the creator). The server tries
+  `mentioned_comment`, `mentioned_media` and `/<media-id>` on graph.instagram.com and logs one line each;
+  Meta documents the first two only for Facebook Login, and `/<media-id>` only works for the bot's own
+  posts. If all three fail on the first real event (`mention: could not read the post`), the documented
+  way is the Facebook Login fallback the server already has: link a Facebook Page to @instapaid.official
+  and set `IG_USER_ID` + `IG_FB_ACCESS_TOKEN`.
+- If Live alone is not enough, App Review (Advanced Access for `instagram_business_basic` and
+  `instagram_business_manage_comments`) is the remaining step; Meta's docs contradict each other on it.
+
 ## The launcher bot (#27): live, both switches OFF
 
 - `server/src/scout.js` reads public Instagram profiles the way instagram.com's page does, **no login**
@@ -50,7 +72,9 @@ Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder
   site cards ("Made by InstaPaid") never say "Fan-made".
 - **/admin → Launcher bot** card (owner logs in with Instagram as @instapaid.official): Scouting and Auto-launch
   switches (kv `scout.crawl`, `scout.launch`; both off), limits, seeds box, shortlist, launched list.
-- **Not yet known:** whether Instagram lets Render's datacenter IP read profiles. It worked from the Claude
+- **Answered 6 Oct: it does not.** Render's logs show `scout: Instagram asked us to slow down (429); pausing
+  360 min` on every try, so the shortlist stays empty from Render. Also `bot: fee payer low` while it was under
+  0.5 SOL. Earlier note: It worked from the Claude
   sandbox. If blocked, /admin shows "Instagram asked us to slow down" and the shortlist stays empty; the
   fallback would be a paid data API or a watchlist the owner pastes.
 - History: the owner wanted full automation (no approval per launch, scraping as the source). Claude Code's
@@ -75,8 +99,7 @@ Waiting on others:
   ($VEEFRIENDS, https://instapaid.fun/u/veefriends): 732 bytes with Phantom's Lighthouse program inside it,
   500 under the limit, 9 addresses from the launch table.
   https://solscan.io/tx/3pAUZ7XrRvUpEVcZwgn3fH1Y7pJu886jyWZU2agYEGMoFEPGdeh15uYvDtP2XRLMmPFWydpHsPn8KHdvXYGqbz3a
-  Waiting on his answer. That launch was paid from the fee payer's wallet, which is now below the 0.1 SOL
-  comment-launch floor: comment launches reply "Launches are paused" until it is topped up.
+  Waiting on his answer. (The fee payer was topped up on 6 Oct: 0.57 SOL, above both floors.)
 - **Meta App Review**: keep `instagram_business_basic`, `instagram_business_manage_messages`,
   `instagram_business_content_publish`, `instagram_business_manage_comments`; remove the rest.
 
