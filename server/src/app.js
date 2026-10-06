@@ -115,7 +115,9 @@ export function createApp(deps) {
     const sig = req.get('x-hub-signature-256');
     if (![cfg.ig.appSecret, cfg.metaAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
       // Shape only, never the body: a wrong secret in Render is the usual cause.
-      console.warn(`webhook: rejected, signature ${sig ? 'does not match IG_APP_SECRET or META_APP_SECRET' : 'header missing'}`);
+      // Which secrets are set (never their values), so a missing one is plain in the Logs.
+      const set = [cfg.ig.appSecret && 'IG_APP_SECRET', cfg.metaAppSecret && 'META_APP_SECRET'].filter(Boolean).join(' and ') || 'no secret';
+      console.warn(`webhook: rejected, signature ${sig ? `does not match ${set} (the only one${set.includes(' and ') ? 's' : ''} set)` : 'header missing'}`);
       return res.sendStatus(401);
     }
     res.sendStatus(200); // answer Meta at once; work after
