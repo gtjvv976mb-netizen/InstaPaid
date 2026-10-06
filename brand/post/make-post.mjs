@@ -1,5 +1,6 @@
 // The "how it works" carousel for @instapaid.official: six 1080×1350 slides (Instagram's 4:5).
 // Run from the repo root: node brand/post/make-post.mjs. Pictures: the ad's keyframes (brand/ad).
+// slide-6.jpg says comment launches wait on Meta; slide-6-live.jpg replaces it once they are live.
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -89,6 +90,24 @@ async function status() {
   return sharp(Buffer.from(svg)).composite([{ input: m, left: (W - 170) / 2, top: 90 }]);
 }
 
+// The last slide once Meta has approved: comment launches are open to everyone.
+async function live() {
+  const m = await mark(170);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${bg}
+    <rect x="${W / 2 - 160}" y="300" width="320" height="60" rx="30" fill="${CORAL}"/>
+    ${lines(['LIVE NOW'], { y: 341, size: 30, fill: INK })}
+    ${lines(['Comment launches are', ['live for everyone', PEACH]], { y: 450, size: 62, lh: 80 })}
+    ${lines(['Under any public post, comment:'], { y: 640, size: 34, bold: false })}
+    ${lines([['@instapaid.official', PEACH], ['make a token for this creator', PEACH]], { y: 712, size: 44, lh: 58 })}
+    ${lines(['We launch the coin and reply with the link.'], { y: 850, size: 34, bold: false })}
+    <rect x="80" y="930" width="920" height="200" rx="40" fill="#1a1114" fill-opacity=".45" stroke="${CORAL}" stroke-opacity=".55" stroke-width="3"/>
+    ${lines(['Or launch one yourself:'], { y: 1005, size: 36 })}
+    ${lines([['instapaid.fun/launch', PEACH]], { y: 1075, size: 46 })}
+    ${lines(['Fan-made meme coins on pump.fun. Not financial advice.', 'Not affiliated with Instagram or Meta.'], { y: 1210, size: 24, lh: 34, fill: SOFT, bold: false })}
+    ${footer}</svg>`;
+  return sharp(Buffer.from(svg)).composite([{ input: m, left: (W - 170) / 2, top: 90 }]);
+}
+
 const slides = [
   cover(),
   step({ n: 1, heading: ['Find a post you love'], sub: 'Any public post on Instagram.', shot: 'shot1', top: 120 }),
@@ -100,4 +119,5 @@ const slides = [
 for (const [i, s] of (await Promise.all(slides)).entries()) {
   await s.jpeg({ quality: 92, mozjpeg: true }).toFile(join(here, `slide-${i + 1}.jpg`));
 }
-console.log('6 slides in', here);
+await (await live()).jpeg({ quality: 92, mozjpeg: true }).toFile(join(here, 'slide-6-live.jpg'));
+console.log('6 slides, and slide-6-live.jpg for after Meta approves, in', here);

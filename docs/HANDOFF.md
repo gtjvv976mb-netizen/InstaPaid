@@ -127,6 +127,6 @@ CHAIN_TEST=0 npm test        # 192 tests: 187 pass, 5 mainnet tests skipped
 
 - `brand/ad/instapaid-ad.mp4`: 21 s vertical ad (Higgsfield), with keyframes, voiceover and the edit script.
 - `brand/post/`: six-slide "how it works" Instagram carousel (1080×1350) ending on "comment launches are waiting on
-  Meta", made from the ad's keyframes by `make-post.mjs` (`node brand/post/make-post.mjs`). Re-run it after App
-  Review passes and swap the last slide for a "live now" one.
+  Meta", made from the ad's keyframes by `make-post.mjs` (`node brand/post/make-post.mjs`). `slide-6-live.jpg` is the
+  last slide for after App Review passes ("comment launches are live for everyone").
 - An X post for @darkbrewdev introducing InstaPaid was written in chat (not saved).
