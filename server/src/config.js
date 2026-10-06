@@ -23,7 +23,7 @@ export const config = {
   ig: {
     botUsername: env('IG_BOT_USERNAME', 'instapaid.official'),
     accessToken: env('IG_ACCESS_TOKEN'),
-    appSecret: env('IG_APP_SECRET'),
+    appSecret: env('IG_APP_SECRET').trim(), // a pasted space or line break would break every signature
     verifyToken: env('IG_WEBHOOK_VERIFY_TOKEN'),
     graphVersion: env('IG_GRAPH_VERSION', 'v23.0'),
     // Optional: the Instagram app ID (Meta app → Instagram → API setup with Instagram login). Turns on
@@ -47,7 +47,7 @@ export const config = {
   graphBaseUrl: (env('GRAPH_BASE_URL').trim() || 'https://graph.facebook.com').replace(/\/+$/, ''),
   // Optional: the Meta app's secret (App settings → Basic) when it differs from IG_APP_SECRET.
   // Webhooks signed with either are accepted.
-  metaAppSecret: env('META_APP_SECRET'),
+  metaAppSecret: env('META_APP_SECRET').trim(),
   maxServerLaunchesPerDay: Number(env('MAX_SERVER_LAUNCHES_PER_DAY', '20')),
   minFeePayerSol: Number(env('MIN_FEE_PAYER_SOL', '0.1')),
   // The launcher bot: the scout finds trending creators (src/scout.js) and, when the owner turns it on
