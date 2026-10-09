@@ -1,7 +1,38 @@
-# Handoff: where things stand (1 Oct 2026)
+# Handoff: where things stand (9 Oct 2026)
 
 Written at the end of a long Claude Code session so the next session, on any account, starts exactly here.
 Read this first, then `README.md` (how it works) and `docs/LAUNCH.md` (the owner's go-live checklist).
+Texts written for the owner (Meta forms, App Review notes, captions, the InstaPaid coin): `docs/OWNER-DRAFTS.md`.
+
+## Start here (9 Oct 2026)
+
+Everything is merged: `main` = instapaid.fun, no open PRs. State of the live service:
+- **Website launches work**, through the launch lookup table; a first buy is its own transaction after the
+  launch (#29, #30). Last live coins: $VEEFRIENDS, $CATCOLLECT (2 Oct).
+- **Comment launches have never fired.** Webhook delivery and signatures now work (Meta's Test is parsed,
+  #31), but real @mentions are not delivered: the Meta app is most likely not **Live**, and App Review
+  (Advanced Access) is in progress by the owner. See "Comment launches: where they stand" below and
+  `docs/research/instagram-mentions.md`.
+- **The fee payer is low: 0.069 SOL** (9 Oct). Comment launches need > 0.1, the bot > 0.5. Its key
+  (`DjEbiv79MFyoYWaaxdbpC4fk6z7dN6Su7w2dL9J8eZHe`) is also imported in the owner's Phantom: the $VEEFRIENDS
+  launch, a sale on 6 Oct, two Squads multisig approvals and 0.5 SOL of withdrawals to wallet `3J57tqAJ…` on
+  8 Oct were all signed by it. Not a theft (the money went back to the wallet that funded it), but the server's
+  hot key doubling as a personal wallet is a risk worth raising with the owner.
+- **The launcher bot cannot scout from Render** (Instagram answers 429 every time; logs `bot: no candidate`).
+  Its switches in /admin should be off until a watchlist fallback exists.
+
+The owner's to-do, in order:
+1. Top up the fee payer above 0.1 SOL (0.6 covers the bot too).
+2. Meta: switch the app to **Live**, then comment from a public account under a public post and read the
+   `mention:` lines in Render's logs. App Review: `docs/LAUNCH.md` step 14b, recording steps 1–11 only, the
+   reviewer note in `docs/OWNER-DRAFTS.md`.
+3. Meta Tech Provider access verification, due **30 Nov 2026** (answers in `docs/OWNER-DRAFTS.md`).
+4. Wait for Phantom (William, ticket 414019); the post-#30 launch was sent on 2 Oct.
+5. Back up `VAULT_MASTER_KEY`; a lawyer on the terms, privacy policy and SEC exposure.
+
+Likely next code work: when the first real @mention arrives, if `mention: could not read the post` (Meta
+documents `mentioned_comment` only for Facebook Login), wire the Facebook Login fallback (`IG_USER_ID` +
+`IG_FB_ACCESS_TOKEN`, a Facebook Page linked to @instapaid.official); a pasted watchlist for the bot.
 
 ## The product, in one paragraph
 
@@ -15,9 +46,11 @@ SQLite via better-sqlite3), deployed on **Render**, which auto-deploys `main`.
 
 ## Everything is merged and live
 
-`main` = what is on instapaid.fun. No open PRs, no uncommitted work. Work happens on branch
-`claude/epic-curie-4on4v4`; each change is a PR the owner merges (they merge quickly, usually within minutes),
-then Render deploys in about a minute. After a PR is merged, restart the branch from the latest `main`.
+`main` = what is on instapaid.fun. No open PRs, no uncommitted work. Work happens on the branch the session is
+given (1 Oct and before: `claude/epic-curie-4on4v4`; 1–9 Oct: `claude/quirky-pasteur-w4ajnq`); each change is a
+PR. The owner merges, or says "MERGE" and the session merges it (after checking it is clean). Render deploys in
+about a minute, with ~40 s of 502s (a service with a disk restarts in place). After a merge, restart the branch
+from the latest `main`.
 
 What this session shipped (PR numbers on gtjvv976mb-netizen/InstaPaid):
 
@@ -30,6 +63,11 @@ What this session shipped (PR numbers on gtjvv976mb-netizen/InstaPaid):
 | #25 | **Home page as an app**: a left rail of tabs (Home, How it works, Coins, Creators, Fans, FAQ) + Launch/Claim, one section per screen, no page scroll. `server/public/shell.css` + the tabs code in `home.js`. Hash routing (`/#faq`), Back works, wheel/swipe/PageDown past a section's end goes to the next tab. Without JS the page is stacked. |
 | #26 | Big square coin pictures on the Coins tab; **Pip as a platformer**: each tab is a new level he runs into from behind the rail, he bonks rail tabs like "?" blocks for a coin, and visitors cannot steer him (no drag; a click only startles him). |
 | #27 | **The launcher bot** (see below). |
+| #28 | This handoff, `CLAUDE.md`, and the Higgsfield ad with its sources (`brand/ad/`). |
+| #29 | **First buys fit**: the launch lookup table (`npm run lookup-table`), `cosignLaunch` resolves our table only. |
+| #30 | **Phantom**: the first buy is its own transaction after the launch (`/api/launch/buy`, `signAndSendTransaction`). |
+| #31 | Webhook secrets trimmed, rejection names the secrets that are set; handoff update; the Instagram carousel (`brand/post/`). |
+| #32 | Why comment launches have not fired, with sourced research (`docs/research/instagram-mentions.md`). |
 
 Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder.js`), coin pictures served at
 `/coins/<mint>.webp` (`coinimages.js`), the `catchUp()` of coins that went live while posting was off,
@@ -90,7 +128,7 @@ No coin has ever launched from a comment: every live coin has `source = web`. Wh
 4. Upload the new profile picture and app icon (`brand/profile-picture-1080.png`, `brand/app-icon-1024.png`).
 5. Tag the creators on the older posts by hand ($GUNGUN, $BABYDRAGON, $GRIM).
 6. Test one real claim end to end.
-6a. Make the launch lookup table so website first buys work (`docs/LAUNCH.md` step 21a).
+6a. ~~Make the launch lookup table~~ done 1 Oct (`9TA9gGkMNxeEDBSqmK28cFMkPCz49jzz4vgKsecPNeeK`).
 7. A lawyer on SEC rules, the terms and the privacy policy (the bot launching coins nobody asked for raises the
    stakes: the site's disclaimers still say coins are "fan-made"; bot coins are labelled separately).
 
@@ -99,9 +137,11 @@ Waiting on others:
   ($VEEFRIENDS, https://instapaid.fun/u/veefriends): 732 bytes with Phantom's Lighthouse program inside it,
   500 under the limit, 9 addresses from the launch table.
   https://solscan.io/tx/3pAUZ7XrRvUpEVcZwgn3fH1Y7pJu886jyWZU2agYEGMoFEPGdeh15uYvDtP2XRLMmPFWydpHsPn8KHdvXYGqbz3a
-  Waiting on his answer. (The fee payer was topped up on 6 Oct: 0.57 SOL, above both floors.)
+  Waiting on his answer.
 - **Meta App Review**: keep `instagram_business_basic`, `instagram_business_manage_messages`,
-  `instagram_business_content_publish`, `instagram_business_manage_comments`; remove the rest.
+  `instagram_business_content_publish`, `instagram_business_manage_comments`; remove the rest. On 9 Oct the
+  owner was on the form for `instagram_business_manage_comments` (texts: `docs/LAUNCH.md` 14b and
+  `docs/OWNER-DRAFTS.md`).
 
 First buys (#29): a launch **with a first buy** was 1,269 bytes, over Solana's 1,232 limit. Website launches
 now use the **launch lookup table** (pump.fun's 21 fixed addresses, 1 byte each instead of 32): a first-buy launch
@@ -123,7 +163,7 @@ asks `/api/launch/buy` for a buy only the launcher signs (606 bytes) and hands i
 - Pip never really clicks, follows a link or submits anything: visual effects only. Visitors cannot steer him.
 - Mainnet actions (lookup table, anything spending SOL outside the existing launch paths) need the owner's yes.
 - Don't work around Claude Code safety-check denials; stop and explain.
-- Commits as `InstaPaid <sk5ydyhbf2@privaterelay.appleid.com>`; push only to `claude/epic-curie-4on4v4`.
+- Commits as `InstaPaid <sk5ydyhbf2@privaterelay.appleid.com>`; push only to the session's own branch.
 - In the old cloud session the working dir was `/home/user/flossify` (a different project): **never touch it**.
 - The owner writes short, often all-caps messages; "do it" means build and ship. They like cinematic, lively UI.
 
@@ -131,7 +171,7 @@ asks `/api/launch/buy` for a buy only the launcher signs (606 bytes) and hands i
 
 ```bash
 cd server && npm install
-CHAIN_TEST=0 npm test        # 192 tests: 187 pass, 5 mainnet tests skipped
+CHAIN_TEST=0 npm test        # 198 tests: 193 pass, 5 mainnet tests skipped
 ```
 - Static assets are cache-busted with `?v=<sha256[:8]>`; `test/pages.test.js` checks the hashes. After editing
   `public/pip2d.js`, update its hash in `public/mascot.js`
