@@ -167,12 +167,13 @@ no Facebook Page. (The server still has the old Facebook Login route, used only 
     Use the words and the screen recording script in **App Review: what to write and what to
     record** below (step 14b).
 
-    **Plainly: until Advanced Access for `instagram_business_manage_comments` is granted, comment
-    launches only work for accounts with a role on the app** (step 13). A comment from anyone else
-    sends no webhook, so nothing happens and nothing is logged. Advanced Access needs **App Review
-    and Business Verification** of your Business portfolio (company documents; business.facebook.com →
-    Settings → Security Center → Start verification). When both are approved, switch the app to
-    **Live** (top of the app dashboard): webhooks for the public arrive only in Live mode.
+    **Plainly (updated 9 Oct 2026): real comment webhooks reach only a Live app.** Instagram's webhooks
+    page gives no exception for role accounts (step 13's caution, `docs/research/instagram-mentions.md`),
+    so in Development mode even a tester's @mention may send nothing. Business Verification is done
+    (Brylliant Labs Inc.), so switch the app to **Live** (top of the app dashboard) without waiting for
+    App Review. If real @mentions from public accounts still send nothing once Live, Advanced Access for
+    `instagram_business_manage_comments` (App Review) is the remaining step; Meta's pages contradict
+    each other on whether it is needed.
 
 14a. [ ] **The owner page `/admin` (Instagram login, for the App Review recording).**
     Meta's review of `instagram_business_manage_comments` wants to see "the complete Instagram login
@@ -311,7 +312,9 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     `ignored: not a launch request` = the comment did not name the bot and the command;
     `mention: comment event ignored: a "comments" event with no comment id …` = Meta sent a shape the
     server does not know (the `webhook: entry` line above it shows the keys): send the developer both
-    lines. Nothing at all = webhooks (steps 11d, 12c, 13, and step 14 for anyone without a role on the app).
+    lines. Nothing at all = webhooks: the app must be **Live** for any real comment to arrive (step 14,
+    `docs/research/instagram-mentions.md`); then check steps 11d, 12c and 13, and Advanced Access (step 14)
+    if a Live app still gets nothing.
 18. [ ] **Check the coin** at the pump.fun link: the name and ticker fit the post, the picture is the
     post's photo, the website is the Instagram post, the description is "first light over the pines".
     `https://instapaid.fun/u/yourcreator` lists it.
