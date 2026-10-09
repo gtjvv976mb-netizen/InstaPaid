@@ -30,14 +30,17 @@ its own app", that may be the more accurate path. Status: owner was filling it i
 ## Meta: App Review (Advanced Access)
 
 The permission descriptions and the screen-recording script are in `docs/LAUNCH.md` step 14b. Record steps
-1–11 only (the owner page: Instagram login, create / reply / hide / unhide / delete a comment). Steps 12–13 (a
-fan's comment and the bot's reply) cannot work before approval and Live mode. Note for the reviewer:
-> The automatic reply to a comment that @mentions @instapaid.official needs Advanced Access, so it cannot be
-> demonstrated before approval. The recording shows the owner page's comment management with the same permission.
+1–11 and 15 (the owner page: Instagram login, create / reply / hide / unhide / delete a comment, log out).
+Steps 12–14 (a fan's comment, the bot's reply, that request on /admin) need a real @mention to reach the
+server, which needs the app Live and maybe Advanced Access. If the Live test (HANDOFF "Start here", to-do 3)
+works before you submit, record them too and leave out this note. Otherwise, note for the reviewer:
+> The automatic reply to a comment that @mentions @instapaid.official cannot be demonstrated until Meta delivers
+> those comment webhooks to our app. The recording shows the owner page's comment management with the same
+> permission.
 
 Request Advanced Access for at least `instagram_business_manage_comments` and `instagram_business_basic`
 ("Reads @instapaid.official's own profile and posts, to know its account id and list its posts on the owner
-page."). Then switch the app to **Live** (App settings → Basic: privacy `https://instapaid.fun/privacy`, terms
+page."). Switch the app to **Live** now, without waiting for the review (App settings → Basic: privacy `https://instapaid.fun/privacy`, terms
 `https://instapaid.fun/terms`, data deletion `https://instapaid.fun/data-deletion`, icon
 `brand/app-icon-1024.png`, a category). Why Live matters: `docs/research/instagram-mentions.md`.
 
@@ -53,6 +56,13 @@ Sent on 2 Oct (after #30), as the owner's reply; William's answer is awaited:
 > separate transaction.
 
 ## The InstaPaid coin (the owner's own pump.fun coin, launched by the owner on pump.fun)
+
+**Status: launched 6 Oct 2026, 03:02 UTC**, on pump.fun, signed by the server's fee payer key `DjEbiv79…`
+(imported in the owner's Phantom): mint `9pBZ76kB69KjkbWh56TDrgnsQTtKdz95VhSFfEj1pump`, on-chain name
+InstaPaid, ticker INSTAPAID. Its ~0.2 SOL first buy was sold in full at 17:20 UTC the same day for ~0.193 SOL.
+Whether its pump.fun description is the text below was not checked (its metadata link did not load). Note:
+the text says commenting launches a coin, which is not yet true (comment launches wait on Meta). The texts
+below are what was drafted for it.
 
 - Name **InstaPaid**, ticker **INSTAPAID**. Logo `brand/app-icon-1024.png`, banner `brand/banner-1500x500.png` (3:1).
 - Description:
@@ -70,7 +80,8 @@ Sent on 2 Oct (after #30), as the owner's reply; William's answer is awaited:
 
 ## Instagram carousel captions (`brand/post/`)
 
-Slides 1–6 in order. Until comment launches work for the public, post with `slide-6.jpg` and:
+Slides 1–6 in order. Until comment launches work for the public, post with `slide-6.jpg` and the caption
+below, and only once the App Review request has actually been submitted:
 > Here's how InstaPaid works 👇
 >
 > 1️⃣ Find a public post from a creator you love.
