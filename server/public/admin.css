@@ -99,6 +99,7 @@
 #bot-shortlist li, #bot-launched li { grid-template-columns: minmax(0, 1fr) auto; }
 #bot-launched li { grid-template-columns: 150px minmax(0, 1fr) auto; }
 #bot-watchlist li { grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto; align-items: center; }
+#bot-watchlist li > a { min-width: 0; overflow-wrap: anywhere; }
 #bot-watchlist .what a.fine { color: var(--peach); font-weight: 700; }
 .adm-hint { color: var(--ink-2); margin: 0 0 4px; }
 .st.failed { background: var(--err-tint); color: var(--err); border-color: var(--err-line); }
