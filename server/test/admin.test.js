@@ -343,3 +343,26 @@ test('a welcome DM Instagram refuses (ig.reply resolves false) is tried again on
     assert.ok(t.calls.replies.every((r) => r.igsid === 'u9'));
   } finally { t.close(); }
 });
+
+test('the launcher bot card: the watchlist is added to and removed from by the signed-in owner only', async () => {
+  const ig = await startStandIn();
+  const t = await start({
+    config: { ig: { ...baseCfg.ig, appId: APP_ID, graphBaseUrl: ig.base, oauthBaseUrl: ig.base } },
+    fetchImpl: fetch, scoutFetch: async () => new Response('{}', { status: 429 }),
+  });
+  try {
+    assert.equal((await fetch(`${t.base}/admin/api/bot`)).status, 401, 'signed out: nothing');
+    const a = await signedIn(t);
+    let r = await a.call('POST', '/admin/api/bot', { watch: '@Shop.One https://www.instagram.com/p/AbC123xyz/\ntwo.creator, instapaid.official' });
+    assert.equal(r.status, 200);
+    let b = await r.json();
+    assert.equal(b.watched, 2, 'never the bot itself');
+    assert.deepEqual(b.watchlist.map((w) => [w.username, w.postUrl, w.mint]),
+      [['shop.one', 'https://www.instagram.com/p/AbC123xyz/', null], ['two.creator', null, null]]);
+    assert.equal((await a.call('POST', '/admin/api/bot', { watch: 'x'.repeat(12001) })).status, 400);
+    assert.equal((await a.call('POST', '/admin/api/bot', { unwatch: 'two.creator' }, 'wrong')).status, 403, 'needs the CSRF token');
+    b = await (await a.call('POST', '/admin/api/bot', { unwatch: 'two.creator' })).json();
+    assert.deepEqual(b.watchlist.map((w) => w.username), ['shop.one']);
+    assert.equal(b.launching, false, 'adding to the watchlist does not switch Auto-launch on');
+  } finally { t.close(); ig.close(); }
+});

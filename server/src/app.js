@@ -19,6 +19,7 @@ import { LAUNCH_TABLE_KV } from './db.js';
 import { createPoster, MINT_FILE_RE } from './poster.js';
 import { createCoinImages } from './coinimages.js';
 import { adminRouter } from './admin.js';
+import { bestPost } from './scout.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -371,8 +372,8 @@ export function createApp(deps) {
   }
 
   /**
-   * The launcher bot: one coin, paid by the server, for the most trending creator on the scout's
-   * shortlist. Runs only while the owner has it on in /admin (kv scout.launch = 1, off by default),
+   * The launcher bot: one coin, paid by the server, for the next creator on the owner's watchlist,
+   * else the most trending creator on the scout's shortlist. Runs only while the owner has it on in /admin (kv scout.launch = 1, off by default),
    * in the same queue as comment launches, and stops at: SCOUT_MAX_LAUNCHES_PER_DAY bot coins a day,
    * the server's own daily budget (shared with comments), and a fee payer below
    * SCOUT_MIN_FEE_PAYER_SOL (kept above the comment floor, so fans' launches are never starved).
@@ -399,6 +400,40 @@ export function createApp(deps) {
     if (lim.botToday >= lim.botCap) return { outcome: 'daily cap' };
     if (lim.serverToday >= lim.serverCap) return { outcome: 'server budget' };
     if (lim.feePayerSol == null || lim.feePayerSol < lim.floorSol) return { outcome: 'fee payer low' };
+    // The owner's watchlist first: picked by hand, so no score is needed. The coin is named and
+    // pictured from the post the owner linked (or the creator's most engaged one) when the profile
+    // can be read; when it cannot, only a creator the owner linked a post for is launched, with the
+    // default picture and that post as its link (an unreadable name alone could be a typo).
+    for (const w of scout.watched({ limit: 5 })) {
+      if (isBlocked(db, w.username) || currentCoin(w.username)) continue;
+      db.prepare('update bot_watch set attempts = attempts + 1 where username = ?').run(w.username);
+      const note = (n) => db.prepare('update bot_watch set note = ? where username = ?').run(String(n).slice(0, 200), w.username);
+      let p = null;
+      try {
+        p = await scout.readProfile(w.username);
+      } catch (e) {
+        if (e.missing) { note(`no such account (${e.message})`); continue; }
+        if (!w.post_url) { note(`profile not readable (${e.message}); add a link to one of their posts to launch anyway`); continue; }
+        console.log(`bot: @${w.username}'s profile not readable (${e.message}); launching from the post the owner linked`);
+      }
+      if (p?.isPrivate) { note('private account'); continue; }
+      const post = p ? bestPost(p, w.post_url) : null;
+      const out = await launchPaid({
+        username: w.username, imageUrl: post?.imageUrl, caption: post?.caption, origin: 'bot',
+        permalink: post ? `https://www.instagram.com/p/${encodeURIComponent(post.shortcode)}/` : w.post_url,
+        description: botDescription(w.username, cfg.publicUrl, { trending: false }),
+      });
+      if (out.failed) {
+        note(out.error);
+        console.error(`bot: @${w.username} (watchlist) not launched: ${out.error}`);
+        return { outcome: 'failed', username: w.username, error: out.error };
+      }
+      const mint = out.pending ? out.mint : out.launched.mint;
+      db.prepare('update bot_watch set launched_mint = ?, launched_at = ?, note = null where username = ?').run(mint, Date.now(), w.username);
+      if (out.launched) await poster.enqueue(mint, out.launched.image).catch((e) => console.error('post enqueue failed', e));
+      console.log(`bot: launched $${out.launched?.symbol ?? '?'} for @${w.username} (watchlist, ${p ? `profile via ${p.via}` : 'no profile read'})${out.pending ? ', not confirmed yet' : ''}`);
+      return { outcome: out.pending ? 'pending' : 'launched', username: w.username, mint, from: 'watchlist' };
+    }
     for (const c of scout.candidates({ limit: 5 })) {
       if (c.score < lim.minScore) break;
       if (isBlocked(db, c.username) || currentCoin(c.username)) continue;

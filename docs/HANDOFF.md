@@ -127,6 +127,16 @@ No coin has ever launched from a comment: every live coin has `source = web`. Wh
   site cards ("Made by InstaPaid") never say "Fan-made".
 - **/admin → Launcher bot** card (owner logs in with Instagram as @instapaid.official): Scouting and Auto-launch
   switches (kv `scout.crawl`, `scout.launch`; on as of 6 Oct per the logs), limits, seeds box, shortlist, launched list.
+- **The watchlist (added 10 Oct):** /admin → Launcher bot → **Watchlist**: the owner pastes creators, one
+  per line, a username and optionally a link to one of their posts (`bot_watch` table). Auto-launch takes them
+  before the shortlist, oldest first, no score needed, within the same caps and SOL floor. The profile is
+  read through Meta's **Business Discovery** API first (Business and Creator accounts; tried with the
+  Instagram token on graph.instagram.com, which is not documented and dropped once Meta refuses the field,
+  then with Facebook Login, which is documented), then instagram.com's page (blocked from Render). Named and
+  pictured from the linked post if it is among the 12 read, else their most engaged post. Nothing readable:
+  only a creator with a linked post launches (default picture, the link as the coin's website); a bare
+  username waits (could be a typo). instagram.com saying the account does not exist: never launched. Two
+  tries per creator; pasting again resets them. Watchlist coins' description leaves out "trending".
 - **Render's IP is blocked (6 Oct):** Instagram does not let Render's datacenter IP read profiles. Render's logs show `scout: Instagram asked us to slow down (429); pausing
   360 min` on every try, so the shortlist stays empty from Render. Also `bot: fee payer low` while it was under
   0.5 SOL. It had worked from the Claude

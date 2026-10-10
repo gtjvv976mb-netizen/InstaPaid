@@ -80,7 +80,7 @@ async function boot() {
   await Promise.all([loadPosts(), loadRequests(), loadBot()]);
 }
 
-// ---- The launcher bot: Scouting and Auto-launch switches, its limits, the shortlist, its launches.
+// ---- The launcher bot: Scouting and Auto-launch switches, its limits, the watchlist, the shortlist, its launches.
 function drawBot(b) {
   $('#bot-scouting').checked = !!b.crawling;
   $('#bot-launching').checked = !!b.launching;
@@ -93,6 +93,15 @@ function drawBot(b) {
     el('li', { text: `Profiles found ${b.total} · read ${b.checked} · trending ${b.scored}` }),
     b.pausedUntil ? el('li', { class: 'warn', text: `Instagram asked us to slow down; scouting resumes ${when(b.pausedUntil)}${b.lastError ? ` (${b.lastError})` : ''}` }) : null,
   );
+  const wl = $('#bot-watchlist');
+  wl.replaceChildren(...(b.watchlist.length ? b.watchlist.map((w) => el('li', {},
+    el('a', { href: `https://www.instagram.com/${encodeURIComponent(w.username)}/`, target: '_blank', rel: 'noopener', text: `@${w.username}` }),
+    el('span', { class: 'what' },
+      el('span', { text: w.mint ? `Has a coin${w.symbol ? `: $${w.symbol}` : ''}` : w.blocked ? 'Opted out: never launched' : w.attempts >= 2 ? 'Gave up after 2 tries (paste again to retry)' : 'Waiting' }),
+      w.postUrl ? el('a', { class: 'fine', href: w.postUrl, target: '_blank', rel: 'noopener', text: 'Linked post' }) : null,
+      w.note ? el('span', { class: 'fine', text: w.note }) : null),
+    el('button', { class: 'adm-act', type: 'button', text: 'Remove', 'aria-label': `Remove @${w.username} from the watchlist`, onclick: () => setBot({ unwatch: w.username }, `@${w.username} removed from the watchlist.`) })))
+    : [el('li', { class: 'empty', text: 'No creators on the watchlist yet.' })]));
   const sl = $('#bot-shortlist');
   sl.replaceChildren(...(b.shortlist.length ? b.shortlist.map((c) => el('li', {},
     el('a', { href: `https://www.instagram.com/${encodeURIComponent(c.username)}/`, target: '_blank', rel: 'noopener', text: `@${c.username}` }),
@@ -113,7 +122,13 @@ async function setBot(body, msg) {
   catch (e) { say('err', e.message); await loadBot(); }
 }
 $('#bot-scouting').addEventListener('change', (e) => setBot({ scouting: e.target.checked }, e.target.checked ? 'Scouting is on: it reads one public profile a minute.' : 'Scouting is off.'));
-$('#bot-launching').addEventListener('change', (e) => setBot({ launching: e.target.checked }, e.target.checked ? 'Auto-launch is on: the bot launches the top trending creator within its limits.' : 'Auto-launch is off. Nothing more will be launched by the bot.'));
+$('#bot-launching').addEventListener('change', (e) => setBot({ launching: e.target.checked }, e.target.checked ? 'Auto-launch is on: the bot launches for the watchlist, else the top trending creator, within its limits.' : 'Auto-launch is off. Nothing more will be launched by the bot.'));
+$('#bot-watch').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const watch = $('#bot-watch-text').value.trim();
+  if (!watch) return say('warn', 'Paste one or more usernames first.');
+  setBot({ watch }, (b) => { $('#bot-watch-text').value = ''; return `${plural(b.watched, 'creator')} added to the watchlist.`; });
+});
 $('#bot-seeds').addEventListener('submit', (e) => {
   e.preventDefault();
   const seeds = $('#bot-seed-text').value.trim();

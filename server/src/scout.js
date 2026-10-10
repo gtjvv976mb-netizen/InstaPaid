@@ -8,7 +8,17 @@
 // Slow on purpose: one profile at a time, a pause between each (SCOUT_INTERVAL_S), and a growing
 // pause whenever Instagram says "slow down" (429) or asks for a login (401/403). Nothing here spends
 // anything or posts anything; the launch is src/app.js's, and only when the owner turns it on.
+//
+// The watchlist (bot_watch): creators the owner pasted in /admin. The bot launches for them before
+// the shortlist, without needing a score. instagram.com answers Render's datacenter address with 429
+// every time, so a watched creator's profile is read the official way first when it can be: Meta's
+// Business Discovery API (Business and Creator accounts only, and no related accounts, which is why
+// the scout's walk keeps to instagram.com's page). It is documented for Facebook Login (IG_USER_ID +
+// IG_FB_ACCESS_TOKEN); the same call with the Instagram token on graph.instagram.com is tried too,
+// and dropped once Meta refuses the field.
 import { normalizeHandle } from './handles.js';
+import { graph as igGraph, graphCall, igAccount } from './instagram.js';
+import { fbLogin, graphBase } from './comments.js';
 
 // instagram.com's own web app id: its profile JSON answers only requests that carry it.
 const WEB_APP_ID = '936619743392459';
@@ -79,6 +89,110 @@ export function parseProfile(user) {
   };
 }
 
+/** A post's shortcode from its instagram.com link (/p/, /reel/, /reels/, /tv/), or null. */
+export function shortcodeOf(u) {
+  try {
+    const url = new URL(String(u));
+    if (url.protocol !== 'https:' || !/^(www\.)?instagram\.com$/.test(url.hostname)) return null;
+    const m = url.pathname.match(/^\/(?:[\w.]+\/)?(?:p|reels?|tv)\/([\w-]{5,40})\/?$/);
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+
+// Meta's rate-limit error codes: application, user, Business Use Case, page.
+const RATE_LIMITED = new Set([4, 17, 32, 613, 80002]);
+const DISCOVERY_MEDIA = 'caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count';
+
+/**
+ * One public Business or Creator profile through Meta's Business Discovery API, in parseProfile's
+ * shape (no related accounts):
+ *   GET <graph>/<v>/<IG_ID>?fields=business_discovery.username(<u>){followers_count,media.limit(12){…}}
+ * `via` 'facebook': graph.facebook.com with IG_FB_ACCESS_TOKEN on IG_USER_ID (documented);
+ * 'instagram': graph.instagram.com with the Instagram token on the bot's IG_ID (not documented).
+ * Throws ScoutError: slowDown on Meta's rate limits, missing when Meta says there is no such
+ * Business or Creator account, unsupported when the field itself is refused.
+ */
+export async function discoverProfile(cfg, username, via, fetchImpl = fetch) {
+  const u = normalizeHandle(username);
+  if (!u) throw new ScoutError('not a username', { missing: true });
+  const fields = `business_discovery.username(${u}){username,name,followers_count,media.limit(12){${DISCOVERY_MEDIA}}}`;
+  let url, token;
+  if (via === 'facebook') {
+    url = `${graphBase(cfg)}/${cfg.fbGraphVersion || 'v23.0'}/${encodeURIComponent(cfg.igUserId)}`;
+    token = cfg.fbAccessToken;
+  } else {
+    let me;
+    try { me = await igAccount(cfg.ig, fetchImpl); } catch (e) { throw new ScoutError(`the bot's IG_ID is unknown: ${e.message}`); }
+    url = igGraph(cfg.ig, encodeURIComponent(me.userId));
+    token = cfg.ig.accessToken;
+  }
+  const r = await graphCall(fetchImpl, url, token, { params: { fields } });
+  if (!r.ok) {
+    const e = r.json?.error ?? {};
+    if (r.status === 'network') throw new ScoutError(`no answer: ${r.error}`);
+    if (RATE_LIMITED.has(e.code) || r.status === 429) throw new ScoutError(`Meta asked us to slow down (${r.error})`, { status: r.status, slowDown: true });
+    if (e.code === 110 || e.error_subcode === 2207013) throw new ScoutError(`not a Business or Creator account Meta can show (${r.error})`, { status: r.status, missing: true });
+    throw Object.assign(new ScoutError(`Business Discovery refused: ${r.error}`, { status: r.status }), {
+      unsupported: e.code === 100 && /nonexisting field|business_discovery/i.test(String(e.message ?? '')),
+    });
+  }
+  const bd = r.json?.business_discovery;
+  if (!bd) throw new ScoutError('Business Discovery answered without the profile');
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const posts = (bd.media?.data ?? []).map((m) => ({
+    shortcode: shortcodeOf(m.permalink) ?? '',
+    takenAt: Date.parse(String(m.timestamp ?? '').replace(/([+-]\d\d)(\d\d)$/, '$1:$2')) || 0,
+    likes: num(m.like_count),
+    comments: num(m.comments_count),
+    isVideo: m.media_type === 'VIDEO',
+    imageUrl: String((m.media_type === 'VIDEO' ? m.thumbnail_url : m.media_url) ?? m.thumbnail_url ?? ''),
+    caption: String(m.caption ?? ''),
+  })).filter((p) => p.shortcode);
+  return {
+    username: normalizeHandle(bd.username ?? u) ?? u, fullName: String(bd.name ?? ''), isPrivate: false, isVerified: false,
+    followers: num(bd.followers_count), posts, related: [],
+  };
+}
+
+/**
+ * The post a coin is named and pictured from: the one the owner linked when it is among the posts
+ * read, else the most engaged one with a picture (any age). null when none has a picture.
+ */
+export function bestPost(p, postUrl = null) {
+  const withPicture = (p?.posts ?? []).filter((x) => x.imageUrl);
+  const linked = shortcodeOf(postUrl);
+  return withPicture.find((x) => linked && x.shortcode === linked)
+    ?? [...withPicture].sort((a, b) => (b.likes + 3 * b.comments) - (a.likes + 3 * a.comments))[0] ?? null;
+}
+
+/**
+ * Watchlist lines as the owner pastes them: usernames ("@" or not, or instagram.com/<name> links),
+ * each optionally followed by a link to one of their posts. → [{ username, postUrl }] (no repeats)
+ */
+export function parseWatchlist(text, bot = '') {
+  const out = new Map();
+  for (const line of String(text ?? '').split(/\n+/)) {
+    let last = null;
+    for (const raw of line.split(/[\s,]+/).filter(Boolean)) {
+      const code = shortcodeOf(/^https?:/i.test(raw) ? raw : `https://${raw}`);
+      if (code) {
+        if (last) out.get(last).postUrl = `https://www.instagram.com/p/${code}/`;
+        continue;
+      }
+      let name = raw;
+      try {
+        const url = new URL(/^https?:/i.test(raw) ? raw : `https://${raw}`);
+        if (/^(www\.)?instagram\.com$/.test(url.hostname)) name = url.pathname.split('/').filter(Boolean)[0] ?? '';
+      } catch { /* a plain username */ }
+      const u = normalizeHandle(name);
+      if (!u || u === bot) { last = null; continue; }
+      if (!out.has(u)) out.set(u, { username: u, postUrl: null });
+      last = u;
+    }
+  }
+  return [...out.values()];
+}
+
 /**
  * How much a creator is trending now: the engagement their posts of the last seven days drew
  * (likes, and comments counted three times), per day, with a boost when that is high for their
@@ -131,6 +245,48 @@ export function createScout({ db, cfg, fetchImpl = fetch, now = Date.now, log = 
   const setCrawling = (on) => kvSet('scout.crawl', on ? '1' : '0');
   const backoffUntil = () => Number(kvGet('scout.backoff_until') ?? 0);
 
+  /** A growing pause after a "slow down": 10 min, doubling to 6 h. */
+  function slowedDown(e, t = now()) {
+    const n = Number(kvGet('scout.backoffs') ?? 0) + 1;
+    kvSet('scout.backoffs', n);
+    const wait = Math.min(MAX_BACKOFF, 10 * 60_000 * 2 ** Math.min(n - 1, 6));
+    kvSet('scout.backoff_until', t + wait);
+    kvSet('scout.last_error', e.message);
+    log.warn(`scout: ${e.message}; pausing ${Math.round(wait / 60_000)} min`);
+  }
+
+  // Business Discovery with the Instagram token: unknown until Meta answers once (true / false).
+  let igDiscovery = null;
+  /**
+   * A watched creator's profile, by the first way that answers: Business Discovery with the
+   * Instagram token (until Meta refuses the field once), then with Facebook Login (when set), then
+   * instagram.com's own page (not while the scout's "slow down" pause runs; a new "slow down" starts
+   * it). → profile + { via: 'instagram' | 'facebook' | 'web' }. Throws the last way's ScoutError,
+   * `missing` only when instagram.com was asked too (Meta sees Business and Creator accounts only).
+   */
+  async function readProfile(username) {
+    const ways = [];
+    if (cfg.ig?.accessToken && igDiscovery !== false) ways.push(['instagram', () => discoverProfile(cfg, username, 'instagram', fetchImpl)]);
+    if (fbLogin(cfg)) ways.push(['facebook', () => discoverProfile(cfg, username, 'facebook', fetchImpl)]);
+    const webOk = backoffUntil() <= now();
+    if (webOk) ways.push(['web', () => fetchProfile(username, fetchImpl)]);
+    let last = new ScoutError(`instagram.com asked us to pause until ${new Date(backoffUntil()).toISOString()}`);
+    for (const [via, run] of ways) {
+      try {
+        const p = await run();
+        if (via === 'instagram' && igDiscovery !== true) { igDiscovery = true; log.log('scout: profiles can be read through Business Discovery with the Instagram token'); }
+        return { ...p, via };
+      } catch (e) {
+        if (via === 'instagram' && e.unsupported) { igDiscovery = false; log.log(`scout: Business Discovery is not available with the Instagram token (${e.message})`); }
+        if (via === 'web' && e.slowDown) slowedDown(e);
+        last = e;
+      }
+    }
+    // Meta finds no Business or Creator account by that name: a personal account may still exist.
+    if (last.missing && !webOk) throw new ScoutError(last.message);
+    throw last;
+  }
+
   /** The next profile to read: never read first, highest priority; then the stalest. */
   const next = () => db.prepare(
     `select username from scout_profile
@@ -156,12 +312,7 @@ export function createScout({ db, cfg, fetchImpl = fetch, now = Date.now, log = 
       p = await fetchProfile(username, fetchImpl);
     } catch (e) {
       if (e.slowDown) {
-        const n = Number(kvGet('scout.backoffs') ?? 0) + 1;
-        kvSet('scout.backoffs', n);
-        const wait = Math.min(MAX_BACKOFF, 10 * 60_000 * 2 ** Math.min(n - 1, 6));
-        kvSet('scout.backoff_until', t + wait);
-        kvSet('scout.last_error', e.message);
-        log.warn(`scout: ${e.message}; pausing ${Math.round(wait / 60_000)} min`);
+        slowedDown(e, t);
         return { username, outcome: 'slowed' };
       }
       save.run(t, e.missing ? 'missing' : 'error', null, 0, 0, null, 0, 0, null, null, null, null, e.message.slice(0, 200), username);
@@ -230,5 +381,37 @@ export function createScout({ db, cfg, fetchImpl = fetch, now = Date.now, log = 
     };
   };
 
-  return { tick, start, stop, crawling, setCrawling, addSeeds, status, candidates, refresh };
+  // ---- The watchlist (bot_watch): creators the owner pasted, launched for first, oldest first.
+  /** Adds (or updates the post link of) each creator in the pasted text. → how many lines were taken. */
+  const watch = (text) => {
+    const rows = parseWatchlist(text, bot).slice(0, 200);
+    const add = db.prepare(
+      `insert into bot_watch (username, post_url, added_at) values (?, ?, ?)
+       on conflict(username) do update set post_url = coalesce(excluded.post_url, post_url), attempts = 0, note = null`
+    );
+    db.transaction(() => { for (const r of rows) add.run(r.username, r.postUrl, now()); })();
+    return rows.length;
+  };
+  const unwatch = (username) => db.prepare('delete from bot_watch where username = ?').run(normalizeHandle(String(username)) ?? '').changes;
+  /** Every watched creator, with its coin if it has one, for /admin. */
+  const watchlist = () => db.prepare(
+    `select w.username, w.post_url, w.added_at, w.attempts, w.note, w.launched_at,
+            coalesce(w.launched_mint, (select t.mint from token t where t.username = w.username order by t.created_at desc limit 1)) mint,
+            (select t.symbol from token t where t.username = w.username order by t.created_at desc limit 1) symbol,
+            exists (select 1 from creator_block b where b.username = w.username) blocked
+       from bot_watch w order by w.added_at, w.rowid`
+  ).all();
+  /** The ones the bot may launch for now: no coin, not opted out, fewer than 2 tries. */
+  const watched = ({ limit = 5 } = {}) => db.prepare(
+    `select w.* from bot_watch w
+      where w.launched_mint is null and w.attempts < 2
+        and not exists (select 1 from creator_block b where b.username = w.username)
+        and not exists (select 1 from token t where t.username = w.username)
+      order by w.added_at, w.rowid limit ?`
+  ).all(limit);
+
+  return {
+    tick, start, stop, crawling, setCrawling, addSeeds, status, candidates, refresh,
+    readProfile, watch, unwatch, watchlist, watched,
+  };
 }

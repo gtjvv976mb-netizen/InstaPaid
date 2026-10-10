@@ -98,6 +98,9 @@
 .adm-facts .warn { color: var(--warn); font-weight: 700; }
 #bot-shortlist li, #bot-launched li { grid-template-columns: minmax(0, 1fr) auto; }
 #bot-launched li { grid-template-columns: 150px minmax(0, 1fr) auto; }
+#bot-watchlist li { grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto; align-items: center; }
+#bot-watchlist .what a.fine { color: var(--peach); font-weight: 700; }
+.adm-hint { color: var(--ink-2); margin: 0 0 4px; }
 .st.failed { background: var(--err-tint); color: var(--err); border-color: var(--err-line); }
 .st.skipped, .st.working { background: rgba(255, 214, 196, .07); color: var(--ink-2); border-color: var(--line-2); }
 .st.existing { background: var(--warn-tint); color: var(--warn); border-color: var(--warn-line); }
@@ -108,6 +111,8 @@
   .adm-form-row .btn { width: 100%; }
   .adm-reqs li { grid-template-columns: minmax(0, 1fr) auto; }
   .adm-reqs .what { grid-column: 1 / -1; }
+  #bot-watchlist li { grid-template-columns: minmax(0, 1fr) auto; }
+  #bot-watchlist .what { grid-row: 2; }
   .adm-replies { margin-left: 6px; padding-left: 10px; }
   .adm-who { display: none !important; }
 }

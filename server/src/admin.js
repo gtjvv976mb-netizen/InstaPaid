@@ -365,7 +365,7 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, lo
   });
 
   // The launcher bot: its two switches (Scouting, Auto-launch; both start off), its limits, the
-  // shortlist and what it launched. Only the signed-in @instapaid.official reaches these.
+  // owner's watchlist, the shortlist and what it launched. Only the signed-in @instapaid.official reaches these.
   const botState = async () => ({
     ...bot.scout.status(),
     launching: bot.locals.botLaunching(),
@@ -373,10 +373,13 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, lo
     shortlist: bot.scout.candidates({ limit: 15 }).map((c) => ({
       username: c.username, followers: c.followers, score: c.score, recentPosts: c.recent_posts, checkedAt: c.checked_at,
     })),
+    watchlist: bot.scout.watchlist().map((w) => ({
+      username: w.username, postUrl: w.post_url, addedAt: w.added_at, attempts: w.attempts, note: w.note,
+      mint: w.mint, symbol: w.symbol, blocked: !!w.blocked,
+    })),
     launched: db.prepare(
-      `select s.username, s.score, s.launched_at, t.symbol, t.mint, t.status from scout_profile s
-         left join token t on t.mint = s.launched_mint
-        where s.launched_mint is not null order by s.launched_at desc limit 15`
+      `select t.username, t.created_at launched_at, t.symbol, t.mint, t.status from token t
+        where t.origin = 'bot' order by t.created_at desc limit 15`
     ).all(),
   });
   r.get('/admin/api/bot', async (req, res) => {
@@ -385,7 +388,7 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, lo
   });
   r.post('/admin/api/bot', async (req, res) => {
     if (!bot) return res.status(503).json({ error: 'The launcher bot is not set up on this server.' });
-    const { scouting, launching, seeds } = req.body ?? {};
+    const { scouting, launching, seeds, watch, unwatch } = req.body ?? {};
     if (typeof scouting === 'boolean') {
       bot.scout.setCrawling(scouting);
       log.log(`admin: @${req.admin.u} turned scouting ${scouting ? 'on' : 'off'}`);
@@ -399,7 +402,14 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, lo
       if (seeds.length > 4000) return res.status(400).json({ error: 'At most 4000 characters of usernames.' });
       added = bot.scout.addSeeds(seeds.split(/[\s,]+/).filter(Boolean).slice(0, 200));
     }
-    res.json({ ...(await botState()), added });
+    let watched = 0;
+    if (typeof watch === 'string' && watch.trim()) {
+      if (watch.length > 12000) return res.status(400).json({ error: 'At most 12000 characters for the watchlist.' });
+      watched = bot.scout.watch(watch);
+      log.log(`admin: @${req.admin.u} added ${watched} to the watchlist`);
+    }
+    if (typeof unwatch === 'string' && unwatch.trim()) bot.scout.unwatch(unwatch.trim());
+    res.json({ ...(await botState()), added, watched });
   });
 
   r.post('/admin/api/logout', (req, res) => {

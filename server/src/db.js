@@ -108,6 +108,19 @@ export function openDb(path) {
     create index if not exists scout_profile_next on scout_profile (checked_at, priority);
     create index if not exists scout_profile_score on scout_profile (status, score);
 
+    -- The launcher bot's watchlist: creators the owner pasted in /admin, launched for before the
+    -- scout's shortlist (src/scout.js). post_url: one of their posts the owner picked, to name the
+    -- coin from, and what lets it launch (with the default picture) when no profile can be read.
+    create table if not exists bot_watch (
+      username      text primary key,
+      post_url      text,
+      added_at      integer not null,
+      attempts      integer not null default 0,
+      launched_mint text,
+      launched_at   integer,
+      note          text
+    );
+
     -- Small durable settings, e.g. the poster's circuit breaker.
     create table if not exists kv (
       key           text primary key,
