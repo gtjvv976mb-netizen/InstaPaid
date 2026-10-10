@@ -1,19 +1,22 @@
-# Handoff: where things stand (9 Oct 2026)
+# Handoff: where things stand (10 Oct 2026)
 
 Written at the end of a long Claude Code session so the next session, on any account, starts exactly here.
 Read this first, then `README.md` (how it works) and `docs/LAUNCH.md` (the owner's go-live checklist).
 Texts written for the owner (Meta forms, App Review notes, captions, the InstaPaid coin): `docs/OWNER-DRAFTS.md`.
 
-## Start here (9 Oct 2026)
+## Start here (10 Oct 2026)
 
-Everything is merged: `main` = instapaid.fun, no open PRs. State of the live service:
+`main` = instapaid.fun up to #34. **#35 is open** (branch `claude/blissful-goldberg-yzyemt`, waiting for the
+owner to merge): /admin shows the comment events Meta sends and can try a failed request again, a fan whose post
+cannot be read gets one reply, a **watchlist** for the launcher bot, and the server side of the **Facebook Login
+fallback** (`docs/LAUNCH.md` step 12f). State of the live service (before #35):
 - **Website launches work**, through the launch lookup table; a first buy is its own transaction after the
   launch (#29, #30). Last live coins: $VEEFRIENDS, $CATCOLLECT (2 Oct).
 - **Comment launches have never fired.** Webhook delivery and signatures now work (Meta's Test is parsed,
   #31), but real @mentions are not delivered: the Meta app is most likely not **Live**, and App Review
   (Advanced Access) is in progress by the owner. See "Comment launches: where they stand" below and
   `docs/research/instagram-mentions.md`.
-- **The fee payer is low: 0.069 SOL** (9 Oct). Comment launches need > 0.1, the bot > 0.5. Its key
+- **The fee payer is low: 0.069 SOL** (9 Oct; still 0.0693 on chain on 10 Oct). Comment launches need > 0.1, the bot > 0.5. Its key
   (`DjEbiv79MFyoYWaaxdbpC4fk6z7dN6Su7w2dL9J8eZHe`) is also used as the owner's own wallet in Phantom. It signed:
   - the $GUNGUN, $NEXYRA, $VEEFRIENDS and $CATCOLLECT website launches, as the launcher's wallet;
   - **the $INSTAPAID coin**: launched on pump.fun on 6 Oct, 03:02 UTC, mint
@@ -30,11 +33,15 @@ Everything is merged: `main` = instapaid.fun, no open PRs. State of the live ser
   cannot scout from Render: Instagram answers 429 every time. Switch both off until a watchlist fallback exists.
 
 The owner's to-do, in order:
-1. /admin → Launcher bot: switch **Scouting** and **Auto-launch** off.
+1. /admin → Launcher bot: switch **Scouting** off (it cannot read profiles from Render). **Auto-launch** off
+   too until the fee payer holds over 0.5 SOL; after #35, the bot can launch from the watchlist instead.
 2. Top up the fee payer above 0.1 SOL for comment launches.
-3. Meta: switch the app to **Live** now (no need to wait for App Review), then comment from a public account
-   under a public post and read the `mention:` lines in Render's logs. App Review in parallel: `docs/LAUNCH.md`
-   step 14b; what to record is in `docs/OWNER-DRAFTS.md`.
+3. Merge #35. Meta: switch the app to **Live** now (no need to wait for App Review), then comment from a public
+   account under a public post. /admin → Comment launch requests says whether Meta sent anything ("Comment events
+   received from Meta") and shows what it sent; the `mention:` lines in Render's logs say which read worked.
+   `could not read the post` → `docs/LAUNCH.md` step 12f (a second Meta app with Facebook Login), then **Try
+   again** on that request. App Review in parallel: `docs/LAUNCH.md` step 14b; what to record is in
+   `docs/OWNER-DRAFTS.md`.
 4. Meta Tech Provider access verification, due **30 Nov 2026** (answers in `docs/OWNER-DRAFTS.md`).
 5. Wait for Phantom (William, ticket 414019); the post-#30 launch was sent on 2 Oct.
 6. Back up `VAULT_MASTER_KEY`; a lawyer on the terms, privacy policy and SEC exposure (now including the
@@ -42,12 +49,12 @@ The owner's to-do, in order:
 7. Still open from before: upload the new profile picture and app icon, tag the creators on the older posts,
    and test one real claim end to end.
 
-Likely next work: when the first real @mention arrives, if the logs say `mention: could not read the post`
-(Meta documents `mentioned_comment` only for Facebook Login), the server already has a Facebook Login fallback
-(`IG_USER_ID` + `IG_FB_ACCESS_TOKEN`, a Facebook Page linked to @instapaid.official). Read `docs/LAUNCH.md`
-Part 4 first: it tells the owner to leave those empty, one Meta app cannot use both logins (so likely a second
-Meta app), setting both also moves the auto-poster to the Facebook token, and receiving `mentions` that way
-needs `POST /{page-id}/subscribed_apps`, which the server does not do. Code work: a pasted watchlist for the bot.
+Likely next work: read what the first real @mention did (/admin's "What Meta sent last", the `mention: read post
+via …` lines: mentioned_comment, mentioned_media, media, comment, then Facebook Login). If the fallback is needed,
+walk the owner through step 12f; the server installs the second app on the Page at start (`facebook: Page …
+subscribed` in the logs). Untested against Meta so far: Business Discovery with the Instagram token (the
+watchlist tries it and logs once whether Meta allows it), `GET /<comment-id>` for someone else's post, and the
+Page subscription with a real token.
 
 ## The product, in one paragraph
 
@@ -59,10 +66,11 @@ and posts the coin on @instapaid.official tagging the creator), launch on the we
 Business Verified with Meta). Repo: `gtjvv976mb-netizen/InstaPaid`; the server is `server/` (Node, Express,
 SQLite via better-sqlite3), deployed on **Render**, which auto-deploys `main`.
 
-## Everything is merged and live
+## What is merged and live
 
-`main` = what is on instapaid.fun. No open PRs, no uncommitted work. Work happens on the branch the session is
-given (1 Oct and before: `claude/epic-curie-4on4v4`; 1–9 Oct: `claude/quirky-pasteur-w4ajnq`); each change is a
+`main` = what is on instapaid.fun. Open: #35 (10 Oct, see "Start here"); no uncommitted work. Work happens on the branch the session is
+given (1 Oct and before: `claude/epic-curie-4on4v4`; 1–9 Oct: `claude/quirky-pasteur-w4ajnq`; 10 Oct:
+`claude/blissful-goldberg-yzyemt`); each change is a
 PR. The owner merges, or says "MERGE" and the session merges it (after checking it is clean). Render deploys in
 about a minute, with ~40 s of 502s (a service with a disk restarts in place). After a merge, restart the branch
 from the latest `main`.
@@ -85,6 +93,7 @@ PR numbers on gtjvv976mb-netizen/InstaPaid):
 | #31 | Webhook secrets trimmed, rejection names the secrets that are set; handoff update; the Instagram carousel (`brand/post/`). |
 | #32 | Why comment launches have not fired, with sourced research (`docs/research/instagram-mentions.md`). |
 | #33–#34 | This handoff ("Start here"), `docs/OWNER-DRAFTS.md`, `CLAUDE.md`; then fixes from a fact-check of them against the code, git and the chain. |
+| #35 (open) | On `claude/blissful-goldberg-yzyemt`: comment events kept for /admin, Try again, one reply when the post is unreadable, a fourth read (`GET /<comment-id>`); the bot's watchlist (Business Discovery reads); the Facebook Login fallback's server side (`FB_APP_SECRET`, the Page subscription, the poster stays on Instagram Login). |
 
 Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder.js`), coin pictures served at
 `/coins/<mint>.webp` (`coinimages.js`), the `catchUp()` of coins that went live while posting was off,
@@ -127,6 +136,16 @@ No coin has ever launched from a comment: every live coin has `source = web`. Wh
   site cards ("Made by InstaPaid") never say "Fan-made".
 - **/admin → Launcher bot** card (owner logs in with Instagram as @instapaid.official): Scouting and Auto-launch
   switches (kv `scout.crawl`, `scout.launch`; on as of 6 Oct per the logs), limits, seeds box, shortlist, launched list.
+- **The watchlist (added 10 Oct):** /admin → Launcher bot → **Watchlist**: the owner pastes creators, one
+  per line, a username and optionally a link to one of their posts (`bot_watch` table). Auto-launch takes them
+  before the shortlist, oldest first, no score needed, within the same caps and SOL floor. The profile is
+  read through Meta's **Business Discovery** API first (Business and Creator accounts; tried with the
+  Instagram token on graph.instagram.com, which is not documented and dropped once Meta refuses the field,
+  then with Facebook Login, which is documented), then instagram.com's page (blocked from Render). Named and
+  pictured from the linked post if it is among the 12 read, else their most engaged post. Nothing readable:
+  only a creator with a linked post launches (default picture, the link as the coin's website); a bare
+  username waits (could be a typo). instagram.com saying the account does not exist: never launched. Two
+  tries per creator; pasting again resets them. Watchlist coins' description leaves out "trending".
 - **Render's IP is blocked (6 Oct):** Instagram does not let Render's datacenter IP read profiles. Render's logs show `scout: Instagram asked us to slow down (429); pausing
   360 min` on every try, so the shortlist stays empty from Render. Also `bot: fee payer low` while it was under
   0.5 SOL. It had worked from the Claude
@@ -188,8 +207,10 @@ asks `/api/launch/buy` for a buy only the launcher signs (606 bytes) and hands i
 
 ```bash
 cd server && npm install
-CHAIN_TEST=0 npm test        # 198 tests: 193 pass, 5 mainnet tests skipped
+CHAIN_TEST=0 npm test        # 206 tests: 201 pass, 5 mainnet tests skipped
 ```
+- In the 10 Oct sandbox one test failed on unchanged `main` too: `the card is the same on a host with no fonts
+  installed` (one label 1 pixel off, a font-rendering difference of that machine); it passed in earlier sessions.
 - Static assets are cache-busted with `?v=<sha256[:8]>`; `test/pages.test.js` checks the hashes. After editing
   `public/pip2d.js`, update its hash in `public/mascot.js`
   (`h=$(sha256sum public/pip2d.js | cut -c1-8)`, then replace `pip2d.js?v=...`).

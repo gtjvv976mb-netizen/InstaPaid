@@ -11,7 +11,7 @@ import { claimableAccounts, bindAccount } from './identity.js';
 import { codeMessages, textMessages, describeEntry } from './instagram.js';
 import {
   mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink, welcomeDm,
-  commentLaunchesOff, skipMention,
+  commentLaunchesOff, skipMention, commentPayloads, unreadReply,
 } from './comments.js';
 import { instagramProfile, loadImage, tokenDescription, botDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
@@ -19,6 +19,7 @@ import { LAUNCH_TABLE_KV } from './db.js';
 import { createPoster, MINT_FILE_RE } from './poster.js';
 import { createCoinImages } from './coinimages.js';
 import { adminRouter } from './admin.js';
+import { bestPost } from './scout.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -81,6 +82,11 @@ export function createApp(deps) {
     return table.account;
   };
 
+  const kvGet = (k) => db.prepare('select value from kv where key = ?').get(k)?.value ?? null;
+  const kvSet = (k, v) => db.prepare(
+    'insert into kv (key, value) values (?, ?) on conflict(key) do update set value = excluded.value'
+  ).run(k, String(v));
+
   const app = express();
   app.set('trust proxy', process.env.TRUST_PROXY === '1');
   app.disable('x-powered-by');
@@ -110,13 +116,15 @@ export function createApp(deps) {
     res.sendStatus(403);
   });
   app.post('/webhooks/instagram', express.raw({ type: '*/*', limit: '1mb' }), async (req, res) => {
-    // Signed with the Instagram app secret or, when set, the Meta app's own secret: the two
-    // products of one Meta app (Instagram Login, Facebook Login) can sign with either.
+    // Signed with the Instagram app secret or, when set, the Meta app's own secret (Meta signs some
+    // webhooks with one and some with the other), or a second Meta app's (FB_APP_SECRET: the
+    // Facebook Login fallback, whose "mentions" webhooks come to the same address).
     const sig = req.get('x-hub-signature-256');
-    if (![cfg.ig.appSecret, cfg.metaAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
+    if (![cfg.ig.appSecret, cfg.metaAppSecret, cfg.fbAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
       // Shape only, never the body: a wrong secret in Render is the usual cause.
       // Which secrets are set (never their values), so a missing one is plain in the Logs.
-      const set = [cfg.ig.appSecret && 'IG_APP_SECRET', cfg.metaAppSecret && 'META_APP_SECRET'].filter(Boolean).join(' and ') || 'no secret';
+      const set = [cfg.ig.appSecret && 'IG_APP_SECRET', cfg.metaAppSecret && 'META_APP_SECRET', cfg.fbAppSecret && 'FB_APP_SECRET']
+        .filter(Boolean).join(' and ').replace(/ and (?=.* and )/, ', ') || 'no secret';
       console.warn(`webhook: rejected, signature ${sig ? `does not match ${set} (the only one${set.includes(' and ') ? 's' : ''} set)` : 'header missing'}`);
       return res.sendStatus(401);
     }
@@ -140,6 +148,10 @@ export function createApp(deps) {
     for (const { igsid } of textMessages(body).filter((m) => !m.code)) {
       try { await welcome(igsid); } catch (e) { console.error('welcome failed', e.message); }
     }
+    // Every comment event as Meta sent it, the latest kept for /admin (the owner's eyes only; the
+    // log lines keep to its shape): what the first real @mention looks like, or that none came.
+    const payloads = commentPayloads(body);
+    if (payloads.length) rememberCommentEvents(payloads);
     const events = mentionEvents(body, (why) => console.log(`mention: comment event ignored: ${why}`));
     const off = events.length ? commentLaunchesOff(cfg) : null;
     if (off) console.log(`mention: ${events.length} comment event${events.length === 1 ? '' : 's'} not handled: comment launches are off (${off})`);
@@ -153,6 +165,17 @@ export function createApp(deps) {
     }
   });
 
+  /** kv mention.events counts the comment events received; kv mention.last_event is the latest, for /admin. */
+  function rememberCommentEvents(payloads) {
+    const last = payloads.at(-1);
+    const n = Number(kvGet('mention.events') ?? 0) + payloads.length;
+    kvSet('mention.events', n);
+    kvSet('mention.last_event', JSON.stringify({
+      at: Date.now(), entryId: last.entryId, time: last.time, field: last.field,
+      payload: JSON.stringify(last.value, null, 2).slice(0, 4000),
+    }));
+  }
+
   // Comment launches run one at a time: two comments for the same creator must not make two
   // coins, and the daily budget is counted before each launch.
   let queue = Promise.resolve();
@@ -161,6 +184,25 @@ export function createApp(deps) {
     return queue;
   };
   app.locals.drain = () => queue;
+
+  /**
+   * /admin's "Try again" on a failed comment request (after the owner fixed what stopped it: the
+   * fee payer, the Facebook Login fallback, …): the same request, from what the webhook said.
+   * → { queued, done } | { error }
+   */
+  app.locals.retryMention = (commentId) => {
+    const row = db.prepare('select * from comment_request where comment_id = ?').get(String(commentId));
+    if (!row) return { error: 'No such request.' };
+    if (row.status !== 'failed') return { error: 'Only a failed request can be tried again.' };
+    const off = commentLaunchesOff(cfg);
+    if (off) return { error: `Comment launches are off (${off}).` };
+    const ev = {
+      field: row.field ?? 'comments', commentId: row.comment_id, mediaId: row.media_id,
+      text: row.text ?? undefined, fromUsername: row.from_username ?? null,
+    };
+    console.log(`mention: comment ${row.comment_id} tried again from /admin`);
+    return { queued: true, done: enqueue(() => handleMention(ev, { retry: true })) };
+  };
 
   /**
    * A coin the server pays for, for `username`, named and pictured from one of their posts: a fan's
@@ -216,13 +258,24 @@ export function createApp(deps) {
     }
   }
 
-  async function handleMention(ev) {
+  /**
+   * One comment that asked for a coin. `retry`: the owner asked from /admin to try a failed request
+   * again (its row goes back to 'working'; the fan is not told a second time that the post is unreadable).
+   */
+  async function handleMention(ev, { retry = false } = {}) {
     const { commentId, mediaId } = ev;
-    const fresh = db.prepare(
-      `insert into comment_request (comment_id, media_id, status, created_at) values (?, ?, 'working', ?)
-       on conflict(comment_id) do nothing`
-    ).run(commentId, mediaId, Date.now());
-    if (!fresh.changes) return; // a retry of a comment we already handled
+    if (retry) {
+      const again = db.prepare(
+        `update comment_request set status = 'working', note = null where comment_id = ? and status = 'failed'`
+      ).run(commentId);
+      if (!again.changes) return;
+    } else {
+      const fresh = db.prepare(
+        `insert into comment_request (comment_id, media_id, field, text, from_username, status, created_at)
+         values (?, ?, ?, ?, ?, 'working', ?) on conflict(comment_id) do nothing`
+      ).run(commentId, mediaId, ev.field ?? null, typeof ev.text === 'string' ? ev.text.slice(0, 2200) : null, ev.fromUsername ?? null, Date.now());
+      if (!fresh.changes) return; // a retry of a comment we already handled
+    }
     const done = (status, extra = {}) => db.prepare(
       `update comment_request set status = ?, username = ?, mint = ?, note = ? where comment_id = ?`
     ).run(status, extra.username ?? null, extra.mint ?? null, extra.note ?? null, commentId);
@@ -232,9 +285,15 @@ export function createApp(deps) {
     if (db.prepare('select 1 from post_job where media_id = ?').get(mediaId)) return done('skipped', { note: 'our own post' });
 
     let mention;
-    // No launch and no reply when the post cannot be read: readMention logs each attempt.
+    // No launch when the post cannot be read: readMention logs each attempt. A fan whose comment
+    // (as the webhook carried it) asked for a coin is told once, so the request does not vanish.
     try { mention = await deps.comments.readMention(cfg, ev, deps.fetchImpl); }
-    catch (e) { return done('failed', { note: e.message }); }
+    catch (e) {
+      const asked = typeof ev.text === 'string' && isLaunchRequest(ev.text, cfg.ig.botUsername);
+      if (retry || !asked || e.message !== 'could not read the post') return done('failed', { note: e.message });
+      const told = await reply(unreadReply({ publicUrl: cfg.publicUrl })).catch(() => false);
+      return done('failed', { note: told ? `${e.message}; the fan was told` : e.message });
+    }
     if (!isLaunchRequest(mention.text, cfg.ig.botUsername)) return done('skipped', { note: 'not a launch request' });
 
     const username = normalizeHandle(mention.media.username ?? '');
@@ -315,20 +374,17 @@ export function createApp(deps) {
   }
 
   /**
-   * The launcher bot: one coin, paid by the server, for the most trending creator on the scout's
-   * shortlist. Runs only while the owner has it on in /admin (kv scout.launch = 1, off by default),
+   * The launcher bot: one coin, paid by the server, for the next creator on the owner's watchlist,
+   * else the most trending creator on the scout's shortlist. Runs only while the owner has it on in /admin (kv scout.launch = 1, off by default),
    * in the same queue as comment launches, and stops at: SCOUT_MAX_LAUNCHES_PER_DAY bot coins a day,
    * the server's own daily budget (shared with comments), and a fee payer below
    * SCOUT_MIN_FEE_PAYER_SOL (kept above the comment floor, so fans' launches are never starved).
    * Skips anyone who opted out or already has a coin, and reads the profile again first: still
    * public, still trending, a fresh picture link. Its coins and posts say the bot made them.
    */
-  const kvGet = (k) => db.prepare('select value from kv where key = ?').get(k)?.value ?? null;
   const botOn = () => kvGet('scout.launch') === '1';
   app.locals.botLaunching = botOn;
-  app.locals.setBotLaunching = (on) => db.prepare(
-    'insert into kv (key, value) values (?, ?) on conflict(key) do update set value = excluded.value'
-  ).run('scout.launch', on ? '1' : '0');
+  app.locals.setBotLaunching = (on) => kvSet('scout.launch', on ? '1' : '0');
   app.locals.botLimits = async () => {
     const since = Date.now() - 24 * 60 * 60_000;
     const bot = db.prepare(`select count(*) n from token where origin = 'bot' and created_at > ?`).get(since).n;
@@ -346,6 +402,40 @@ export function createApp(deps) {
     if (lim.botToday >= lim.botCap) return { outcome: 'daily cap' };
     if (lim.serverToday >= lim.serverCap) return { outcome: 'server budget' };
     if (lim.feePayerSol == null || lim.feePayerSol < lim.floorSol) return { outcome: 'fee payer low' };
+    // The owner's watchlist first: picked by hand, so no score is needed. The coin is named and
+    // pictured from the post the owner linked (or the creator's most engaged one) when the profile
+    // can be read; when it cannot, only a creator the owner linked a post for is launched, with the
+    // default picture and that post as its link (an unreadable name alone could be a typo).
+    for (const w of scout.watched({ limit: 5 })) {
+      if (isBlocked(db, w.username) || currentCoin(w.username)) continue;
+      db.prepare('update bot_watch set attempts = attempts + 1 where username = ?').run(w.username);
+      const note = (n) => db.prepare('update bot_watch set note = ? where username = ?').run(String(n).slice(0, 200), w.username);
+      let p = null;
+      try {
+        p = await scout.readProfile(w.username);
+      } catch (e) {
+        if (e.missing) { note(`no such account (${e.message})`); continue; }
+        if (!w.post_url) { note(`profile not readable (${e.message}); add a link to one of their posts to launch anyway`); continue; }
+        console.log(`bot: @${w.username}'s profile not readable (${e.message}); launching from the post the owner linked`);
+      }
+      if (p?.isPrivate) { note('private account'); continue; }
+      const post = p ? bestPost(p, w.post_url) : null;
+      const out = await launchPaid({
+        username: w.username, imageUrl: post?.imageUrl, caption: post?.caption, origin: 'bot',
+        permalink: post ? `https://www.instagram.com/p/${encodeURIComponent(post.shortcode)}/` : w.post_url,
+        description: botDescription(w.username, cfg.publicUrl, { trending: false }),
+      });
+      if (out.failed) {
+        note(out.error);
+        console.error(`bot: @${w.username} (watchlist) not launched: ${out.error}`);
+        return { outcome: 'failed', username: w.username, error: out.error };
+      }
+      const mint = out.pending ? out.mint : out.launched.mint;
+      db.prepare('update bot_watch set launched_mint = ?, launched_at = ?, note = null where username = ?').run(mint, Date.now(), w.username);
+      if (out.launched) await poster.enqueue(mint, out.launched.image).catch((e) => console.error('post enqueue failed', e));
+      console.log(`bot: launched $${out.launched?.symbol ?? '?'} for @${w.username} (watchlist, ${p ? `profile via ${p.via}` : 'no profile read'})${out.pending ? ', not confirmed yet' : ''}`);
+      return { outcome: out.pending ? 'pending' : 'launched', username: w.username, mint, from: 'watchlist' };
+    }
     for (const c of scout.candidates({ limit: 5 })) {
       if (c.score < lim.minScore) break;
       if (isBlocked(db, c.username) || currentCoin(c.username)) continue;
@@ -722,7 +812,7 @@ export function createApp(deps) {
   app.get(['/404', '/404.html'], notFound);
   // The owner's page (src/admin.js): before the static files, so /admin is always the checked route.
   app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
-  app.use(adminRouter({ db, cfg, fetchImpl: deps.fetchImpl ?? fetch, pub, bot: scout ? { scout, locals: app.locals } : null }));
+  app.use(adminRouter({ db, cfg, fetchImpl: deps.fetchImpl ?? fetch, pub, locals: app.locals, bot: scout ? { scout, locals: app.locals } : null }));
 
   const web3Iife = require.resolve('@solana/web3.js/lib/index.iife.min.js');
   app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife, { maxAge: '1d' }));

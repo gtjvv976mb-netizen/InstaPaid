@@ -495,7 +495,8 @@ test('AUTO_POST off (or no https PUBLIC_URL, or no Instagram user): nothing is d
 });
 
 test('in the app: a comment launch and a website launch each queue one post with a real card', async () => {
-  const g = fakeGraph();
+  // The app's settings have the Instagram token and the Facebook Login fallback: the poster stays on Instagram Login.
+  const g = fakeGraph({ origin: 'https://graph.instagram.com', token: 't' });
   const t = await start({
     config: { autoPost: true },
     graph: g.fetch,

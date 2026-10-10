@@ -93,10 +93,11 @@ export function messagePage({ title, text, action = { href: '/admin', label: 'Ba
 }
 
 /**
- * deps: { db, cfg, fetchImpl, pub (the public folder), log, bot? ({ scout, locals }: the launcher bot) }.
+ * deps: { db, cfg, fetchImpl, pub (the public folder), log, locals? (the app's: retryMention),
+ *         bot? ({ scout, locals }: the launcher bot) }.
  * Returns an express Router mounted at the site's root (its paths all start with /admin).
  */
-export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, bot = null }) {
+export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, locals = null, bot = null }) {
   const r = express.Router();
   const loginLimit = limiter(20, 10 * 60_000);
   const writeLimit = limiter(60, 10 * 60_000);
@@ -336,18 +337,35 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, bo
     res.json({ ok: true });
   });
 
-  // The latest comment-launch requests, read-only. Usernames are the public post owners'.
+  // The latest comment-launch requests: who asked (the commenter), what they wrote, the post's
+  // owner when Meta said, and what the server did. Also the comment events Meta has sent at all:
+  // how many, and the latest exactly as it came (comments are public; this page is the owner's).
+  const kvGet = (k) => db.prepare('select value from kv where key = ?').get(k)?.value ?? null;
   r.get('/admin/api/requests', (req, res) => {
     const rows = db.prepare(
-      `select c.created_at, c.status, c.note, c.username, c.mint, t.symbol
+      `select c.comment_id, c.created_at, c.status, c.note, c.username, c.mint, c.field, c.text, c.from_username, t.symbol
          from comment_request c left join token t on t.mint = c.mint
         order by c.created_at desc, c.rowid desc limit 25`
     ).all();
-    res.json({ requests: rows });
+    let last = null;
+    try { last = JSON.parse(kvGet('mention.last_event') ?? 'null'); } catch { /* not kept */ }
+    res.json({ requests: rows, events: { count: Number(kvGet('mention.events') ?? 0), last } });
+  });
+
+  // Try a failed request again (after the owner fixed what stopped it). It runs in the launch
+  // queue; the page reloads the list a little later.
+  r.post('/admin/api/requests/:id/retry', (req, res) => {
+    if (!/^[\w.-]{1,64}$/.test(req.params.id)) return res.status(400).json({ error: 'Not a comment id.' });
+    if (!locals?.retryMention) return res.status(503).json({ error: 'Comment launches are not set up on this server.' });
+    const out = locals.retryMention(req.params.id);
+    if (out.error) return res.status(409).json({ error: out.error });
+    out.done.catch(() => {});
+    log.log(`admin: @${req.admin.u} tried comment ${req.params.id} again`);
+    res.status(202).json({ ok: true });
   });
 
   // The launcher bot: its two switches (Scouting, Auto-launch; both start off), its limits, the
-  // shortlist and what it launched. Only the signed-in @instapaid.official reaches these.
+  // owner's watchlist, the shortlist and what it launched. Only the signed-in @instapaid.official reaches these.
   const botState = async () => ({
     ...bot.scout.status(),
     launching: bot.locals.botLaunching(),
@@ -355,10 +373,13 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, bo
     shortlist: bot.scout.candidates({ limit: 15 }).map((c) => ({
       username: c.username, followers: c.followers, score: c.score, recentPosts: c.recent_posts, checkedAt: c.checked_at,
     })),
+    watchlist: bot.scout.watchlist().map((w) => ({
+      username: w.username, postUrl: w.post_url, addedAt: w.added_at, attempts: w.attempts, note: w.note,
+      mint: w.mint, symbol: w.symbol, blocked: !!w.blocked,
+    })),
     launched: db.prepare(
-      `select s.username, s.score, s.launched_at, t.symbol, t.mint, t.status from scout_profile s
-         left join token t on t.mint = s.launched_mint
-        where s.launched_mint is not null order by s.launched_at desc limit 15`
+      `select t.username, t.created_at launched_at, t.symbol, t.mint, t.status from token t
+        where t.origin = 'bot' order by t.created_at desc limit 15`
     ).all(),
   });
   r.get('/admin/api/bot', async (req, res) => {
@@ -367,7 +388,7 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, bo
   });
   r.post('/admin/api/bot', async (req, res) => {
     if (!bot) return res.status(503).json({ error: 'The launcher bot is not set up on this server.' });
-    const { scouting, launching, seeds } = req.body ?? {};
+    const { scouting, launching, seeds, watch, unwatch } = req.body ?? {};
     if (typeof scouting === 'boolean') {
       bot.scout.setCrawling(scouting);
       log.log(`admin: @${req.admin.u} turned scouting ${scouting ? 'on' : 'off'}`);
@@ -381,7 +402,14 @@ export function adminRouter({ db, cfg, fetchImpl = fetch, pub, log = console, bo
       if (seeds.length > 4000) return res.status(400).json({ error: 'At most 4000 characters of usernames.' });
       added = bot.scout.addSeeds(seeds.split(/[\s,]+/).filter(Boolean).slice(0, 200));
     }
-    res.json({ ...(await botState()), added });
+    let watched = 0;
+    if (typeof watch === 'string' && watch.trim()) {
+      if (watch.length > 12000) return res.status(400).json({ error: 'At most 12000 characters for the watchlist.' });
+      watched = bot.scout.watch(watch);
+      log.log(`admin: @${req.admin.u} added ${watched} to the watchlist`);
+    }
+    if (typeof unwatch === 'string' && unwatch.trim()) bot.scout.unwatch(unwatch.trim());
+    res.json({ ...(await botState()), added, watched });
   });
 
   r.post('/admin/api/logout', (req, res) => {

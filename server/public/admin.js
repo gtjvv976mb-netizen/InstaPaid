@@ -1,5 +1,5 @@
 // The owner's page: sign-in state, the bot's posts, one post's comments (create, reply, hide /
-// unhide, delete) and the latest comment-launch requests. Every change is one call to /admin/api/*
+// unhide, delete), the latest comment-launch requests (a failed one can be tried again) and the launcher bot. Every change is one call to /admin/api/*
 // with the session's CSRF token in X-CSRF.
 const $ = (s) => document.querySelector(s);
 let csrf = null;
@@ -80,7 +80,7 @@ async function boot() {
   await Promise.all([loadPosts(), loadRequests(), loadBot()]);
 }
 
-// ---- The launcher bot: Scouting and Auto-launch switches, its limits, the shortlist, its launches.
+// ---- The launcher bot: Scouting and Auto-launch switches, its limits, the watchlist, the shortlist, its launches.
 function drawBot(b) {
   $('#bot-scouting').checked = !!b.crawling;
   $('#bot-launching').checked = !!b.launching;
@@ -93,6 +93,15 @@ function drawBot(b) {
     el('li', { text: `Profiles found ${b.total} · read ${b.checked} · trending ${b.scored}` }),
     b.pausedUntil ? el('li', { class: 'warn', text: `Instagram asked us to slow down; scouting resumes ${when(b.pausedUntil)}${b.lastError ? ` (${b.lastError})` : ''}` }) : null,
   );
+  const wl = $('#bot-watchlist');
+  wl.replaceChildren(...(b.watchlist.length ? b.watchlist.map((w) => el('li', {},
+    el('a', { href: `https://www.instagram.com/${encodeURIComponent(w.username)}/`, target: '_blank', rel: 'noopener', text: `@${w.username}` }),
+    el('span', { class: 'what' },
+      el('span', { text: w.mint ? `Has a coin${w.symbol ? `: $${w.symbol}` : ''}` : w.blocked ? 'Opted out: never launched' : w.attempts >= 2 ? 'Gave up after 2 tries (paste again to retry)' : 'Waiting' }),
+      w.postUrl ? el('a', { class: 'fine', href: w.postUrl, target: '_blank', rel: 'noopener', text: 'Linked post' }) : null,
+      w.note ? el('span', { class: 'fine', text: w.note }) : null),
+    el('button', { class: 'adm-act', type: 'button', text: 'Remove', 'aria-label': `Remove @${w.username} from the watchlist`, onclick: () => setBot({ unwatch: w.username }, `@${w.username} removed from the watchlist.`) })))
+    : [el('li', { class: 'empty', text: 'No creators on the watchlist yet.' })]));
   const sl = $('#bot-shortlist');
   sl.replaceChildren(...(b.shortlist.length ? b.shortlist.map((c) => el('li', {},
     el('a', { href: `https://www.instagram.com/${encodeURIComponent(c.username)}/`, target: '_blank', rel: 'noopener', text: `@${c.username}` }),
@@ -113,7 +122,13 @@ async function setBot(body, msg) {
   catch (e) { say('err', e.message); await loadBot(); }
 }
 $('#bot-scouting').addEventListener('change', (e) => setBot({ scouting: e.target.checked }, e.target.checked ? 'Scouting is on: it reads one public profile a minute.' : 'Scouting is off.'));
-$('#bot-launching').addEventListener('change', (e) => setBot({ launching: e.target.checked }, e.target.checked ? 'Auto-launch is on: the bot launches the top trending creator within its limits.' : 'Auto-launch is off. Nothing more will be launched by the bot.'));
+$('#bot-launching').addEventListener('change', (e) => setBot({ launching: e.target.checked }, e.target.checked ? 'Auto-launch is on: the bot launches for the watchlist, else the top trending creator, within its limits.' : 'Auto-launch is off. Nothing more will be launched by the bot.'));
+$('#bot-watch').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const watch = $('#bot-watch-text').value.trim();
+  if (!watch) return say('warn', 'Paste one or more usernames first.');
+  setBot({ watch }, (b) => { $('#bot-watch-text').value = ''; return `${plural(b.watched, 'creator')} added to the watchlist.`; });
+});
 $('#bot-seeds').addEventListener('submit', (e) => {
   e.preventDefault();
   const seeds = $('#bot-seed-text').value.trim();
@@ -252,17 +267,42 @@ function confirmDelete(c, li, actions) {
 }
 
 const STATUS_WORDS = { launched: 'Launched', existing: 'Already had one', skipped: 'Skipped', failed: 'Failed', working: 'Working' };
+// Whether Meta has sent any comment event at all, and the latest exactly as it came: after the app
+// goes Live, the first real @mention shows up here (Meta's dashboard Test sends "This is an example.").
+function drawEvents(ev) {
+  const box = $('#events');
+  if (!ev?.count) {
+    box.replaceChildren(el('p', { class: 'fine', text: 'Meta has not sent a comment event since this was added. Once the app is Live, a comment that mentions the account shows up here first.' }));
+    return;
+  }
+  const last = ev.last;
+  box.replaceChildren(
+    el('p', { class: 'fine', text: `Comment events received from Meta: ${ev.count}.${last ? ` Latest ${when(last.at)} (${last.field}).` : ''}` }),
+    last ? el('details', {}, el('summary', { text: 'What Meta sent last' }), el('pre', { text: last.payload ?? '' })) : null,
+  );
+}
+async function retry(id, btn) {
+  btn.disabled = true;
+  try {
+    await api(`/admin/api/requests/${encodeURIComponent(id)}/retry`, { method: 'POST' });
+    say('ok', 'Trying it again now. The list updates in a few seconds.');
+    setTimeout(loadRequests, 8000);
+  } catch (e) { say('err', e.message); btn.disabled = false; }
+}
 async function loadRequests() {
   const list = $('#requests');
-  let requests;
-  try { ({ requests } = await api('/admin/api/requests')); } catch (e) { list.replaceChildren(el('li', { class: 'empty', text: e.message })); return; }
+  let requests, events;
+  try { ({ requests, events } = await api('/admin/api/requests')); } catch (e) { list.replaceChildren(el('li', { class: 'empty', text: e.message })); return; }
+  drawEvents(events);
   if (!requests.length) { list.replaceChildren(el('li', { class: 'empty', text: 'No comment launch requests yet.' })); return; }
   list.replaceChildren(...requests.map((r) => el('li', {},
     el('time', { datetime: new Date(r.created_at).toISOString(), text: when(r.created_at) }),
     el('span', { class: `status st ${r.status === 'launched' ? 'claimed' : r.status}`, text: STATUS_WORDS[r.status] ?? r.status }),
     el('span', { class: 'what' },
       el('span', { text: r.username ? `for @${r.username}${r.symbol ? ` · $${r.symbol}` : ''}` : 'post owner unknown' }),
-      r.note ? el('span', { class: 'fine', text: r.note }) : null))));
+      r.from_username || r.text ? el('span', { class: 'fine said', text: `${r.from_username ? `@${r.from_username}` : 'A fan'}${r.text ? `: “${r.text}”` : ''}` }) : null,
+      r.note ? el('span', { class: 'fine', text: r.note }) : null,
+      r.status === 'failed' ? el('button', { class: 'adm-act', type: 'button', text: 'Try again', onclick: (e) => retry(r.comment_id, e.currentTarget) }) : null))));
 }
 
 function count() { $('#new-count').textContent = `${$('#new-text').value.length} / 300`; }

@@ -108,6 +108,19 @@ export function openDb(path) {
     create index if not exists scout_profile_next on scout_profile (checked_at, priority);
     create index if not exists scout_profile_score on scout_profile (status, score);
 
+    -- The launcher bot's watchlist: creators the owner pasted in /admin, launched for before the
+    -- scout's shortlist (src/scout.js). post_url: one of their posts the owner picked, to name the
+    -- coin from, and what lets it launch (with the default picture) when no profile can be read.
+    create table if not exists bot_watch (
+      username      text primary key,
+      post_url      text,
+      added_at      integer not null,
+      attempts      integer not null default 0,
+      launched_mint text,
+      launched_at   integer,
+      note          text
+    );
+
     -- Small durable settings, e.g. the poster's circuit breaker.
     create table if not exists kv (
       key           text primary key,
@@ -170,6 +183,11 @@ const ADDED_COLUMNS = [
   ['post_job', 'untagged', 'integer'],
   // Who decided on a server-paid coin: null = a fan's comment; 'bot' = the launcher bot (src/scout.js).
   ['token', 'origin', 'text'],
+  // What the webhook itself said about a comment request ('comments' or 'mentions', the comment's
+  // text, who wrote it), so /admin shows it and can try a failed one again.
+  ['comment_request', 'field', 'text'],
+  ['comment_request', 'text', 'text'],
+  ['comment_request', 'from_username', 'text'],
 ];
 
 export function migrate(db) {

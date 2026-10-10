@@ -91,18 +91,27 @@
 
       <section class="card" aria-labelledby="req-h">
         <h2 id="req-h">Comment launch requests</h2>
-        <p class="sub">The latest comments asking <b data-bot>@instapaid.official</b> for a coin, and what the server did with each. Read-only.</p>
+        <p class="sub">The latest comments asking <b data-bot>@instapaid.official</b> for a coin, and what the server did with each. A failed one can be tried again once what stopped it is fixed.</p>
+        <div class="adm-events" id="events"></div>
         <ul class="adm-reqs" id="requests"></ul>
       </section>
 
       <section class="card" id="bot" aria-labelledby="bot-h">
         <h2 id="bot-h">Launcher bot</h2>
-        <p class="sub">Finds trending creators from public Instagram profiles and launches a coin for the top one, paid by the server wallet, within the limits below. Its coins and posts say "Made by InstaPaid". Both switches start off.</p>
+        <p class="sub">Launches a coin for the next creator on your watchlist, or else for the top trending creator it found on public Instagram profiles, paid by the server wallet, within the limits below. Its coins and posts say "Made by InstaPaid". Both switches start off.</p>
         <div class="adm-switches">
           <label class="adm-switch"><input type="checkbox" id="bot-scouting" role="switch"> <span><b>Scouting</b><small>Read one public profile a minute and rank creators by this week's engagement.</small></span></label>
-          <label class="adm-switch"><input type="checkbox" id="bot-launching" role="switch"> <span><b>Auto-launch</b><small>Launch a coin for the top trending creator, at most once an hour and within the daily cap.</small></span></label>
+          <label class="adm-switch"><input type="checkbox" id="bot-launching" role="switch"> <span><b>Auto-launch</b><small>Launch a coin for the next creator on the watchlist (else the top trending one), at most once an hour and within the daily cap.</small></span></label>
         </div>
         <ul class="adm-facts" id="bot-facts"></ul>
+        <h3 class="adm-h3">Watchlist</h3>
+        <p class="fine adm-hint">Creators you pick. Auto-launch takes them first, oldest first, one coin each. A coin is named and pictured from the post you link, or else their most engaged post. Instagram blocks this server from reading profiles directly, so a creator without a linked post launches only when Meta's Business Discovery can read them (Business and Creator accounts, with the Facebook Login settings). With a linked post, they launch even when nothing can be read, using the InstaPaid picture.</p>
+        <form class="adm-form" id="bot-watch" novalidate>
+          <label for="bot-watch-text">Add creators <span class="hint">(one per line: a username, then optionally a link to one of their posts)</span></label>
+          <textarea id="bot-watch-text" maxlength="12000" placeholder="creator.one https://www.instagram.com/p/AbC123xyz/&#10;creator.two"></textarea>
+          <div class="adm-form-row"><span class="hint">Pasting a creator again replaces their post link and resets their tries.</span><button class="btn btn-primary btn-sm" type="submit">Add to watchlist</button></div>
+        </form>
+        <ul class="adm-reqs" id="bot-watchlist"></ul>
         <form class="adm-form" id="bot-seeds" novalidate>
           <label for="bot-seed-text">Starting points <span class="hint">(usernames the scout reads first; it follows their related accounts)</span></label>
           <textarea id="bot-seed-text" maxlength="4000" placeholder="creator.one, creator.two"></textarea>

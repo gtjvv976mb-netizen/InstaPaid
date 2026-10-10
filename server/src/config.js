@@ -38,11 +38,16 @@ export const config = {
   // Comment launches ("@bot make a token for this creator") run on the Instagram token (Instagram
   // Login) whenever it is set; COMMENT_LAUNCHES=0 switches them off without removing it.
   commentLaunches: env('COMMENT_LAUNCHES', '1') !== '0',
-  // Optional, legacy: the Instagram API with Facebook Login instead (a Facebook Page linked to the
-  // bot). Used only when both are set.
+  // Optional: the Instagram API with Facebook Login as well (a Facebook Page linked to the bot), the
+  // documented way to read the post a comment mentions us under, and Business Discovery for the
+  // bot's watchlist. Used only when both are set. Meta lets one app use only one of the two logins,
+  // so these usually come from a second Meta app: FB_APP_SECRET is its App secret (its webhooks are
+  // signed with it), FB_PAGE_ID the Page (optional: found from the token otherwise).
   igUserId: env('IG_USER_ID'),
   fbAccessToken: env('IG_FB_ACCESS_TOKEN'),
   fbGraphVersion: env('FB_GRAPH_VERSION', 'v23.0'),
+  fbAppSecret: env('FB_APP_SECRET').trim(),
+  fbPageId: env('FB_PAGE_ID').trim(),
   // Only for staging: a stand-in for graph.facebook.com (the Facebook Login path).
   graphBaseUrl: (env('GRAPH_BASE_URL').trim() || 'https://graph.facebook.com').replace(/\/+$/, ''),
   // Optional: the Meta app's secret (App settings → Basic) when it differs from IG_APP_SECRET.
@@ -127,6 +132,10 @@ export function configNotes(c = config) {
   if (!!c.igUserId !== !!c.fbAccessToken) {
     notes.push(`${c.igUserId ? 'IG_USER_ID' : 'IG_FB_ACCESS_TOKEN'} is set without ${c.igUserId ? 'IG_FB_ACCESS_TOKEN' : 'IG_USER_ID'}: `
       + 'the Facebook Login path is off, and Instagram Login (IG_ACCESS_TOKEN) is used');
+  }
+  if (c.igUserId && c.fbAccessToken && !c.fbAppSecret) {
+    notes.push('IG_USER_ID and IG_FB_ACCESS_TOKEN are set but FB_APP_SECRET is not: if they come from a second Meta app '
+      + '(one app cannot use both logins), set FB_APP_SECRET to that app\'s App secret, or its webhooks are refused');
   }
   return notes;
 }

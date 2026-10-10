@@ -9,7 +9,9 @@
 //   two a comment is, so a comment counts as a request when its text names the bot and has the command.
 //   The post is read and the reply sent with the Instagram token on graph.instagram.com.
 // - Facebook Login (only when IG_USER_ID and IG_FB_ACCESS_TOKEN are both set): a `mentions` change
-//   ({comment_id, media_id}) inside entry.changes[], read and answered on graph.facebook.com.
+//   ({comment_id, media_id}) inside entry.changes[], read and answered on graph.facebook.com. With
+//   Instagram Login as well, it comes from a second Meta app (FB_APP_SECRET), and Meta sends it only
+//   once that app is installed on the Facebook Page linked to the bot (subscribePage, at start).
 // Neither is sent for private accounts or Stories.
 import { stripAddresses, stripUrls, visibleOnly } from './lore.js';
 import { graph as igGraph, graphCall, igAccount } from './instagram.js';
@@ -71,6 +73,23 @@ export function mentionEvents(body, onDrop = () => {}) {
           productType: v.media?.media_product_type ? String(v.media.media_product_type) : null,
         });
       }
+    }
+  }
+  return out;
+}
+
+/**
+ * Every "comments" or "mentions" change in a webhook body as Meta sent it, in both shapes, ids or
+ * not: [{ entryId, time, field, value }]. Kept for the owner's page (never logged: it holds the text).
+ */
+export function commentPayloads(body) {
+  const out = [];
+  if (body?.object !== 'instagram') return out;
+  for (const entry of body.entry ?? []) {
+    const changes = [...(entry?.field ? [{ field: entry.field, value: entry.value }] : []), ...(entry?.changes ?? [])];
+    for (const ch of changes) {
+      if (ch?.field !== 'mentions' && ch?.field !== 'comments') continue;
+      out.push({ entryId: entry?.id != null ? String(entry.id) : null, time: entry?.time ?? null, field: ch.field, value: ch.value ?? null });
     }
   }
   return out;
@@ -147,7 +166,10 @@ function attemptLine(via, r, owner) {
  *   1. GET /<IG_ID>?fields=mentioned_comment.comment_id(<comment>){…,media{…,username}}
  *   2. GET /<IG_ID>?fields=mentioned_media.media_id(<media>){…,username}
  *   3. GET /<media>?fields=…,username
+ *   4. GET /<comment>?fields=id,text,media{…,username}
  * then, only when IG_USER_ID and IG_FB_ACCESS_TOKEN are both set, (1) on graph.facebook.com.
+ * (2)–(4) are documented only for the bot's own posts and comments; they are asked anyway, since
+ * the first real @mention's log lines are what settles which of them answer for someone else's.
  * The first answer with an owner username gives the post; the comment's text is the webhook's,
  * or, when the webhook has none (a Facebook Login "mentions" event), the first answer that carries
  * it: an owner without the text never ends the search. One log line per attempt. Throws when no
@@ -171,6 +193,9 @@ export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl =
       attempts.push(['media', () => graphCall(fetchImpl, igGraph(ig, encodeURIComponent(mediaId)), ig.accessToken, { params: { fields: MEDIA_FIELDS } }),
         (j) => ({ media: j })]);
     }
+    attempts.push(['comment', () => graphCall(fetchImpl, igGraph(ig, encodeURIComponent(commentId)), ig.accessToken,
+      { params: { fields: `id,text,media{${MEDIA_FIELDS}}` } }),
+    (j) => ({ text: j?.text, media: j?.media })]);
   }
   if (fbLogin(cfg)) {
     attempts.push(['Facebook Login mentioned_comment',
@@ -197,6 +222,42 @@ export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl =
   }
   log.warn('mention: could not read the post — see the lines above');
   throw new Error('could not read the post');
+}
+
+/**
+ * Facebook Login only: Meta sends an Instagram account's `mentions` to an app only once the app is
+ * installed on the Facebook Page linked to that account: POST /<page-id>/subscribed_apps
+ * ?subscribed_fields=feed with the Page's own token (pages_manage_metadata). The Page is FB_PAGE_ID
+ * when set; else IG_FB_ACCESS_TOKEN's own Page when it is a Page token linked to IG_USER_ID; else
+ * the token's Page (GET /me/accounts) whose instagram_business_account is IG_USER_ID. Idempotent,
+ * so it runs at every start. Never throws. → { ok, pageId?, answer?, reason? } (never a token)
+ */
+export async function subscribePage(cfg, fetchImpl = fetch) {
+  if (!fbLogin(cfg)) return { ok: false, reason: 'IG_USER_ID and IG_FB_ACCESS_TOKEN are not both set' };
+  const token = cfg.fbAccessToken;
+  const igId = String(cfg.igUserId);
+  const linked = (x) => String(x?.instagram_business_account?.id ?? '') === igId;
+  let page;
+  if (cfg.fbPageId) {
+    const r = await graphCall(fetchImpl, fb(cfg, encodeURIComponent(cfg.fbPageId)), token, { params: { fields: 'id,access_token,instagram_business_account' } });
+    if (!r.ok) return { ok: false, reason: `GET /<FB_PAGE_ID> → ${r.status} ${r.error}` };
+    if (!linked(r.json)) return { ok: false, pageId: String(r.json?.id ?? cfg.fbPageId), reason: `FB_PAGE_ID's Instagram account is not IG_USER_ID ${igId}` };
+    page = { id: String(r.json.id), token: r.json.access_token ?? token };
+  } else {
+    const me = await graphCall(fetchImpl, fb(cfg, 'me'), token, { params: { fields: 'id,instagram_business_account' } });
+    if (me.ok && linked(me.json)) page = { id: String(me.json.id), token };
+    else {
+      const r = await graphCall(fetchImpl, fb(cfg, 'me/accounts'), token, { params: { fields: 'id,access_token,instagram_business_account', limit: '100' } });
+      if (!r.ok) return { ok: false, reason: `GET /me/accounts → ${r.status} ${r.error}` };
+      const p = (r.json?.data ?? []).find(linked);
+      if (!p) return { ok: false, reason: `none of IG_FB_ACCESS_TOKEN's Pages is linked to IG_USER_ID ${igId}` };
+      page = { id: String(p.id), token: p.access_token ?? token };
+    }
+  }
+  const r = await graphCall(fetchImpl, fb(cfg, `${encodeURIComponent(page.id)}/subscribed_apps`), page.token,
+    { method: 'POST', params: { subscribed_fields: 'feed' } });
+  if (!r.ok) return { ok: false, pageId: page.id, reason: `POST /<page>/subscribed_apps → ${r.status} ${r.error}` };
+  return { ok: true, pageId: page.id, answer: JSON.stringify(r.json ?? {}).slice(0, 200) };
 }
 
 /**
@@ -286,6 +347,17 @@ export function pendingReply({ username, publicUrl }) {
   return [
     `⏳ The coin for @${username} is sent and Solana is confirming it now. Hang tight!`,
     `I'll reply here with the coin, its address and the claim link as soon as it lands. It will also show at ${host(publicUrl)}/u/${username}.`,
+  ].join('\n');
+}
+
+/**
+ * The one reply to a request whose post could not be read: who owns the post is unknown, so no coin
+ * was made. Says so plainly and points to the website, where the fan can launch it with their wallet.
+ */
+export function unreadReply({ publicUrl }) {
+  return [
+    `Thanks for asking! I can't see whose post this is yet, so no coin was made this time.`,
+    `You can launch one for this creator yourself at ${host(publicUrl)}/launch`,
   ].join('\n');
 }
 

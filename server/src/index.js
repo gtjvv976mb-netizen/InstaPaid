@@ -70,6 +70,13 @@ async function announceInstagram() {
   const r = await ig.subscribeMessages(config.ig, fetch, fields);
   console.log(r.ok ? `instagram: webhook subscribed (${fields.join(',')}): ${r.answer || 'no answer body'}`
     : `instagram: webhook not subscribed (${fields.join(',')}): ${r.reason}`);
+  // The Facebook Login fallback: its app must be installed on the Page linked to the bot, or Meta
+  // sends that app no "mentions" at all.
+  if (comments.fbLogin(config)) {
+    const p = await comments.subscribePage(config, fetch);
+    console.log(p.ok ? `facebook: Page ${p.pageId} subscribed to the Facebook Login app: ${p.answer}`
+      : `facebook: Page not subscribed to the Facebook Login app: ${p.reason}`);
+  }
 }
 
 // Comment launches that were sent but not confirmed (a lost confirmation, an RPC timeout): every two

@@ -77,6 +77,12 @@
 .adm-reqs .what { min-width: 0; overflow-wrap: anywhere; }
 .adm-reqs .what .fine { display: block; color: var(--ink-2); }
 .st { justify-self: start; }
+.adm-reqs .what .said { color: var(--ink); white-space: pre-line; }
+.adm-reqs .what .adm-act { margin-top: 8px; }
+.adm-events { margin: 4px 0 10px; }
+.adm-events .fine { color: var(--ink-2); margin: 0; }
+.adm-events summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--peach); }
+.adm-events pre { margin: 0; padding: 12px 14px; max-height: 320px; overflow: auto; border-radius: 14px; background: var(--card-2); border: 1px solid var(--line); font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The launcher bot: two switches, its limits, the shortlist. */
 .adm-switches { display: grid; gap: 10px; margin: 16px 0 8px; }
@@ -92,6 +98,10 @@
 .adm-facts .warn { color: var(--warn); font-weight: 700; }
 #bot-shortlist li, #bot-launched li { grid-template-columns: minmax(0, 1fr) auto; }
 #bot-launched li { grid-template-columns: 150px minmax(0, 1fr) auto; }
+#bot-watchlist li { grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto; align-items: center; }
+#bot-watchlist li > a { min-width: 0; overflow-wrap: anywhere; }
+#bot-watchlist .what a.fine { color: var(--peach); font-weight: 700; }
+.adm-hint { color: var(--ink-2); margin: 0 0 4px; }
 .st.failed { background: var(--err-tint); color: var(--err); border-color: var(--err-line); }
 .st.skipped, .st.working { background: rgba(255, 214, 196, .07); color: var(--ink-2); border-color: var(--line-2); }
 .st.existing { background: var(--warn-tint); color: var(--warn); border-color: var(--warn-line); }
@@ -102,6 +112,8 @@
   .adm-form-row .btn { width: 100%; }
   .adm-reqs li { grid-template-columns: minmax(0, 1fr) auto; }
   .adm-reqs .what { grid-column: 1 / -1; }
+  #bot-watchlist li { grid-template-columns: minmax(0, 1fr) auto; }
+  #bot-watchlist .what { grid-row: 2; }
   .adm-replies { margin-left: 6px; padding-left: 10px; }
   .adm-who { display: none !important; }
 }

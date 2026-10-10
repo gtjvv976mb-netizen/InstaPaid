@@ -1,5 +1,5 @@
 // Comment launches on Instagram Login (no Facebook Page): the "comments" webhook in every shape Meta
-// uses, reading the post through three fallbacks on graph.instagram.com, the reply through
+// uses, reading the post through four fallbacks on graph.instagram.com, the reply through
 // /<IG_ID>/mentions, the bot's IG_ID from /me, the webhook subscription, the settings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,6 +11,7 @@ import { start, signedHook, tick, cfg, POST_PNG } from './helpers.js';
 import * as comments from '../src/comments.js';
 import {
   mentionEvents, skipMention, isLaunchRequest, commentLore, readMention, replyToMention, replyBlocked, commentLaunchesOff, launchedReply,
+  unreadReply, commentPayloads, subscribePage,
 } from '../src/comments.js';
 import { igAccount, subscribeMessages, describeEntry } from '../src/instagram.js';
 import { assertConfig, configNotes } from '../src/config.js';
@@ -29,6 +30,7 @@ const ERRORS = {
   mentioned_comment: [10, 'Application does not have permission for this action'],
   mentioned_media: [100, 'Tried accessing nonexisting field (mentioned_media) on node type (User)'],
   media: [100, 'Unsupported get request. Object with ID \'m1\' does not exist'],
+  comment: [100, 'Unsupported get request. Object with ID \'c1\' does not exist'],
   me: [190, 'Invalid OAuth access token - Cannot parse access token'],
   reply: [200, 'Requires instagram_business_manage_comments permission'],
 };
@@ -68,6 +70,7 @@ function fakeIg({ fail = [], owner = 'nat.geo', text = ASK, fb = null } = {}) {
       return g.fail.has('mentioned_media') ? err('mentioned_media') : json({ id: BOT, mentioned_media: post() });
     }
     if (path === 'm1' && method === 'GET') return g.fail.has('media') ? err('media') : json(post());
+    if (path === 'c1' && method === 'GET') return g.fail.has('comment') ? err('comment') : json({ id: 'c1', text, media: post() });
     if (path === `${BOT}/mentions` && method === 'POST') {
       if (g.fail.has('reply')) return err('reply');
       g.replies.push(Object.fromEntries([...params].filter(([k]) => k !== 'access_token')));
@@ -161,6 +164,7 @@ test('a mention on another account\'s post, read through each fallback in turn, 
     { fail: [], reads: ['mentioned_comment'] },
     { fail: ['mentioned_comment'], reads: ['mentioned_comment', 'mentioned_media'] },
     { fail: ['mentioned_comment', 'mentioned_media'], reads: ['mentioned_comment', 'mentioned_media', 'm1'] },
+    { fail: ['mentioned_comment', 'mentioned_media', 'media'], reads: ['mentioned_comment', 'mentioned_media', 'm1', 'c1'] },
   ];
   for (const [i, c] of cases.entries()) {
     const g = fakeIg({ fail: c.fail });
@@ -197,8 +201,8 @@ test('a mention on another account\'s post, read through each fallback in turn, 
   }
 });
 
-test('all three reads fail: no launch, no reply, and the log says so', async () => {
-  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'media'] });
+test('all four reads fail: no launch, the fan is told once, and the log says so', async () => {
+  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'media', 'comment'] });
   const t = await app(g);
   try {
     const lines = await logged(() => hook(t, documented()));
@@ -206,12 +210,19 @@ test('all three reads fail: no launch, no reply, and the log says so', async () 
       'mention: read post via mentioned_comment → 400 (#10) Application does not have permission for this action',
       'mention: read post via mentioned_media → 400 (#100) Tried accessing nonexisting field (mentioned_media) on node type (User)',
       'mention: read post via media → 400 (#100) Unsupported get request. Object with ID \'m1\' does not exist',
+      'mention: read post via comment → 400 (#100) Unsupported get request. Object with ID \'c1\' does not exist',
       'mention: could not read the post — see the lines above',
+      'mention: replied via Instagram Login → 200',
     ]);
     assert.equal(t.calls.serverLaunches.length, 0);
-    assert.equal(g.replies.length, 0);
-    assert.equal(g.calls.filter((c) => c.method === 'POST').length, 0, 'nothing posted anywhere');
-    assert.deepEqual(t.db.prepare('select status, note from comment_request').get(), { status: 'failed', note: 'could not read the post' });
+    assert.deepEqual(g.replies, [{ comment_id: 'c1', media_id: 'm1', message: unreadReply({ publicUrl: 'https://instapaid.test' }) }]);
+    assert.match(g.replies[0].message, /no coin was made/);
+    assert.equal(g.calls.filter((c) => c.method === 'POST').length, 1, 'that one reply, nothing else');
+    assert.deepEqual(t.db.prepare('select status, note, field, text, from_username from comment_request').get(),
+      { status: 'failed', note: 'could not read the post; the fan was told', field: 'comments', text: ASK, from_username: 'fan.one' });
+    // A webhook retry of the same comment: nothing read, nothing said again.
+    await logged(() => hook(t, documented()));
+    assert.equal(g.replies.length, 1);
   } finally { t.close(); }
 
   // an answer without the owner's username does not count either
@@ -219,14 +230,64 @@ test('all three reads fail: no launch, no reply, and the log says so', async () 
   const u = await app(noOwner);
   try {
     const lines = await logged(() => hook(u, documented()));
-    assert.equal(lines.filter((l) => l.endsWith('→ 200, no owner username')).length, 3);
+    assert.equal(lines.filter((l) => l.endsWith('→ 200, no owner username')).length, 4);
     assert.equal(u.calls.serverLaunches.length, 0);
-    assert.equal(noOwner.replies.length, 0);
+    assert.equal(noOwner.replies.length, 1, 'the fan is told no coin was made');
   } finally { u.close(); }
 });
 
+test('a request whose post could not be read is tried again from /admin: launched, with no second "can\'t see" reply', async () => {
+  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'media', 'comment'] });
+  const t = await app(g);
+  try {
+    await logged(() => hook(t, documented()));
+    assert.equal(g.replies.length, 1);
+    assert.deepEqual(t.bot.retryMention('nope'), { error: 'No such request.' });
+    // Still unreadable: failed again, and the fan is not told twice.
+    let out = t.bot.retryMention('c1');
+    assert.equal(out.queued, true);
+    await logged(() => out.done);
+    assert.equal(g.replies.length, 1);
+    assert.deepEqual(t.db.prepare('select status, note from comment_request').get(), { status: 'failed', note: 'could not read the post' });
+    // Readable now (e.g. the Facebook Login fallback was set up): launched and answered.
+    g.fail.delete('media');
+    out = t.bot.retryMention('c1');
+    await logged(() => out.done);
+    assert.equal(t.calls.serverLaunches.length, 1);
+    const row = t.db.prepare('select * from token').get();
+    assert.equal(row.username, 'nat.geo');
+    assert.equal(row.lore, 'king of sunsets', 'the lore from the text the webhook carried');
+    assert.equal(g.replies.length, 2);
+    assert.match(g.replies[1].message, /^🎉 Done!/);
+    assert.equal(t.db.prepare('select status from comment_request').get().status, 'launched');
+    assert.deepEqual(t.bot.retryMention('c1'), { error: 'Only a failed request can be tried again.' });
+  } finally { t.close(); }
+});
+
+test('every comment event is kept for /admin as Meta sent it (the latest), and counted; the logs keep to its shape', async () => {
+  const g = fakeIg();
+  const t = await app(g, { commentLaunches: false });
+  try {
+    const lines = await logged(async () => {
+      await hook(t, documented());
+      await hook(t, inChanges({ id: 'c2', text: 'nice photo' }));
+    });
+    assert.equal(t.db.prepare(`select value from kv where key = 'mention.events'`).get().value, '2');
+    const last = JSON.parse(t.db.prepare(`select value from kv where key = 'mention.last_event'`).get().value);
+    assert.equal(last.field, 'comments');
+    assert.equal(last.entryId, BOT);
+    assert.deepEqual(JSON.parse(last.payload), { id: 'c2', from: { id: '5566778899', username: 'fan.one' }, text: 'nice photo', media: { id: 'm1', media_product_type: 'FEED' } });
+    assert.ok(lines.every((l) => !l.includes('nice photo') && !l.includes('king of sunsets')), 'never the text in the logs');
+  } finally { t.close(); }
+  // Both shapes, "mentions" too, with or without ids; DMs and other objects are not comment events.
+  assert.deepEqual(commentPayloads(fbMention()).map((p) => [p.entryId, p.field, p.value.comment_id]), [['42', 'mentions', 'c1']]);
+  assert.deepEqual(commentPayloads({ object: 'instagram', entry: [{ id: BOT, field: 'comments', value: { text: 'no ids' } }] }).length, 1);
+  assert.deepEqual(commentPayloads({ object: 'instagram', entry: [{ id: BOT, messaging: [{ message: { text: 'dm' } }] }] }), []);
+  assert.deepEqual(commentPayloads({ object: 'page', entry: [{ field: 'comments', value: {} }] }), []);
+});
+
 test('with the Facebook Login settings too, graph.facebook.com is the last try, and the fallback for a refused reply', async () => {
-  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'media', 'reply'], fb: 'nat.geo' });
+  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'media', 'comment', 'reply'], fb: 'nat.geo' });
   const t = await start({ config: igOnly({ igUserId: '42', fbAccessToken: 'fb' }), comments, fetchImpl: g.fetch });
   try {
     const lines = await logged(() => hook(t, documented()));
@@ -244,7 +305,7 @@ const fbMention = (commentId = 'c1', mediaId = 'm1') => ({
 });
 
 test('a "mentions" event (no text): a post read on graph.instagram.com does not end the search, the text comes from Facebook Login', async () => {
-  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media'], fb: 'nat.geo' });
+  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'comment'], fb: 'nat.geo' });
   const t = await start({ config: igOnly({ igUserId: '42', fbAccessToken: 'fb' }), comments, fetchImpl: g.fetch });
   try {
     const lines = await logged(() => hook(t, fbMention()));
@@ -252,6 +313,7 @@ test('a "mentions" event (no text): a post read on graph.instagram.com does not 
       'mention: read post via mentioned_comment → 400 (#10) Application does not have permission for this action',
       'mention: read post via mentioned_media → 400 (#100) Tried accessing nonexisting field (mentioned_media) on node type (User)',
       'mention: read post via media → 200, owner @nat.geo',
+      'mention: read post via comment → 400 (#100) Unsupported get request. Object with ID \'c1\' does not exist',
       'mention: read post via Facebook Login mentioned_comment → 200, owner @nat.geo',
     ]);
     assert.equal(t.calls.serverLaunches.length, 1, 'launched');
@@ -268,7 +330,7 @@ test('readMention: an owner without the text keeps its post while the text is as
   const both = () => ({ igUserId: '42', fbAccessToken: 'fb', ig: { accessToken: TOKEN, graphVersion: 'v23.0' } });
 
   // /<media> has the owner, Facebook Login has the text and no username: the owner from /<media>
-  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media'] });
+  const g = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'comment'] });
   const fbNoOwner = async (url, init) => (new URL(url).origin === 'https://graph.facebook.com'
     ? new Response(JSON.stringify({ mentioned_comment: { id: 'c1', text: ASK, media: { id: 'm1' } } }), { headers: { 'content-type': 'application/json' } })
     : g.fetch(url, init));
@@ -277,11 +339,17 @@ test('readMention: an owner without the text keeps its post while the text is as
 
   // mentioned_media answers with the owner first: /<media> is still asked, then Facebook Login,
   // whose answer (the comment with its post) is the one kept
-  const h = fakeIg({ fail: ['mentioned_comment'], fb: 'nat.geo' });
+  const h = fakeIg({ fail: ['mentioned_comment', 'comment'], fb: 'nat.geo' });
   const got2 = await readMention(both(), { commentId: 'c1', mediaId: 'm1' }, h.fetch, quiet);
   assert.equal(got2.text, ASK);
   assert.equal(got2.via, 'Facebook Login mentioned_comment');
-  assert.deepEqual(h.reads(), ['mentioned_comment', 'mentioned_media', 'm1', '42']);
+  assert.deepEqual(h.reads(), ['mentioned_comment', 'mentioned_media', 'm1', 'c1', '42']);
+
+  // the comment read (GET /<comment>) answering with the text and its post ends it there
+  const j = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'media'], fb: 'nat.geo' });
+  const got4 = await readMention(both(), { commentId: 'c1', mediaId: 'm1' }, j.fetch, quiet);
+  assert.deepEqual({ text: got4.text, owner: got4.media.username, via: got4.via }, { text: ASK, owner: 'nat.geo', via: 'comment' });
+  assert.equal(j.calls.filter((c) => c.origin === 'https://graph.facebook.com').length, 0);
   assert.equal(h.calls.filter((c) => c.origin === 'https://graph.facebook.com').length, 1);
 
   // the webhook's text is enough: the first owner ends it, as before
@@ -293,12 +361,12 @@ test('readMention: an owner without the text keeps its post while the text is as
   // Facebook Login refuses too: the post is known, the comment is not → a logged failure
   const lines = [];
   const log = { log: (l) => lines.push(l), warn: (l) => lines.push(l), error: (l) => lines.push(l) };
-  const m = fakeIg({ fail: ['mentioned_comment', 'mentioned_media'] });
+  const m = fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'comment'] });
   await assert.rejects(readMention(both(), { commentId: 'c1', mediaId: 'm1' }, m.fetch, log), /could not read the comment/);
   assert.equal(lines.at(-1), 'mention: read the post but not the comment — see the lines above');
 
   // end to end: the request is marked failed with that note, nothing launched, no reply
-  const t = await start({ config: igOnly({ igUserId: '42', fbAccessToken: 'fb' }), comments, fetchImpl: fakeIg({ fail: ['mentioned_comment', 'mentioned_media'] }).fetch });
+  const t = await start({ config: igOnly({ igUserId: '42', fbAccessToken: 'fb' }), comments, fetchImpl: fakeIg({ fail: ['mentioned_comment', 'mentioned_media', 'comment'] }).fetch });
   try {
     await logged(() => hook(t, fbMention()));
     assert.equal(t.calls.serverLaunches.length, 0);
@@ -448,6 +516,9 @@ test('settings: no IG_FB_ACCESS_TOKEN is fine; a half Facebook Login setup is on
   assert.doesNotThrow(() => assertConfig({ ...base, igUserId: '1784' }));
   assert.deepEqual(configNotes({ ...base, igUserId: '1784' }),
     ['IG_USER_ID is set without IG_FB_ACCESS_TOKEN: the Facebook Login path is off, and Instagram Login (IG_ACCESS_TOKEN) is used']);
+  // Both Facebook Login settings without FB_APP_SECRET: a note, since a second Meta app signs with its own secret.
+  assert.match(configNotes({ ...base, igUserId: '1784', fbAccessToken: 'fb' })[0], /^IG_USER_ID and IG_FB_ACCESS_TOKEN are set but FB_APP_SECRET is not/);
+  assert.deepEqual(configNotes({ ...base, igUserId: '1784', fbAccessToken: 'fb', fbAppSecret: 'x' }), []);
   assert.throws(() => assertConfig({ ...base, ig: { ...base.ig, graphBaseUrl: 'http://evil.example' } }), /IG_GRAPH_BASE_URL must be an https address/);
   assert.doesNotThrow(() => assertConfig({ ...base, ig: { ...base.ig, graphBaseUrl: 'http://127.0.0.1:9999' } }));
 });
@@ -570,4 +641,53 @@ test('.env.example copied as .env starts: empty or absent IG_GRAPH_BASE_URL / GR
   const out = execFileSync(process.execPath, ['-e', script], { cwd: dir, env: { ...clean, ...secrets }, encoding: 'utf8' });
   assert.deepEqual(JSON.parse(out.trim().split('\n').at(-1)), ['https://graph.instagram.com', 'https://graph.facebook.com']);
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('Facebook Login fallback: the app is installed on the Page linked to IG_USER_ID (POST /<page>/subscribed_apps, field feed, the Page\'s token)', async () => {
+  const IG = '17841400000000042';
+  /** A stand-in graph.facebook.com: `me` is what /me says, `pages` what /me/accounts lists. */
+  const fbGraph = ({ me, pages, page, subscribe = 200 }) => {
+    const calls = [];
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+    const f = async (url, init = {}) => {
+      const u = new URL(url);
+      const params = init.method === 'POST' ? new URLSearchParams(init.body) : u.searchParams;
+      const path = u.pathname.replace(/^\/v23\.0\//, '');
+      calls.push({ method: init.method ?? 'GET', path, token: params.get('access_token'), fields: params.get('subscribed_fields') });
+      assert.equal(u.origin, 'https://graph.facebook.com');
+      if (path === 'me') return me ? json(me) : json({ error: { message: '(#100) Tried accessing nonexisting field (instagram_business_account) on node type (User)', code: 100 } }, 400);
+      if (path === 'me/accounts') return pages ? json({ data: pages }) : json({ error: { message: 'Tried accessing nonexisting field (accounts) on node type (Page)', code: 100 } }, 400);
+      if (path === 'P9') return json(page);
+      if (path.endsWith('/subscribed_apps')) return subscribe === 200 ? json({ success: true }) : json({ error: { message: 'Requires pages_manage_metadata permission', code: 200 } }, 403);
+      return json({ error: { message: 'unknown', code: 100 } }, 404);
+    };
+    f.calls = calls;
+    return f;
+  };
+  const conf = (extra = {}) => ({ igUserId: IG, fbAccessToken: 'USER-TOKEN', fbGraphVersion: 'v23.0', ig: { ...cfg.ig }, ...extra });
+
+  // A User (or system user) token: its Page linked to the bot, with that Page's own token.
+  let g = fbGraph({ pages: [{ id: 'P1', access_token: 'PAGE-1', instagram_business_account: { id: '1' } }, { id: 'P2', access_token: 'PAGE-2', instagram_business_account: { id: IG } }] });
+  assert.deepEqual(await subscribePage(conf(), g), { ok: true, pageId: 'P2', answer: '{"success":true}' });
+  assert.deepEqual(g.calls.at(-1), { method: 'POST', path: 'P2/subscribed_apps', token: 'PAGE-2', fields: 'feed' });
+
+  // A Page token: /me is the Page itself.
+  g = fbGraph({ me: { id: 'P3', instagram_business_account: { id: IG } } });
+  assert.equal((await subscribePage(conf(), g)).pageId, 'P3');
+  assert.deepEqual(g.calls.at(-1), { method: 'POST', path: 'P3/subscribed_apps', token: 'USER-TOKEN', fields: 'feed' });
+
+  // FB_PAGE_ID: that Page, if it is the bot's.
+  g = fbGraph({ page: { id: 'P9', access_token: 'PAGE-9', instagram_business_account: { id: IG } } });
+  assert.equal((await subscribePage(conf({ fbPageId: 'P9' }), g)).pageId, 'P9');
+  g = fbGraph({ page: { id: 'P9', access_token: 'PAGE-9', instagram_business_account: { id: '1' } } });
+  assert.match((await subscribePage(conf({ fbPageId: 'P9' }), g)).reason, /FB_PAGE_ID's Instagram account is not IG_USER_ID/);
+
+  // What goes wrong is said, never with a token in it.
+  g = fbGraph({ pages: [{ id: 'P1', access_token: 'PAGE-1', instagram_business_account: { id: '1' } }] });
+  assert.deepEqual(await subscribePage(conf(), g), { ok: false, reason: `none of IG_FB_ACCESS_TOKEN's Pages is linked to IG_USER_ID ${IG}` });
+  g = fbGraph({ pages: [{ id: 'P2', access_token: 'PAGE-2', instagram_business_account: { id: IG } }], subscribe: 403 });
+  const refused = await subscribePage(conf(), g);
+  assert.equal(refused.reason, 'POST /<page>/subscribed_apps → 403 (#200) Requires pages_manage_metadata permission');
+  assert.ok(!JSON.stringify(refused).includes('PAGE-2') && !JSON.stringify(refused).includes('USER-TOKEN'));
+  assert.deepEqual(await subscribePage(igOnly(), g), { ok: false, reason: 'IG_USER_ID and IG_FB_ACCESS_TOKEN are not both set' });
 });
