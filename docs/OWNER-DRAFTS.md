@@ -33,7 +33,9 @@ The permission descriptions and the screen-recording script are in `docs/LAUNCH.
 1–11 and 15 (the owner page: Instagram login, create / reply / hide / unhide / delete a comment, log out).
 Steps 12–14 (a fan's comment, the bot's reply, that request on /admin) need a real @mention to reach the
 server, which needs the app Live and maybe Advanced Access. If the Live test (HANDOFF "Start here", to-do 3)
-works before you submit, record them too and leave out this note. Otherwise, note for the reviewer:
+works before you submit, record them too and leave out this note. (After #35 the bot replies under the fan's
+comment even when it cannot read whose post it is: the reply then says no coin was made and points to
+instapaid.fun/launch. That reply and the request on /admin are enough for steps 13–14.) Otherwise, note for the reviewer:
 > The automatic reply to a comment that @mentions @instapaid.official cannot be demonstrated until Meta delivers
 > those comment webhooks to our app. The recording shows the owner page's comment management with the same
 > permission.
