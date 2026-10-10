@@ -288,17 +288,27 @@ account as the "creator" (with one photo post). It spends about 0.02 SOL.
     @yourcreator can claim the creator fees: instapaid.fun/u/yourcreator
     Fan-made, not by @yourcreator.
     ```
+    **First look at `/admin` → Comment launch requests.** It says how many comment events Meta has
+    sent, and **What Meta sent last** shows the latest exactly as it came (Meta's dashboard Test sends
+    the text "This is an example."; a real comment shows your words and the fan account). "Meta has
+    not sent a comment event" after a real comment = Meta delivered nothing: the app is not Live, or
+    see the end of this step. Each request below it shows who commented and what they wrote.
     No reply? Render → Logs. Every webhook logs its shape first (`webhook: entry 1/1 entry={…}
     field=comments value={from,id,media,text} …`: keys and lengths only, never the words). Then the
-    server reads the post, trying three ways, one line each:
+    server reads the post, trying four ways, one line each:
     ```
     mention: read post via mentioned_comment → 400 (#10) Application does not have permission …
     mention: read post via mentioned_media → 400 (#100) …
     mention: read post via media → 200, owner @yourcreator
     ```
-    The first `→ 200, owner @…` wins; failures before it are fine. If all three fail, the last line is
-    `mention: could not read the post — see the lines above`: nothing is launched and nothing is
-    replied. Send the developer those lines (they hold Meta's error codes, never the token).
+    (the fourth, `via comment`, asks for the comment itself). The first `→ 200, owner @…` wins;
+    failures before it are fine. If all four fail, the line is `mention: could not read the post —
+    see the lines above`: nothing is launched, and the fan gets one reply saying no coin was made and
+    pointing to instapaid.fun/launch (the request shows "could not read the post; the fan was told").
+    Send the developer those lines (they hold Meta's error codes, never the token). That is the case
+    for the Facebook Login fallback (step 12f); once it is set up, **Try again** on the request in
+    `/admin` launches it without a new comment. **Try again** works on any failed request (after a
+    top-up of the fee payer, for example).
     (With the legacy Facebook Login settings a fourth line may follow: a Facebook `mentions` event
     carries no comment text, so the post's owner alone does not end the search. If the post was
     read but no answer gave the comment, the last line is `mention: read the post but not the

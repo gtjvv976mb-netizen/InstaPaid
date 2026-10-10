@@ -298,17 +298,27 @@ test('create, reply, hide / unhide and delete each call the right Instagram endp
   } finally { s.close(); }
 });
 
-test('the latest comment-launch requests are listed read-only; log out clears the session cookie', async () => {
+test('the latest comment-launch requests are listed, a failed one can be tried again; log out clears the session cookie', async () => {
   const s = await setup();
   try {
     const now = Date.now();
-    const ins = s.t.db.prepare('insert into comment_request (comment_id, media_id, username, status, note, created_at) values (?, ?, ?, ?, ?, ?)');
-    ins.run('c1', 'm1', 'sunset.bakery', 'launched', null, now - 2000);
-    ins.run('c2', 'm2', 'trail.dog.club', 'failed', 'daily budget', now - 1000);
+    const ins = s.t.db.prepare('insert into comment_request (comment_id, media_id, username, status, note, created_at, text, from_username, field) values (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    ins.run('c1', 'm1', 'sunset.bakery', 'launched', null, now - 2000, '@instapaid.official make a coin', 'fan.one', 'comments');
+    ins.run('c2', 'm2', 'trail.dog.club', 'failed', 'daily budget', now - 1000, null, null, 'mentions');
     const a = await signedIn(s.t);
-    const { requests } = await (await a.call('GET', '/admin/api/requests')).json();
-    assert.deepEqual(requests.map((r) => [r.username, r.status, r.note]), [['trail.dog.club', 'failed', 'daily budget'], ['sunset.bakery', 'launched', null]]);
-    assert.deepEqual(Object.keys(requests[0]).sort(), ['created_at', 'mint', 'note', 'status', 'symbol', 'username']);
+    let j = await (await a.call('GET', '/admin/api/requests')).json();
+    assert.deepEqual(j.requests.map((r) => [r.username, r.status, r.note]), [['trail.dog.club', 'failed', 'daily budget'], ['sunset.bakery', 'launched', null]]);
+    assert.deepEqual(Object.keys(j.requests[0]).sort(), ['comment_id', 'created_at', 'field', 'from_username', 'mint', 'note', 'status', 'symbol', 'text', 'username']);
+    assert.deepEqual([j.requests[1].from_username, j.requests[1].text], ['fan.one', '@instapaid.official make a coin']);
+    assert.deepEqual(j.events, { count: 0, last: null }, 'no comment event from Meta yet');
+    // Try again: only a failed one; it is queued and answered at once.
+    assert.equal((await a.call('POST', '/admin/api/requests/c1/retry')).status, 409);
+    assert.equal((await a.call('POST', '/admin/api/requests/c2/retry', null, 'wrong')).status, 403, 'needs the CSRF token');
+    assert.equal((await a.call('POST', '/admin/api/requests/c2/retry')).status, 202);
+    await s.t.drain();
+    j = await (await a.call('GET', '/admin/api/requests')).json();
+    assert.equal(j.requests[0].status, 'failed', 'tried again: the stand-in has no such comment, so it failed again');
+    assert.equal(j.requests[0].note, 'not found');
     const out = await a.call('POST', '/admin/api/logout');
     assert.equal(out.status, 200);
     const c = setCookies(out)[SESSION_COOKIE];

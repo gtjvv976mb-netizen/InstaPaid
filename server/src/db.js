@@ -170,6 +170,11 @@ const ADDED_COLUMNS = [
   ['post_job', 'untagged', 'integer'],
   // Who decided on a server-paid coin: null = a fan's comment; 'bot' = the launcher bot (src/scout.js).
   ['token', 'origin', 'text'],
+  // What the webhook itself said about a comment request ('comments' or 'mentions', the comment's
+  // text, who wrote it), so /admin shows it and can try a failed one again.
+  ['comment_request', 'field', 'text'],
+  ['comment_request', 'text', 'text'],
+  ['comment_request', 'from_username', 'text'],
 ];
 
 export function migrate(db) {

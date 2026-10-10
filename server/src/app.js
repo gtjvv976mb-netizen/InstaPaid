@@ -11,7 +11,7 @@ import { claimableAccounts, bindAccount } from './identity.js';
 import { codeMessages, textMessages, describeEntry } from './instagram.js';
 import {
   mentionEvents, isLaunchRequest, launchedReply, existingReply, blockedReply, pendingReply, commentLore, instagramPermalink, welcomeDm,
-  commentLaunchesOff, skipMention,
+  commentLaunchesOff, skipMention, commentPayloads, unreadReply,
 } from './comments.js';
 import { instagramProfile, loadImage, tokenDescription, botDescription } from './metadata.js';
 import { isBlocked } from './blocks.js';
@@ -81,6 +81,11 @@ export function createApp(deps) {
     return table.account;
   };
 
+  const kvGet = (k) => db.prepare('select value from kv where key = ?').get(k)?.value ?? null;
+  const kvSet = (k, v) => db.prepare(
+    'insert into kv (key, value) values (?, ?) on conflict(key) do update set value = excluded.value'
+  ).run(k, String(v));
+
   const app = express();
   app.set('trust proxy', process.env.TRUST_PROXY === '1');
   app.disable('x-powered-by');
@@ -140,6 +145,10 @@ export function createApp(deps) {
     for (const { igsid } of textMessages(body).filter((m) => !m.code)) {
       try { await welcome(igsid); } catch (e) { console.error('welcome failed', e.message); }
     }
+    // Every comment event as Meta sent it, the latest kept for /admin (the owner's eyes only; the
+    // log lines keep to its shape): what the first real @mention looks like, or that none came.
+    const payloads = commentPayloads(body);
+    if (payloads.length) rememberCommentEvents(payloads);
     const events = mentionEvents(body, (why) => console.log(`mention: comment event ignored: ${why}`));
     const off = events.length ? commentLaunchesOff(cfg) : null;
     if (off) console.log(`mention: ${events.length} comment event${events.length === 1 ? '' : 's'} not handled: comment launches are off (${off})`);
@@ -153,6 +162,17 @@ export function createApp(deps) {
     }
   });
 
+  /** kv mention.events counts the comment events received; kv mention.last_event is the latest, for /admin. */
+  function rememberCommentEvents(payloads) {
+    const last = payloads.at(-1);
+    const n = Number(kvGet('mention.events') ?? 0) + payloads.length;
+    kvSet('mention.events', n);
+    kvSet('mention.last_event', JSON.stringify({
+      at: Date.now(), entryId: last.entryId, time: last.time, field: last.field,
+      payload: JSON.stringify(last.value, null, 2).slice(0, 4000),
+    }));
+  }
+
   // Comment launches run one at a time: two comments for the same creator must not make two
   // coins, and the daily budget is counted before each launch.
   let queue = Promise.resolve();
@@ -161,6 +181,25 @@ export function createApp(deps) {
     return queue;
   };
   app.locals.drain = () => queue;
+
+  /**
+   * /admin's "Try again" on a failed comment request (after the owner fixed what stopped it: the
+   * fee payer, the Facebook Login fallback, …): the same request, from what the webhook said.
+   * → { queued, done } | { error }
+   */
+  app.locals.retryMention = (commentId) => {
+    const row = db.prepare('select * from comment_request where comment_id = ?').get(String(commentId));
+    if (!row) return { error: 'No such request.' };
+    if (row.status !== 'failed') return { error: 'Only a failed request can be tried again.' };
+    const off = commentLaunchesOff(cfg);
+    if (off) return { error: `Comment launches are off (${off}).` };
+    const ev = {
+      field: row.field ?? 'comments', commentId: row.comment_id, mediaId: row.media_id,
+      text: row.text ?? undefined, fromUsername: row.from_username ?? null,
+    };
+    console.log(`mention: comment ${row.comment_id} tried again from /admin`);
+    return { queued: true, done: enqueue(() => handleMention(ev, { retry: true })) };
+  };
 
   /**
    * A coin the server pays for, for `username`, named and pictured from one of their posts: a fan's
@@ -216,13 +255,24 @@ export function createApp(deps) {
     }
   }
 
-  async function handleMention(ev) {
+  /**
+   * One comment that asked for a coin. `retry`: the owner asked from /admin to try a failed request
+   * again (its row goes back to 'working'; the fan is not told a second time that the post is unreadable).
+   */
+  async function handleMention(ev, { retry = false } = {}) {
     const { commentId, mediaId } = ev;
-    const fresh = db.prepare(
-      `insert into comment_request (comment_id, media_id, status, created_at) values (?, ?, 'working', ?)
-       on conflict(comment_id) do nothing`
-    ).run(commentId, mediaId, Date.now());
-    if (!fresh.changes) return; // a retry of a comment we already handled
+    if (retry) {
+      const again = db.prepare(
+        `update comment_request set status = 'working', note = null where comment_id = ? and status = 'failed'`
+      ).run(commentId);
+      if (!again.changes) return;
+    } else {
+      const fresh = db.prepare(
+        `insert into comment_request (comment_id, media_id, field, text, from_username, status, created_at)
+         values (?, ?, ?, ?, ?, 'working', ?) on conflict(comment_id) do nothing`
+      ).run(commentId, mediaId, ev.field ?? null, typeof ev.text === 'string' ? ev.text.slice(0, 2200) : null, ev.fromUsername ?? null, Date.now());
+      if (!fresh.changes) return; // a retry of a comment we already handled
+    }
     const done = (status, extra = {}) => db.prepare(
       `update comment_request set status = ?, username = ?, mint = ?, note = ? where comment_id = ?`
     ).run(status, extra.username ?? null, extra.mint ?? null, extra.note ?? null, commentId);
@@ -232,9 +282,15 @@ export function createApp(deps) {
     if (db.prepare('select 1 from post_job where media_id = ?').get(mediaId)) return done('skipped', { note: 'our own post' });
 
     let mention;
-    // No launch and no reply when the post cannot be read: readMention logs each attempt.
+    // No launch when the post cannot be read: readMention logs each attempt. A fan whose comment
+    // (as the webhook carried it) asked for a coin is told once, so the request does not vanish.
     try { mention = await deps.comments.readMention(cfg, ev, deps.fetchImpl); }
-    catch (e) { return done('failed', { note: e.message }); }
+    catch (e) {
+      const asked = typeof ev.text === 'string' && isLaunchRequest(ev.text, cfg.ig.botUsername);
+      if (retry || !asked || e.message !== 'could not read the post') return done('failed', { note: e.message });
+      const told = await reply(unreadReply({ publicUrl: cfg.publicUrl })).catch(() => false);
+      return done('failed', { note: told ? `${e.message}; the fan was told` : e.message });
+    }
     if (!isLaunchRequest(mention.text, cfg.ig.botUsername)) return done('skipped', { note: 'not a launch request' });
 
     const username = normalizeHandle(mention.media.username ?? '');
@@ -323,12 +379,9 @@ export function createApp(deps) {
    * Skips anyone who opted out or already has a coin, and reads the profile again first: still
    * public, still trending, a fresh picture link. Its coins and posts say the bot made them.
    */
-  const kvGet = (k) => db.prepare('select value from kv where key = ?').get(k)?.value ?? null;
   const botOn = () => kvGet('scout.launch') === '1';
   app.locals.botLaunching = botOn;
-  app.locals.setBotLaunching = (on) => db.prepare(
-    'insert into kv (key, value) values (?, ?) on conflict(key) do update set value = excluded.value'
-  ).run('scout.launch', on ? '1' : '0');
+  app.locals.setBotLaunching = (on) => kvSet('scout.launch', on ? '1' : '0');
   app.locals.botLimits = async () => {
     const since = Date.now() - 24 * 60 * 60_000;
     const bot = db.prepare(`select count(*) n from token where origin = 'bot' and created_at > ?`).get(since).n;
@@ -722,7 +775,7 @@ export function createApp(deps) {
   app.get(['/404', '/404.html'], notFound);
   // The owner's page (src/admin.js): before the static files, so /admin is always the checked route.
   app.get('/admin.html', (req, res) => res.redirect(301, '/admin'));
-  app.use(adminRouter({ db, cfg, fetchImpl: deps.fetchImpl ?? fetch, pub, bot: scout ? { scout, locals: app.locals } : null }));
+  app.use(adminRouter({ db, cfg, fetchImpl: deps.fetchImpl ?? fetch, pub, locals: app.locals, bot: scout ? { scout, locals: app.locals } : null }));
 
   const web3Iife = require.resolve('@solana/web3.js/lib/index.iife.min.js');
   app.get('/vendor/web3.js', (req, res) => res.sendFile(web3Iife, { maxAge: '1d' }));

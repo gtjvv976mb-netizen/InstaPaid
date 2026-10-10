@@ -77,6 +77,23 @@ export function mentionEvents(body, onDrop = () => {}) {
 }
 
 /**
+ * Every "comments" or "mentions" change in a webhook body as Meta sent it, in both shapes, ids or
+ * not: [{ entryId, time, field, value }]. Kept for the owner's page (never logged: it holds the text).
+ */
+export function commentPayloads(body) {
+  const out = [];
+  if (body?.object !== 'instagram') return out;
+  for (const entry of body.entry ?? []) {
+    const changes = [...(entry?.field ? [{ field: entry.field, value: entry.value }] : []), ...(entry?.changes ?? [])];
+    for (const ch of changes) {
+      if (ch?.field !== 'mentions' && ch?.field !== 'comments') continue;
+      out.push({ entryId: entry?.id != null ? String(entry.id) : null, time: entry?.time ?? null, field: ch.field, value: ch.value ?? null });
+    }
+  }
+  return out;
+}
+
+/**
  * Why a comment event is not worth reading, or null. `botIds` are the ids the bot is known by.
  * Only what the webhook itself says: the bot's own comment (its replies come back as comments), a
  * Story, or a comment whose text is there and is not a request.
@@ -147,7 +164,10 @@ function attemptLine(via, r, owner) {
  *   1. GET /<IG_ID>?fields=mentioned_comment.comment_id(<comment>){…,media{…,username}}
  *   2. GET /<IG_ID>?fields=mentioned_media.media_id(<media>){…,username}
  *   3. GET /<media>?fields=…,username
+ *   4. GET /<comment>?fields=id,text,media{…,username}
  * then, only when IG_USER_ID and IG_FB_ACCESS_TOKEN are both set, (1) on graph.facebook.com.
+ * (2)–(4) are documented only for the bot's own posts and comments; they are asked anyway, since
+ * the first real @mention's log lines are what settles which of them answer for someone else's.
  * The first answer with an owner username gives the post; the comment's text is the webhook's,
  * or, when the webhook has none (a Facebook Login "mentions" event), the first answer that carries
  * it: an owner without the text never ends the search. One log line per attempt. Throws when no
@@ -171,6 +191,9 @@ export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl =
       attempts.push(['media', () => graphCall(fetchImpl, igGraph(ig, encodeURIComponent(mediaId)), ig.accessToken, { params: { fields: MEDIA_FIELDS } }),
         (j) => ({ media: j })]);
     }
+    attempts.push(['comment', () => graphCall(fetchImpl, igGraph(ig, encodeURIComponent(commentId)), ig.accessToken,
+      { params: { fields: `id,text,media{${MEDIA_FIELDS}}` } }),
+    (j) => ({ text: j?.text, media: j?.media })]);
   }
   if (fbLogin(cfg)) {
     attempts.push(['Facebook Login mentioned_comment',
@@ -286,6 +309,17 @@ export function pendingReply({ username, publicUrl }) {
   return [
     `⏳ The coin for @${username} is sent and Solana is confirming it now. Hang tight!`,
     `I'll reply here with the coin, its address and the claim link as soon as it lands. It will also show at ${host(publicUrl)}/u/${username}.`,
+  ].join('\n');
+}
+
+/**
+ * The one reply to a request whose post could not be read: who owns the post is unknown, so no coin
+ * was made. Says so plainly and points to the website, where the fan can launch it with their wallet.
+ */
+export function unreadReply({ publicUrl }) {
+  return [
+    `Thanks for asking! I can't see whose post this is yet, so no coin was made this time.`,
+    `You can launch one for this creator yourself at ${host(publicUrl)}/launch`,
   ].join('\n');
 }
 

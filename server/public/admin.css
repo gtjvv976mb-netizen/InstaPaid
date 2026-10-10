@@ -77,6 +77,12 @@
 .adm-reqs .what { min-width: 0; overflow-wrap: anywhere; }
 .adm-reqs .what .fine { display: block; color: var(--ink-2); }
 .st { justify-self: start; }
+.adm-reqs .what .said { color: var(--ink); white-space: pre-line; }
+.adm-reqs .what .adm-act { margin-top: 8px; }
+.adm-events { margin: 4px 0 10px; }
+.adm-events .fine { color: var(--ink-2); margin: 0; }
+.adm-events summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--peach); }
+.adm-events pre { margin: 0; padding: 12px 14px; max-height: 320px; overflow: auto; border-radius: 14px; background: var(--card-2); border: 1px solid var(--line); font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* The launcher bot: two switches, its limits, the shortlist. */
 .adm-switches { display: grid; gap: 10px; margin: 16px 0 8px; }
