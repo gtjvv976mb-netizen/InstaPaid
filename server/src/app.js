@@ -116,13 +116,15 @@ export function createApp(deps) {
     res.sendStatus(403);
   });
   app.post('/webhooks/instagram', express.raw({ type: '*/*', limit: '1mb' }), async (req, res) => {
-    // Signed with the Instagram app secret or, when set, the Meta app's own secret: the two
-    // products of one Meta app (Instagram Login, Facebook Login) can sign with either.
+    // Signed with the Instagram app secret or, when set, the Meta app's own secret (Meta signs some
+    // webhooks with one and some with the other), or a second Meta app's (FB_APP_SECRET: the
+    // Facebook Login fallback, whose "mentions" webhooks come to the same address).
     const sig = req.get('x-hub-signature-256');
-    if (![cfg.ig.appSecret, cfg.metaAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
+    if (![cfg.ig.appSecret, cfg.metaAppSecret, cfg.fbAppSecret].some((secret) => secret && metaSignatureOk(req.body, sig, secret))) {
       // Shape only, never the body: a wrong secret in Render is the usual cause.
       // Which secrets are set (never their values), so a missing one is plain in the Logs.
-      const set = [cfg.ig.appSecret && 'IG_APP_SECRET', cfg.metaAppSecret && 'META_APP_SECRET'].filter(Boolean).join(' and ') || 'no secret';
+      const set = [cfg.ig.appSecret && 'IG_APP_SECRET', cfg.metaAppSecret && 'META_APP_SECRET', cfg.fbAppSecret && 'FB_APP_SECRET']
+        .filter(Boolean).join(' and ').replace(/ and (?=.* and )/, ', ') || 'no secret';
       console.warn(`webhook: rejected, signature ${sig ? `does not match ${set} (the only one${set.includes(' and ') ? 's' : ''} set)` : 'header missing'}`);
       return res.sendStatus(401);
     }

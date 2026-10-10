@@ -117,7 +117,7 @@ test('npm run block / unblock: blocks, skips waiting posts, lists, lifts', () =>
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('webhooks: the Instagram app secret or META_APP_SECRET; anything else is refused', async () => {
+test('webhooks: the Instagram app secret, META_APP_SECRET or FB_APP_SECRET; anything else is refused', async () => {
   const t = await start({ config: { metaAppSecret: 'meta-secret' } });
   try {
     assert.equal((await mentionHook(t, 'c1', 'm1', 'app-secret')).status, 200);
@@ -129,6 +129,18 @@ test('webhooks: the Instagram app secret or META_APP_SECRET; anything else is re
     assert.equal((await mentionHook(plain, 'c1', 'm1', 'meta-secret')).status, 401, 'no second secret unless set');
     assert.equal((await mentionHook(plain, 'c1', 'm1', '')).status, 401);
   } finally { plain.close(); }
+  // A second Meta app (the Facebook Login fallback) signs its "mentions" with FB_APP_SECRET.
+  const two = await start({ config: { metaAppSecret: 'meta-secret', fbAppSecret: 'second-app' } });
+  try {
+    const lines = [];
+    const saved = console.warn;
+    console.warn = (...a) => lines.push(a.join(' '));
+    try {
+      assert.equal((await mentionHook(two, 'c1', 'm1', 'second-app')).status, 200);
+      assert.equal((await mentionHook(two, 'c2', 'm1', 'other')).status, 401);
+    } finally { console.warn = saved; }
+    assert.deepEqual(lines, ['webhook: rejected, signature does not match IG_APP_SECRET, META_APP_SECRET and FB_APP_SECRET (the only ones set)']);
+  } finally { two.close(); }
 });
 
 test('uploads must be the image they say they are: an SVG or other bytes sent as a PNG are refused', async () => {

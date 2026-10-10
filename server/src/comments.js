@@ -9,7 +9,9 @@
 //   two a comment is, so a comment counts as a request when its text names the bot and has the command.
 //   The post is read and the reply sent with the Instagram token on graph.instagram.com.
 // - Facebook Login (only when IG_USER_ID and IG_FB_ACCESS_TOKEN are both set): a `mentions` change
-//   ({comment_id, media_id}) inside entry.changes[], read and answered on graph.facebook.com.
+//   ({comment_id, media_id}) inside entry.changes[], read and answered on graph.facebook.com. With
+//   Instagram Login as well, it comes from a second Meta app (FB_APP_SECRET), and Meta sends it only
+//   once that app is installed on the Facebook Page linked to the bot (subscribePage, at start).
 // Neither is sent for private accounts or Stories.
 import { stripAddresses, stripUrls, visibleOnly } from './lore.js';
 import { graph as igGraph, graphCall, igAccount } from './instagram.js';
@@ -220,6 +222,42 @@ export async function readMention(cfg, { commentId, mediaId, text }, fetchImpl =
   }
   log.warn('mention: could not read the post — see the lines above');
   throw new Error('could not read the post');
+}
+
+/**
+ * Facebook Login only: Meta sends an Instagram account's `mentions` to an app only once the app is
+ * installed on the Facebook Page linked to that account: POST /<page-id>/subscribed_apps
+ * ?subscribed_fields=feed with the Page's own token (pages_manage_metadata). The Page is FB_PAGE_ID
+ * when set; else IG_FB_ACCESS_TOKEN's own Page when it is a Page token linked to IG_USER_ID; else
+ * the token's Page (GET /me/accounts) whose instagram_business_account is IG_USER_ID. Idempotent,
+ * so it runs at every start. Never throws. → { ok, pageId?, answer?, reason? } (never a token)
+ */
+export async function subscribePage(cfg, fetchImpl = fetch) {
+  if (!fbLogin(cfg)) return { ok: false, reason: 'IG_USER_ID and IG_FB_ACCESS_TOKEN are not both set' };
+  const token = cfg.fbAccessToken;
+  const igId = String(cfg.igUserId);
+  const linked = (x) => String(x?.instagram_business_account?.id ?? '') === igId;
+  let page;
+  if (cfg.fbPageId) {
+    const r = await graphCall(fetchImpl, fb(cfg, encodeURIComponent(cfg.fbPageId)), token, { params: { fields: 'id,access_token,instagram_business_account' } });
+    if (!r.ok) return { ok: false, reason: `GET /<FB_PAGE_ID> → ${r.status} ${r.error}` };
+    if (!linked(r.json)) return { ok: false, pageId: String(r.json?.id ?? cfg.fbPageId), reason: `FB_PAGE_ID's Instagram account is not IG_USER_ID ${igId}` };
+    page = { id: String(r.json.id), token: r.json.access_token ?? token };
+  } else {
+    const me = await graphCall(fetchImpl, fb(cfg, 'me'), token, { params: { fields: 'id,instagram_business_account' } });
+    if (me.ok && linked(me.json)) page = { id: String(me.json.id), token };
+    else {
+      const r = await graphCall(fetchImpl, fb(cfg, 'me/accounts'), token, { params: { fields: 'id,access_token,instagram_business_account', limit: '100' } });
+      if (!r.ok) return { ok: false, reason: `GET /me/accounts → ${r.status} ${r.error}` };
+      const p = (r.json?.data ?? []).find(linked);
+      if (!p) return { ok: false, reason: `none of IG_FB_ACCESS_TOKEN's Pages is linked to IG_USER_ID ${igId}` };
+      page = { id: String(p.id), token: p.access_token ?? token };
+    }
+  }
+  const r = await graphCall(fetchImpl, fb(cfg, `${encodeURIComponent(page.id)}/subscribed_apps`), page.token,
+    { method: 'POST', params: { subscribed_fields: 'feed' } });
+  if (!r.ok) return { ok: false, pageId: page.id, reason: `POST /<page>/subscribed_apps → ${r.status} ${r.error}` };
+  return { ok: true, pageId: page.id, answer: JSON.stringify(r.json ?? {}).slice(0, 200) };
 }
 
 /**

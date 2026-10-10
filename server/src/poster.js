@@ -8,10 +8,11 @@
 // them. A picture that fails is swapped for the default coin; a name or ticker that fails, or no
 // Claude at all, means no post. Comment launches are named by Claude from the creator's own post.
 //
-// Instagram Content Publishing API. By default with Instagram Login: the Instagram token
-// (IG_ACCESS_TOKEN, needs instagram_business_content_publish) on graph.instagram.com, the bot's
-// IG_ID read from GET /me?fields=user_id,username. Only when IG_USER_ID and IG_FB_ACCESS_TOKEN are
-// both set, with that Facebook-Login token on graph.facebook.com instead (instagram_content_publish).
+// Instagram Content Publishing API. With Instagram Login whenever IG_ACCESS_TOKEN is set: the
+// Instagram token (needs instagram_business_content_publish) on graph.instagram.com, the bot's IG_ID
+// read from GET /me?fields=user_id,username. Setting the Facebook Login fallback (IG_USER_ID and
+// IG_FB_ACCESS_TOKEN, for comment launches) does not move it. Only with no Instagram token at all,
+// with that Facebook-Login token on graph.facebook.com instead (instagram_content_publish).
 //   POST /{ig-user-id}/media {image_url, caption, user_tags}  → a container (the creator tagged on
 //        the photo; without user_tags if Instagram refuses the tag)
 //   GET  /{container-id}?fields=status_code         → until FINISHED
@@ -94,12 +95,12 @@ export const photoTags = (username) => JSON.stringify([{ username, x: 0.5, y: 0.
 class Skip extends Error {}
 
 /**
- * Graph API calls: with the Instagram token on graph.instagram.com, or (both Facebook Login settings
- * set) the Facebook-Login token on graph.facebook.com. The token goes in the query (GET) or the form
- * body (POST), never in errors. `call.igId()` is the bot's account id for the paths.
+ * Graph API calls: with the Instagram token on graph.instagram.com, or (no Instagram token, both
+ * Facebook Login settings set) the Facebook-Login token on graph.facebook.com. The token goes in the
+ * query (GET) or the form body (POST), never in errors. `call.igId()` is the bot's account id for the paths.
  */
 function graphClient(cfg, fetchImpl) {
-  const viaFb = fbLogin(cfg);
+  const viaFb = fbLogin(cfg) && !cfg.ig?.accessToken;
   const base = viaFb ? `${graphBase(cfg)}/${cfg.fbGraphVersion || 'v23.0'}/` : igGraph(cfg.ig ?? {}, '');
   // Read at every call, never kept: the Instagram token is renewed while the server runs (src/igtoken.js).
   const token = () => (viaFb ? cfg.fbAccessToken : cfg.ig?.accessToken);

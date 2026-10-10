@@ -55,12 +55,16 @@ services:
       # them off without removing the token.
       - key: COMMENT_LAUNCHES
         value: "1"
-      # Optional, legacy: the Facebook Login path (needs a Facebook Page linked to the bot). Used only
-      # when BOTH are set; leave them empty on Instagram Login. The bot's IG id is read from the token.
+      # Optional: the Facebook Login fallback (docs/LAUNCH.md step 12f; a second Meta app and a Facebook
+      # Page linked to the bot). Used only when BOTH are set. The bot's IG id is read from IG_ACCESS_TOKEN.
       - key: IG_USER_ID
-        sync: false          # optional/legacy: only with IG_FB_ACCESS_TOKEN
+        sync: false          # optional: only with IG_FB_ACCESS_TOKEN
       - key: IG_FB_ACCESS_TOKEN
-        sync: false          # optional/legacy: a Facebook Login token (incl. instagram_content_publish)
+        sync: false          # optional: a Facebook Login token (system user token recommended)
+      - key: FB_APP_SECRET
+        sync: false          # optional: the second Meta app's App secret (its webhooks are signed with it)
+      - key: FB_PAGE_ID
+        sync: false          # optional: the Page linked to the bot (found from the token otherwise)
       - key: FB_GRAPH_VERSION
         value: v23.0
       - key: ANTHROPIC_API_KEY

@@ -11,7 +11,7 @@ import { start, signedHook, tick, cfg, POST_PNG } from './helpers.js';
 import * as comments from '../src/comments.js';
 import {
   mentionEvents, skipMention, isLaunchRequest, commentLore, readMention, replyToMention, replyBlocked, commentLaunchesOff, launchedReply,
-  unreadReply, commentPayloads,
+  unreadReply, commentPayloads, subscribePage,
 } from '../src/comments.js';
 import { igAccount, subscribeMessages, describeEntry } from '../src/instagram.js';
 import { assertConfig, configNotes } from '../src/config.js';
@@ -516,6 +516,9 @@ test('settings: no IG_FB_ACCESS_TOKEN is fine; a half Facebook Login setup is on
   assert.doesNotThrow(() => assertConfig({ ...base, igUserId: '1784' }));
   assert.deepEqual(configNotes({ ...base, igUserId: '1784' }),
     ['IG_USER_ID is set without IG_FB_ACCESS_TOKEN: the Facebook Login path is off, and Instagram Login (IG_ACCESS_TOKEN) is used']);
+  // Both Facebook Login settings without FB_APP_SECRET: a note, since a second Meta app signs with its own secret.
+  assert.match(configNotes({ ...base, igUserId: '1784', fbAccessToken: 'fb' })[0], /^IG_USER_ID and IG_FB_ACCESS_TOKEN are set but FB_APP_SECRET is not/);
+  assert.deepEqual(configNotes({ ...base, igUserId: '1784', fbAccessToken: 'fb', fbAppSecret: 'x' }), []);
   assert.throws(() => assertConfig({ ...base, ig: { ...base.ig, graphBaseUrl: 'http://evil.example' } }), /IG_GRAPH_BASE_URL must be an https address/);
   assert.doesNotThrow(() => assertConfig({ ...base, ig: { ...base.ig, graphBaseUrl: 'http://127.0.0.1:9999' } }));
 });
@@ -638,4 +641,53 @@ test('.env.example copied as .env starts: empty or absent IG_GRAPH_BASE_URL / GR
   const out = execFileSync(process.execPath, ['-e', script], { cwd: dir, env: { ...clean, ...secrets }, encoding: 'utf8' });
   assert.deepEqual(JSON.parse(out.trim().split('\n').at(-1)), ['https://graph.instagram.com', 'https://graph.facebook.com']);
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('Facebook Login fallback: the app is installed on the Page linked to IG_USER_ID (POST /<page>/subscribed_apps, field feed, the Page\'s token)', async () => {
+  const IG = '17841400000000042';
+  /** A stand-in graph.facebook.com: `me` is what /me says, `pages` what /me/accounts lists. */
+  const fbGraph = ({ me, pages, page, subscribe = 200 }) => {
+    const calls = [];
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+    const f = async (url, init = {}) => {
+      const u = new URL(url);
+      const params = init.method === 'POST' ? new URLSearchParams(init.body) : u.searchParams;
+      const path = u.pathname.replace(/^\/v23\.0\//, '');
+      calls.push({ method: init.method ?? 'GET', path, token: params.get('access_token'), fields: params.get('subscribed_fields') });
+      assert.equal(u.origin, 'https://graph.facebook.com');
+      if (path === 'me') return me ? json(me) : json({ error: { message: '(#100) Tried accessing nonexisting field (instagram_business_account) on node type (User)', code: 100 } }, 400);
+      if (path === 'me/accounts') return pages ? json({ data: pages }) : json({ error: { message: 'Tried accessing nonexisting field (accounts) on node type (Page)', code: 100 } }, 400);
+      if (path === 'P9') return json(page);
+      if (path.endsWith('/subscribed_apps')) return subscribe === 200 ? json({ success: true }) : json({ error: { message: 'Requires pages_manage_metadata permission', code: 200 } }, 403);
+      return json({ error: { message: 'unknown', code: 100 } }, 404);
+    };
+    f.calls = calls;
+    return f;
+  };
+  const conf = (extra = {}) => ({ igUserId: IG, fbAccessToken: 'USER-TOKEN', fbGraphVersion: 'v23.0', ig: { ...cfg.ig }, ...extra });
+
+  // A User (or system user) token: its Page linked to the bot, with that Page's own token.
+  let g = fbGraph({ pages: [{ id: 'P1', access_token: 'PAGE-1', instagram_business_account: { id: '1' } }, { id: 'P2', access_token: 'PAGE-2', instagram_business_account: { id: IG } }] });
+  assert.deepEqual(await subscribePage(conf(), g), { ok: true, pageId: 'P2', answer: '{"success":true}' });
+  assert.deepEqual(g.calls.at(-1), { method: 'POST', path: 'P2/subscribed_apps', token: 'PAGE-2', fields: 'feed' });
+
+  // A Page token: /me is the Page itself.
+  g = fbGraph({ me: { id: 'P3', instagram_business_account: { id: IG } } });
+  assert.equal((await subscribePage(conf(), g)).pageId, 'P3');
+  assert.deepEqual(g.calls.at(-1), { method: 'POST', path: 'P3/subscribed_apps', token: 'USER-TOKEN', fields: 'feed' });
+
+  // FB_PAGE_ID: that Page, if it is the bot's.
+  g = fbGraph({ page: { id: 'P9', access_token: 'PAGE-9', instagram_business_account: { id: IG } } });
+  assert.equal((await subscribePage(conf({ fbPageId: 'P9' }), g)).pageId, 'P9');
+  g = fbGraph({ page: { id: 'P9', access_token: 'PAGE-9', instagram_business_account: { id: '1' } } });
+  assert.match((await subscribePage(conf({ fbPageId: 'P9' }), g)).reason, /FB_PAGE_ID's Instagram account is not IG_USER_ID/);
+
+  // What goes wrong is said, never with a token in it.
+  g = fbGraph({ pages: [{ id: 'P1', access_token: 'PAGE-1', instagram_business_account: { id: '1' } }] });
+  assert.deepEqual(await subscribePage(conf(), g), { ok: false, reason: `none of IG_FB_ACCESS_TOKEN's Pages is linked to IG_USER_ID ${IG}` });
+  g = fbGraph({ pages: [{ id: 'P2', access_token: 'PAGE-2', instagram_business_account: { id: IG } }], subscribe: 403 });
+  const refused = await subscribePage(conf(), g);
+  assert.equal(refused.reason, 'POST /<page>/subscribed_apps → 403 (#200) Requires pages_manage_metadata permission');
+  assert.ok(!JSON.stringify(refused).includes('PAGE-2') && !JSON.stringify(refused).includes('USER-TOKEN'));
+  assert.deepEqual(await subscribePage(igOnly(), g), { ok: false, reason: 'IG_USER_ID and IG_FB_ACCESS_TOKEN are not both set' });
 });
