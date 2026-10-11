@@ -1,60 +1,54 @@
-# Handoff: where things stand (10 Oct 2026)
+# Handoff: where things stand (11 Oct 2026)
 
-Written at the end of a long Claude Code session so the next session, on any account, starts exactly here.
+Updated from GitHub and the interrupted Claude continuation so the next session, on any account, starts here.
 Read this first, then `README.md` (how it works) and `docs/LAUNCH.md` (the owner's go-live checklist).
 Texts written for the owner (Meta forms, App Review notes, captions, the InstaPaid coin): `docs/OWNER-DRAFTS.md`.
 
-## Start here (10 Oct 2026)
+## Start here (11 Oct 2026)
 
-`main` = instapaid.fun up to #34. **#35 is open** (branch `claude/blissful-goldberg-yzyemt`, waiting for the
-owner to merge): /admin shows the comment events Meta sends and can try a failed request again, a fan whose post
-cannot be read gets one reply, a **watchlist** for the launcher bot, and the server side of the **Facebook Login
-fallback** (`docs/LAUNCH.md` step 12f). State of the live service (before #35):
-- **Website launches work**, through the launch lookup table; a first buy is its own transaction after the
-  launch (#29, #30). Last live coins: $VEEFRIENDS, $CATCOLLECT (2 Oct).
-- **Comment launches have never fired.** Webhook delivery and signatures now work (Meta's Test is parsed,
-  #31), but real @mentions are not delivered: the Meta app is most likely not **Live**, and App Review
-  (Advanced Access) is in progress by the owner. See "Comment launches: where they stand" below and
-  `docs/research/instagram-mentions.md`.
-- **The fee payer is low: 0.069 SOL** (9 Oct; still 0.0693 on chain on 10 Oct). Comment launches need > 0.1, the bot > 0.5. Its key
-  (`DjEbiv79MFyoYWaaxdbpC4fk6z7dN6Su7w2dL9J8eZHe`) is also used as the owner's own wallet in Phantom. It signed:
-  - the $GUNGUN, $NEXYRA, $VEEFRIENDS and $CATCOLLECT website launches, as the launcher's wallet;
-  - **the $INSTAPAID coin**: launched on pump.fun on 6 Oct, 03:02 UTC, mint
-    `9pBZ76kB69KjkbWh56TDrgnsQTtKdz95VhSFfEj1pump`, with a ~0.2 SOL first buy funded by 0.25 SOL from `LGfWJwhi…`;
-    that whole first buy was sold the same day at 17:20 UTC for ~0.193 SOL (not on instapaid.fun's lists);
-  - on 8 Oct, a vote and execute on Squads multisig `9gXYdQPTvs1VE5y228EaoPqSY9fCg3MqUw8ZJPx4JGse` (2-of-3:
-    `3J57tqAJ…`, `DKyfUy…` and this fee payer; the change, proposed by `3J57tqAJ…`, set a 24 h time lock), and
-    0.5 SOL sent to `3J57tqAJ…`.
-  Not a theft: `3J57tqAJ…` acts as the owner's wallet (it funds the fee payer and proposed the multisig
-  change; it sent 0.3 SOL in on 6 Oct, the extra ~0.2 SOL back was the $INSTAPAID sale). But the server's hot key doubling
-  as a personal wallet, and holding a vote in a 2-of-3 multisig, is a risk to raise with the owner.
-- **The launcher bot's switches were ON** on 6 Oct (Render logged `bot: fee payer low` and
-  `scout: Instagram asked us to slow down (429); pausing 360 min`, which only print while they are on), and it
-  cannot scout from Render: Instagram answers 429 every time. Switch both off until a watchlist fallback exists.
+**#35 is merged** (GitHub confirms merge commit `472458728bbfc8d8f9760f2652249b41c782e8df`, merged 10 Oct 2026).
+Its /admin event counters, retry controls, launcher watchlist and Facebook Login fallback are on `main`.
+Deployment health was not rechecked during this handoff update.
 
-The owner's to-do, in order:
-1. /admin → Launcher bot: switch **Scouting** off (it cannot read profiles from Render). **Auto-launch** off
-   too until the fee payer holds over 0.5 SOL; after #35, the bot can launch from the watchlist instead.
-2. Top up the fee payer above 0.1 SOL for comment launches.
-3. Merge #35. Meta: switch the app to **Live** now (no need to wait for App Review), then comment from a public
-   account under a public post. /admin → Comment launch requests says whether Meta sent anything ("Comment events
-   received from Meta") and shows what it sent; the `mention:` lines in Render's logs say which read worked.
-   `could not read the post` → `docs/LAUNCH.md` step 12f (a second Meta app with Facebook Login), then **Try
-   again** on that request. App Review in parallel: `docs/LAUNCH.md` step 14b; what to record is in
-   `docs/OWNER-DRAFTS.md`.
-4. Meta Tech Provider access verification, due **30 Nov 2026** (answers in `docs/OWNER-DRAFTS.md`).
-5. Wait for Phantom (William, ticket 414019); the post-#30 launch was sent on 2 Oct.
-6. Back up `VAULT_MASTER_KEY`; a lawyer on the terms, privacy policy and SEC exposure (now including the
-   $INSTAPAID coin and its sold first buy).
-7. Still open from before: upload the new profile picture and app icon, tag the creators on the older posts,
-   and test one real claim end to end.
+The owner's latest Meta dashboard report in the interrupted continuation session says:
+- The app is **Live**.
+- **All four Instagram Login permissions are Pending App Review**:
+  `instagram_business_basic`, `instagram_business_manage_comments`,
+  `instagram_business_manage_messages`, `instagram_business_content_publish`.
+- The dashboard usage counters were 122, 30, 7 and 7. These are historical counters,
+  not evidence that the public comment-launch path works.
+- The owner's real test comment did not produce a demonstrated launch. Advanced Access is
+  the suspected remaining blocker; webhook delivery and access level need checking separately.
 
-Likely next work: read what the first real @mention did (/admin's "What Meta sent last", the `mention: read post
-via …` lines: mentioned_comment, mentioned_media, media, comment, then Facebook Login). If the fallback is needed,
-walk the owner through step 12f; the server installs the second app on the Page at start (`facebook: Page …
-subscribed` in the logs). Untested against Meta so far: Business Discovery with the Instagram token (the
-watchlist tries it and logs once whether Meta allows it), `GET /<comment-id>` for someone else's post, and the
-Page subscription with a real token.
+The owner's next steps:
+1. Check the App Review page for an approval or reviewer request. Keep the review focused on the
+   four permissions above. The current app uses Instagram Login; do not add unrelated `pages_*`,
+   ads, insights, Human Agent, Business Asset User Profile Access or legacy Facebook Login
+   permissions to this review.
+2. In Meta's webhook configuration, check that `comments` is subscribed. Use Meta's **Test**
+   beside `comments`, then check /admin's **Comment events received from Meta** counter.
+   A successful synthetic Test proves delivery, not that public @mentions or launches work.
+3. After approval, test one public-account @mention and inspect /admin's event counter,
+   latest payload and request result. Only if a delivered request says the post cannot be read,
+   follow `docs/LAUNCH.md` step 12f; then retry that request.
+4. The fee payer was last observed at roughly **0.0693 SOL on 10 Oct**. This balance is not current.
+   Comment launches pause below the configured 0.1 SOL floor; the bot has a separate 0.5 SOL floor.
+   Any funding or live launch test is an owner action.
+5. App Review was reported submitted. The **almost-live** carousel version (`slide-6.jpg` plus
+   the caption in `docs/OWNER-DRAFTS.md`) is ready for owner review. Hold back the **live** version
+   until a real public comment has launched a coin successfully.
+6. Tech Provider access verification was still unconfirmed, due **30 Nov 2026**. Keep its
+   separate checklist in `docs/OWNER-DRAFTS.md`; it is not the explanation for the missing comment.
+7. Other existing items remain: Phantom ticket 414019, key backups, profile/app images,
+   tags on older posts and a real claim test.
+
+Scouting from Render was previously rate-limited. The current positions of the Scouting and
+Auto-launch switches were not rechecked; do not infer they changed.
+
+Likely next technical work: diagnose the first delivered real event using /admin and the
+`mention:` read-result logs. The fallback's real Meta tokens and Business Discovery paths
+still need live evidence. Do not report comment launches as live based only on app mode,
+permission usage counters, the synthetic Test or a merged PR.
 
 ## The product, in one paragraph
 
@@ -68,7 +62,7 @@ SQLite via better-sqlite3), deployed on **Render**, which auto-deploys `main`.
 
 ## What is merged and live
 
-`main` = what is on instapaid.fun. Open: #35 (10 Oct, see "Start here"); no uncommitted work. Work happens on the branch the session is
+`main` includes #35 (merged 10 Oct; see "Start here"). The interrupted continuation's checkout was reported clean before this docs update. Work happens on the branch the session is
 given (1 Oct and before: `claude/epic-curie-4on4v4`; 1–9 Oct: `claude/quirky-pasteur-w4ajnq`; 10 Oct:
 `claude/blissful-goldberg-yzyemt`); each change is a
 PR. The owner merges, or says "MERGE" and the session merges it (after checking it is clean). Render deploys in
@@ -93,13 +87,13 @@ PR numbers on gtjvv976mb-netizen/InstaPaid):
 | #31 | Webhook secrets trimmed, rejection names the secrets that are set; handoff update; the Instagram carousel (`brand/post/`). |
 | #32 | Why comment launches have not fired, with sourced research (`docs/research/instagram-mentions.md`). |
 | #33–#34 | This handoff ("Start here"), `docs/OWNER-DRAFTS.md`, `CLAUDE.md`; then fixes from a fact-check of them against the code, git and the chain. |
-| #35 (open) | On `claude/blissful-goldberg-yzyemt`: comment events kept for /admin, Try again, one reply when the post is unreadable, a fourth read (`GET /<comment-id>`); the bot's watchlist (Business Discovery reads); the Facebook Login fallback's server side (`FB_APP_SECRET`, the Page subscription, the poster stays on Instagram Login). |
+| #35 (merged 10 Oct) | On `claude/blissful-goldberg-yzyemt`: comment events kept for /admin, Try again, one reply when the post is unreadable, a fourth read (`GET /<comment-id>`); the bot's watchlist (Business Discovery reads); the Facebook Login fallback's server side (`FB_APP_SECRET`, the Page subscription, the poster stays on Instagram Login). |
 
 Earlier (before #19): "pump" vanity mint addresses (`mintpool.js`, `mint-grinder.js`), coin pictures served at
 `/coins/<mint>.webp` (`coinimages.js`), the `catchUp()` of coins that went live while posting was off,
 `/terms`, the new mark (not Instagram's colours), a test that comment launches work under videos and Reels (#14).
 
-## Comment launches: where they stand (6 Oct)
+## Comment launches: earlier diagnosis (6 Oct; Start here supersedes the app-mode state)
 
 No coin has ever launched from a comment: every live coin has `source = web`. What was found on 6 Oct:
 - **Webhook signature (fixed, #31).** Meta's Test for `comments` was rejected: only `IG_APP_SECRET` was set.

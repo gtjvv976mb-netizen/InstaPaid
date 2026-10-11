@@ -3,6 +3,21 @@
 Ready-to-paste texts from the 1–9 Oct session, so a session on another account has them. Facts in them
 (sizes, addresses) were checked on mainnet when written.
 
+## Continuation update (11 Oct 2026)
+
+The owner reported the Meta app is Live and all four Instagram Login permissions are
+Pending App Review. #35 is merged. The latest real comment test has not demonstrated a
+successful launch. The four permissions are `instagram_business_basic`,
+`instagram_business_manage_comments`, `instagram_business_manage_messages` and
+`instagram_business_content_publish`.
+
+The existing App Review text below is retained as the historical submission material.
+Do not repeat the old instruction to switch the app to Live or request additional unrelated
+permissions. Await the review result, check the `comments` subscription and delivery counter,
+and diagnose the first real delivered event. The almost-live carousel is eligible for owner
+review because the review was reported submitted; the live version still needs a successful
+public comment launch. No carousel was published as part of this handoff.
+
 ## Meta: Tech Provider access verification (due 30 Nov 2026, else the business is restricted to 1 app)
 
 For Brylliant Labs Inc. Caution given to the owner: Meta's "Tech Provider" means serving *client businesses*;
