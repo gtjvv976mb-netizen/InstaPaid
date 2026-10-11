@@ -1,6 +1,6 @@
 # Handoff: where things stand (11 Oct 2026)
 
-Written at the end of a long Claude Code session so the next session, on any account, starts exactly here.
+Updated from GitHub and the interrupted Claude continuation so the next session, on any account, starts here.
 Read this first, then `README.md` (how it works) and `docs/LAUNCH.md` (the owner's go-live checklist).
 Texts written for the owner (Meta forms, App Review notes, captions, the InstaPaid coin): `docs/OWNER-DRAFTS.md`.
 
@@ -35,7 +35,7 @@ The owner's next steps:
    Comment launches pause below the configured 0.1 SOL floor; the bot has a separate 0.5 SOL floor.
    Any funding or live launch test is an owner action.
 5. App Review was reported submitted. The **almost-live** carousel version (`slide-6.jpg` plus
-   the caption in `docs/OWNER-DRAFTS.md`) is ready for owner review. Keep the **live** version
+   the caption in `docs/OWNER-DRAFTS.md`) is ready for owner review. Hold back the **live** version
    until a real public comment has launched a coin successfully.
 6. Tech Provider access verification was still unconfirmed, due **30 Nov 2026**. Keep its
    separate checklist in `docs/OWNER-DRAFTS.md`; it is not the explanation for the missing comment.
